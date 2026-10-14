@@ -47,3 +47,5 @@ Every catalogue card includes 48px mobile Add to bag and Buy now actions. Add to
 A fixed WhatsApp button sits at the bottom-right with safe-area spacing and opens a pre-filled message to the configured Varnam number. The same number powers product and cart WhatsApp ordering.
 
 Validation: apply and cancel, Reset all, focus return, desktop sidebar, 390px layout and 320×640 scrolling/action visibility; no browser console errors observed.
+
+Social and interface icons use vendored Bootstrap Icons 1.13.2 (MIT). WhatsApp and Instagram appear in the floating contact stack and footer, with accessible names and external-link protection.
