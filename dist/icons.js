@@ -1,5 +1,6 @@
 // A single 24px outline system prevents platform-dependent symbol rendering.
 const iconPaths = {
+  sliders: '<path d="M4 7h7m4 0h5M4 17h3m4 0h9"/><circle cx="13" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
   search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/>',
   user: '<circle cx="12" cy="8" r="3.5"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/>',
   heart: '<path d="M20.3 5.7a5.5 5.5 0 0 0-7.8 0L12 6.2l-.5-.5a5.5 5.5 0 0 0-7.8 7.8L12 21l8.3-7.5a5.5 5.5 0 0 0 0-7.8Z"/>',

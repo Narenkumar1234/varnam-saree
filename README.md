@@ -25,3 +25,9 @@ Exact edit prompt: Use case: precise-object-edit / logo-brand. Edit this attache
 Unicode interface symbols were replaced with a consistent local SVG icon system in `dist/icons.js`. Search, account, heart, bag, menu, arrows, quantity, benefits and confirmation icons share a 24px view box and stroke treatment. Wishlist buttons expose their pressed state without resetting filters or product quantity. The mobile menu supports Escape and exposes expanded state; mobile account navigation is available. Empty bag badges are hidden and active counts have accessible labels.
 
 Checked desktop, 390px and 320px layouts, wishlist state and filter preservation, product quantity preservation, menu open/close/Escape, and mobile horizontal overflow.
+
+## Mobile filter bottom sheet
+
+At mobile widths up to 700px, catalogue filters open from a Filters button in a native modal bottom sheet. The sheet has a dimmed backdrop, collection/colour/price controls, draft selections, live match count, Reset all, and a fixed action footer. Show sarees applies the draft; close, backdrop click and Escape discard it. Native dialog focus handling returns focus to the trigger. Short screens scroll only the options region. Reduced motion is respected. Desktop retains the live filter sidebar. Scroll containment follows modern guidance without changing root overflow; backdrop containment is progressively enhanced where supported.
+
+Validation: apply and cancel, Reset all, focus return, desktop sidebar, 390px layout and 320×640 scrolling/action visibility; no browser console errors observed.
