@@ -49,3 +49,5 @@ A fixed WhatsApp button sits at the bottom-right with safe-area spacing and open
 Validation: apply and cancel, Reset all, focus return, desktop sidebar, 390px layout and 320×640 scrolling/action visibility; no browser console errors observed.
 
 Social and interface icons use vendored Bootstrap Icons 1.13.2 (MIT). WhatsApp and Instagram appear in the floating contact stack and footer, with accessible names and external-link protection.
+
+Product cards replace Add to bag with a plus/count/minus stepper while the item is in the bag. Zero removes the item and restores Add to bag. Controls retain keyboard focus, synchronize with saved cart quantities, and offer 48px targets.
