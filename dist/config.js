@@ -1,4 +1,4 @@
 window.VARNAM_CONFIG = {
-  whatsappNumber: '',
+  whatsappNumber: '919360451710',
   googleClientId: ''
 };

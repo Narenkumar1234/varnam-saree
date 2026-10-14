@@ -40,8 +40,10 @@ Validation: JavaScript syntax checks, zero horizontal overflow at 390px, equal F
 
 The mobile sorting control is a single native select with a visible selected value such as “Sort: Featured,” 16px text, a 52px target, an associated label, and a high-contrast focus ring. The Google setup state uses the standard multicolour Google G; once a client ID is configured, Google Identity Services replaces this setup control with Google’s rendered button.
 
-The catalogue progressively shows six sarees at a time. A keyboard-accessible Load more button reports the remaining batch, the live result count announces “Showing 6 of 8 sarees,” and focus moves to the first newly revealed product. Applying or clearing filters resets the batch so filtering remains predictable. This preserves scroll position and footer access while scaling beyond the current sample catalogue.
+The catalogue progressively shows six sarees at a time. A keyboard-accessible “Load more” button keeps its label stable, the live result count announces “Showing 6 of 8 sarees,” and focus moves to the first newly revealed product. Applying or clearing filters resets the batch so filtering remains predictable. The catalogue is capped at 1440px on wide screens to keep products comfortable to scan while preserving scroll position and footer access.
 
 Every catalogue card includes 48px mobile Add to bag and Buy now actions. Add to bag updates the persistent bag and announces confirmation; Buy now adds the selected saree and opens checkout immediately. Product imagery and names continue to link to the full detail screen.
+
+A fixed WhatsApp button sits at the bottom-right with safe-area spacing and opens a pre-filled message to the configured Varnam number. The same number powers product and cart WhatsApp ordering.
 
 Validation: apply and cancel, Reset all, focus return, desktop sidebar, 390px layout and 320×640 scrolling/action visibility; no browser console errors observed.

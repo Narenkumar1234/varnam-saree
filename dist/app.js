@@ -25,7 +25,7 @@ function filterShop(){
   resultCount.textContent=found.length?`Showing ${showing} of ${found.length} sarees`:'0 sarees';
   document.querySelector('#shopResults').innerHTML=found.length?found.slice(0,visibleProductCount).map(card).join(''):empty('No sarees match these filters','Try another colour or collection.');
   const pagination=document.querySelector('#shopPagination'),remaining=found.length-showing;
-  pagination.innerHTML=remaining>0?`<button class="load-more" type="button" aria-describedby="resultsCount" onclick="loadMoreSarees()">Load ${Math.min(productsPerPage,remaining)} more sarees ${icon('arrow-right')}</button>`:'';
+  pagination.innerHTML=remaining>0?`<button class="load-more" type="button" aria-describedby="resultsCount" onclick="loadMoreSarees()">Load more ${icon('arrow-right')}</button>`:'';
   const count=(shopFilters.collection!=='All'?1:0)+shopFilters.colours.length+(shopFilters.budget?1:0),badge=document.querySelector('#filterCount');
   badge.textContent=count;badge.hidden=count===0;
   document.querySelector('#openFilters').setAttribute('aria-label',count?'Filters, '+count+' active':'Filters');
