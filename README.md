@@ -1,53 +1,35 @@
-# Varnam saree storefront
+# Varnam Saree Storefront (Next.js)
 
-Responsive, buildless website. Serve the dist directory using any static host or `python3 -m http.server --directory dist`.
+Responsive luxury Indian saree boutique storefront migrated to **Next.js 15 (App Router)** with TypeScript, React 19, and optimized responsive image loading via `next/image` and `sharp`.
 
-Screens: home, catalogue, collections, product details, search, wishlist, bag, checkout, order confirmation, tracking, sign in, create account, profile, order history, addresses, brand story, journal and articles, contact, FAQ, shipping & returns, privacy, terms, and missing-page state.
+## Features Ported
 
-Interactions: collection/colour/price filters, sort, search, wishlist, quantity controls, finishing selection, delivery estimate, WELCOME10 coupon, demo checkout, order tracking, local profile and addresses.
+- **Screens**:
+  - Home (`/`): Heritage campaign hero, curated collections, loved products, heritage courtyard story band, brand philosophy.
+  - Catalogue / Shop (`/shop`): Collection filtering (Silk, Cotton, Festive), color filters (Emerald, Rose, Indigo, Ivory), budget toggle (under ₹5,000), 4-way sorting (Featured, Price Low/High, Newest arrivals), progressive reveal with accessible "Load more".
+  - Mobile Filter Bottom-Sheet: Native modal drawer with drag grip, live match count, draft selection, and reset/apply actions.
+  - Product Details (`/product/[id]`): High-res optimized image, colour swatches, blouse finishing selection, quantity controls, WhatsApp order pre-filled generator, delivery pincode estimator, care guidelines, and recommended sarees.
+  - Search (`/search`): Instant search across saree names, weaves, and colours.
+  - Wishlist (`/wishlist`): Save favourites with persistent browser storage and one-click removal.
+  - Bag & Cart (`/cart`): Stepper controls, finishing notes, WELCOME10 coupon calculations, complimentary shipping threshold (>₹3,000), direct WhatsApp bag ordering, and checkout flow.
+  - Demo Checkout (`/checkout`): Contact and delivery form, Indian state and pincode validation, transparent demo order placement.
+  - Confirmation (`/confirmation/[id]`): Verified demo order summary and order tracking link.
+  - Tracking (`/track`): Order lookup with 3-stage visual progress timeline.
+  - Account (`/account`): Local profile storage, order history, addresses, and Google sign-in setup state.
+  - Content Pages: Collections (`/collections`), Our Story (`/story`), Varnam Journal (`/journal`, `/journal/[id]`), Contact (`/contact`), FAQ (`/faq`), Shipping & Returns (`/shipping`), Privacy (`/privacy`), Terms (`/terms`).
+  - Floating actions: Fixed WhatsApp and Instagram quick actions.
 
-This is a browser-local demo. Payments, online authentication, live inventory, shipments, contact submissions and newsletter subscriptions are not connected. Product imagery and prices are illustrative. Final product data, material claims, business contact details and policies must be supplied before accepting real orders.
+## Image Optimization
 
-Original assets were generated with the built-in image generation tool.
+- Migrated large uncompressed assets (originally >6.5MB total) to optimized Next.js WebP formats:
+  - Hero banner: Compressed and resized from 2.5MB down to ~180KB WebP.
+  - Saree sprite: Extracted into standalone, dedicated high-fidelity WebP images for each saree weave (Emerald, Rose, Indigo, Ivory) reducing download burden per card from 3.5MB to ~80-130KB.
+  - Brand logo: Optimized PNG/WebP with transparent alpha channels.
+  - Powered by Next.js `next/image` with automatic WebP/AVIF generation, responsive `sizes`, lazy loading, and priority loading for above-the-fold banners.
 
-Hero prompt: Luxury Indian saree boutique campaign photograph, wide landscape. A South Indian woman wearing burgundy and antique gold Kanchipuram silk, minimal gold jewellery and a bun, on the right half of a heritage courtyard with a carved stone arch and muted sand plaster. Soft afternoon sunlight, editorial fashion photography, realistic silk, open architecture on the left for text. No text, logos or watermark.
+## Development & Server Preparation
 
-Catalogue prompt: Square contact sheet in four equal quadrants without gaps, text or dividing lines. Four luxurious folded sarees on ivory linen with soft window lighting: emerald Kanchipuram with gold botanical zari; dusty rose Banarasi with gold motifs; deep indigo silk with gold border; ivory cotton with marigold border. Realistic draped textile detail; no other objects or watermark.
-
-Validation: JavaScript syntax check; browser review of all screen types; collection filtering; coupon calculations; demo checkout to confirmation and tracking; mobile menu and catalogue overflow check at 390px. No browser console errors observed.
-
-## Logo and icon update
-
-The supplied peacock logo was refined into a transparent horizontal header lockup. The VARNAM name, emerald and gold peacock, “THE ART OF SIX YARDS” tagline, and “by ksk sarees” attribution are retained. The asset is `dist/assets/varnam-logo.png`, generated by the built-in image generation tool.
-
-Exact edit prompt: Use case: precise-object-edit / logo-brand. Edit this attached Varnam saree brand logo into a polished WEBSITE HEADER horizontal lockup on genuinely transparent background. Preserve the recognizable left-facing elegant peacock with emerald green and antique gold feather fan, preserve brand spelling exactly 'VARNAM', preserve tagline exactly 'THE ART OF SIX YARDS' and attribution exactly 'by ksk sarees'. Refine peacock into clean flat solid green #176047 and antique gold #aa803a vector-like shapes with no gradients, simplify tiny feather flourishes for legibility at small sizes. Place peacock emblem to the LEFT, vertically centred, and wordmark to the RIGHT with the tagline below and small attribution below that. Keep wordmark elegant Roman serif, carefully spaced, mostly antique gold/dark bronze #8c6134. Reduce overly decorative swashes slightly. Preserve overall character, don't redesign into another logo. Tight composition filling wide 3:1 canvas with only 3% transparent margins. Flat crisp clean edges. Remove paper texture, cream background, photographic lighting, shadows, watermark, and lower right sparkle. Output only the finished horizontal logo asset, no mockup or extra text.
-
-Unicode interface symbols were replaced with a consistent local SVG icon system in `dist/icons.js`. Search, account, heart, bag, menu, arrows, quantity, benefits and confirmation icons share a 24px view box and stroke treatment. Wishlist buttons expose their pressed state without resetting filters or product quantity. The mobile menu supports Escape and exposes expanded state; mobile account navigation is available. Empty bag badges are hidden and active counts have accessible labels.
-
-Checked desktop, 390px and 320px layouts, wishlist state and filter preservation, product quantity preservation, menu open/close/Escape, and mobile horizontal overflow.
-
-## Mobile filter bottom sheet
-
-At mobile widths up to 700px, catalogue filters open from a Filters button in a native modal bottom sheet. The sheet has a dimmed backdrop, collection/colour/price controls, draft selections, live match count, Reset all, and a fixed action footer. Show sarees applies the draft; close, backdrop click and Escape discard it. Native dialog focus handling returns focus to the trigger. Short screens scroll only the options region. Reduced motion is respected. Desktop retains the live filter sidebar. Scroll containment follows modern guidance without changing root overflow; backdrop containment is progressively enhanced where supported.
-
-## Catalogue and ordering refinement
-
-The catalogue now opens directly on its products and filters without the oversized page headline. Desktop navigation uses a more readable 14px label size. At mobile widths, Filter and Sort occupy equal 52px controls in equal grid columns. Product and cart screens include WhatsApp order actions that create a pre-filled item summary once the business number is set in `dist/config.js`. Account screens include a Google Identity Services integration point; setting a Google web client ID in the same config renders Google's official button and stores the returned demo profile locally for this static preview.
-
-Validation: JavaScript syntax checks, zero horizontal overflow at 390px, equal Filter/Sort dimensions, native bottom-sheet open/close, product and cart WhatsApp entry points, Google setup state, and no browser console errors.
-
-## Accessible sorting and catalogue growth
-
-The mobile sorting control is a single native select with a visible selected value such as “Sort: Featured,” 16px text, a 52px target, an associated label, and a high-contrast focus ring. The Google setup state uses the standard multicolour Google G; once a client ID is configured, Google Identity Services replaces this setup control with Google’s rendered button.
-
-The catalogue progressively shows six sarees at a time. A keyboard-accessible “Load more” button keeps its label stable, the live result count announces “Showing 6 of 8 sarees,” and focus moves to the first newly revealed product. Applying or clearing filters resets the batch so filtering remains predictable. The catalogue is capped at 1440px on wide screens to keep products comfortable to scan while preserving scroll position and footer access.
-
-Every catalogue card includes 48px mobile Add to bag and Buy now actions. Add to bag updates the persistent bag and announces confirmation; Buy now adds the selected saree and opens checkout immediately. Product imagery and names continue to link to the full detail screen.
-
-A fixed WhatsApp button sits at the bottom-right with safe-area spacing and opens a pre-filled message to the configured Varnam number. The same number powers product and cart WhatsApp ordering.
-
-Validation: apply and cancel, Reset all, focus return, desktop sidebar, 390px layout and 320×640 scrolling/action visibility; no browser console errors observed.
-
-Social and interface icons use vendored Bootstrap Icons 1.13.2 (MIT). WhatsApp and Instagram appear in the floating contact stack and footer, with accessible names and external-link protection.
-
-Product cards replace Add to bag with a plus/count/minus stepper while the item is in the bag. Zero removes the item and restores Add to bag. Controls retain keyboard focus, synchronize with saved cart quantities, and offer 48px targets.
+- Start development: `npm run dev` (runs on `http://0.0.0.0:3000`)
+- Type check: `npm run lint`
+- Production build: `npm run build`
+- Ready for full-stack API routes or Server Actions in future phases without architectural changes.

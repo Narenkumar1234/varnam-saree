@@ -1,0 +1,8 @@
+{
+  "name": "Varnam | Sarees, woven with stories",
+  "description": "Discover Varnam's collection of silk, cotton and occasion sarees. A thoughtfully designed boutique shopping experience.",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
