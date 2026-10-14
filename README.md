@@ -30,4 +30,10 @@ Checked desktop, 390px and 320px layouts, wishlist state and filter preservation
 
 At mobile widths up to 700px, catalogue filters open from a Filters button in a native modal bottom sheet. The sheet has a dimmed backdrop, collection/colour/price controls, draft selections, live match count, Reset all, and a fixed action footer. Show sarees applies the draft; close, backdrop click and Escape discard it. Native dialog focus handling returns focus to the trigger. Short screens scroll only the options region. Reduced motion is respected. Desktop retains the live filter sidebar. Scroll containment follows modern guidance without changing root overflow; backdrop containment is progressively enhanced where supported.
 
+## Catalogue and ordering refinement
+
+The catalogue now opens directly on its products and filters without the oversized page headline. Desktop navigation uses a more readable 14px label size. At mobile widths, Filter and Sort occupy equal 52px controls in equal grid columns. Product and cart screens include WhatsApp order actions that create a pre-filled item summary once the business number is set in `dist/config.js`. Account screens include a Google Identity Services integration point; setting a Google web client ID in the same config renders Google's official button and stores the returned demo profile locally for this static preview.
+
+Validation: JavaScript syntax checks, zero horizontal overflow at 390px, equal Filter/Sort dimensions, native bottom-sheet open/close, product and cart WhatsApp entry points, Google setup state, and no browser console errors.
+
 Validation: apply and cancel, Reset all, focus return, desktop sidebar, 390px layout and 320×640 scrolling/action visibility; no browser console errors observed.
