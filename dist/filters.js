@@ -29,6 +29,7 @@ function closeFilterSheet(){
 }
 function applySheetFilters(){
  shopFilters={...sheetDraft,colours:[...sheetDraft.colours]};
+ visibleProductCount=productsPerPage;
  document.querySelector('#desktopFilters').innerHTML=filterFields(shopFilters,'desktop')+'<button class="text-link filter-reset" type="button" onclick="resetFilters()">Clear filters</button>';
  filterShop();closeFilterSheet();
 }
@@ -39,7 +40,7 @@ function resetSheetFilters(){
 }
 function initFilterSheet(){
  const sheet=document.querySelector('#filterSheet');
- document.querySelector('#desktopFilters').addEventListener('change',event=>{if(event.target.matches('input')){shopFilters=readFilterFields(event.currentTarget,'desktop');filterShop();}});
+ document.querySelector('#desktopFilters').addEventListener('change',event=>{if(event.target.matches('input')){shopFilters=readFilterFields(event.currentTarget,'desktop');visibleProductCount=productsPerPage;filterShop();}});
  document.querySelector('#sheetFields').addEventListener('change',event=>{if(event.target.matches('input')){sheetDraft=readFilterFields(event.currentTarget,'sheet');updateSheetCount();}});
  sheet.addEventListener('cancel',event=>{event.preventDefault();closeFilterSheet();});
  sheet.addEventListener('close',()=>{sheetDraft=null;});

@@ -36,4 +36,10 @@ The catalogue now opens directly on its products and filters without the oversiz
 
 Validation: JavaScript syntax checks, zero horizontal overflow at 390px, equal Filter/Sort dimensions, native bottom-sheet open/close, product and cart WhatsApp entry points, Google setup state, and no browser console errors.
 
+## Accessible sorting and catalogue growth
+
+The mobile sorting control is a single native select with a visible selected value such as “Sort: Featured,” 16px text, a 52px target, an associated label, and a high-contrast focus ring. The Google setup state uses the standard multicolour Google G; once a client ID is configured, Google Identity Services replaces this setup control with Google’s rendered button.
+
+The catalogue progressively shows six sarees at a time. A keyboard-accessible Load more button reports the remaining batch, the live result count announces “Showing 6 of 8 sarees,” and focus moves to the first newly revealed product. Applying or clearing filters resets the batch so filtering remains predictable. This preserves scroll position and footer access while scaling beyond the current sample catalogue.
+
 Validation: apply and cancel, Reset all, focus return, desktop sidebar, 390px layout and 320×640 scrolling/action visibility; no browser console errors observed.
