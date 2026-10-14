@@ -58,20 +58,20 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
             <div className="card-quantity" role="group" aria-label={`Quantity of ${product.name} in bag`}>
               <button
                 type="button"
-                data-step="plus"
-                aria-label={`Add one ${product.name}`}
-                onClick={() => adjustCardQuantity(product.id, 1)}
-              >
-                <Icon name="plus" />
-              </button>
-              <span aria-label={`${qty} in bag`}>{qty}</span>
-              <button
-                type="button"
                 data-step="minus"
                 aria-label={`Remove one ${product.name}`}
                 onClick={() => adjustCardQuantity(product.id, -1)}
               >
                 <Icon name="minus" />
+              </button>
+              <span aria-label={`${qty} in bag`}>{qty}</span>
+              <button
+                type="button"
+                data-step="plus"
+                aria-label={`Add one ${product.name}`}
+                onClick={() => adjustCardQuantity(product.id, 1)}
+              >
+                <Icon name="plus" />
               </button>
             </div>
           ) : (

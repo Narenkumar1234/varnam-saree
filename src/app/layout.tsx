@@ -5,6 +5,7 @@ import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { FloatingSocials } from '@/components/FloatingSocials';
 import { Toast } from '@/components/Toast';
+import { PageTransitionLoader } from '@/components/PageTransitionLoader';
 
 export const metadata: Metadata = {
   title: 'Varnam | Sarees, woven with stories',
@@ -36,6 +37,7 @@ export default function RootLayout({
       </head>
       <body>
         <StoreProvider>
+          <PageTransitionLoader />
           <Header />
           <main id="app">{children}</main>
           <Footer />

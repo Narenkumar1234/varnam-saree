@@ -1,7 +1,7 @@
 'use client';
 
-import AccountPage from '../account/page';
+import { AccountView } from '@/components/AccountView';
 
 export default function LoginPage() {
-  return <AccountPage />;
+  return <AccountView initialSignUp={false} />;
 }

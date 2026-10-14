@@ -1,20 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Icon } from './Icons';
 
 export function Footer() {
-  const [newsEmail, setNewsEmail] = useState('');
-  const [newsSubmitted, setNewsSubmitted] = useState(false);
-
-  const handleNewsletterSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setNewsSubmitted(true);
-    setNewsEmail('');
-  };
-
   return (
     <footer>
       <div className="footer-top">
@@ -69,38 +60,6 @@ export function Footer() {
           <Link href="/faq">Frequently asked questions</Link>
           <Link href="/shipping">Shipping & returns</Link>
           <Link href="/track">Track your order</Link>
-        </div>
-
-        <div>
-          <h4>A little colour in your inbox</h4>
-          <p>New weaves, thoughtful stories, first looks.</p>
-          <form id="newsletter" onSubmit={handleNewsletterSubmit}>
-            <label className="sr" htmlFor="news">
-              Email address
-            </label>
-            <div className="inline">
-              <input
-                id="news"
-                type="email"
-                placeholder="Your email address"
-                required
-                value={newsEmail}
-                onChange={(e) => setNewsEmail(e.target.value)}
-              />
-              <button aria-label="Subscribe" type="submit">
-                <Icon name="arrow-right" />
-              </button>
-            </div>
-            <small id="newsMsg">
-              {newsSubmitted ? (
-                'Subscription preview complete. No email has been sent or saved.'
-              ) : (
-                <>
-                  By subscribing, you agree to our <Link href="/privacy">privacy policy</Link>.
-                </>
-              )}
-            </small>
-          </form>
         </div>
       </div>
 
