@@ -42,4 +42,6 @@ The mobile sorting control is a single native select with a visible selected val
 
 The catalogue progressively shows six sarees at a time. A keyboard-accessible Load more button reports the remaining batch, the live result count announces “Showing 6 of 8 sarees,” and focus moves to the first newly revealed product. Applying or clearing filters resets the batch so filtering remains predictable. This preserves scroll position and footer access while scaling beyond the current sample catalogue.
 
+Every catalogue card includes 48px mobile Add to bag and Buy now actions. Add to bag updates the persistent bag and announces confirmation; Buy now adds the selected saree and opens checkout immediately. Product imagery and names continue to link to the full detail screen.
+
 Validation: apply and cancel, Reset all, focus return, desktop sidebar, 390px layout and 320×640 scrolling/action visibility; no browser console errors observed.
