@@ -24,10 +24,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
 
   const handleBuyNow = (e: React.MouseEvent) => {
     e.preventDefault();
-    if (!cartItem) {
-      addToCart(product.id, 1);
-    }
-    router.push('/checkout');
+    router.push(`/checkout?buyNow=${product.id}&qty=1`);
   };
 
   return (
@@ -102,7 +99,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
           toggleWish(product.id);
         }}
       >
-        <Icon name="heart" />
+        <Icon name={isWish ? 'heart-fill' : 'heart'} />
       </button>
     </article>
   );

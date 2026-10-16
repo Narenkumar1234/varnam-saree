@@ -21,7 +21,11 @@ interface StoreContextType {
   removeItem: (id: number) => void;
   toggleWish: (id: number) => void;
   applyCoupon: (code: string) => boolean;
-  placeOrder: (details: { first: string; last: string; email: string; phone: string; address: string; city: string; state: string; pin: string }) => string;
+  placeOrder: (
+    details: { first: string; last: string; email: string; phone: string; address: string; city: string; state: string; pin: string },
+    customItems?: CartItem[],
+    customTotal?: number
+  ) => string;
   setProfile: (p: UserProfile | null) => void;
   clearDemo: () => void;
   showToast: (msg: string) => void;
@@ -151,23 +155,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return false;
   };
 
-  const placeOrder = (details: { first: string; last: string; email: string; phone: string; address: string; city: string; state: string; pin: string }) => {
+  const placeOrder = (
+    details: { first: string; last: string; email: string; phone: string; address: string; city: string; state: string; pin: string },
+    customItems?: CartItem[],
+    customTotal?: number
+  ) => {
     const id = 'VRN' + Date.now().toString().slice(-7);
     const date = new Date().toLocaleDateString('en-IN', {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
     });
+    const orderItems = customItems || [...cart];
+    const orderTotal = customTotal !== undefined ? customTotal : total;
     const newOrder: Order = {
       id,
       date,
       name: details.first,
-      items: [...cart],
-      total,
+      items: orderItems,
+      total: orderTotal,
     };
     setOrders((prev) => [newOrder, ...prev]);
-    setCart([]);
-    setDiscount(false);
+    if (!customItems) {
+      setCart([]);
+      setDiscount(false);
+    }
     return id;
   };
 

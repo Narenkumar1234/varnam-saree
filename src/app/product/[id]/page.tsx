@@ -3,13 +3,14 @@
 import React, { useState, use } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { notFound } from 'next/navigation';
+import { notFound, useRouter } from 'next/navigation';
 import { getProductById, products, money, COLOUR_HEX_MAP } from '@/data/products';
 import { useStore } from '@/context/store-context';
 import { ProductCard } from '@/components/ProductCard';
 import { Icon } from '@/components/Icons';
 
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const router = useRouter();
   const resolvedParams = use(params);
   const product = getProductById(resolvedParams.id);
 
@@ -135,13 +136,25 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               </button>
 
               <button
+                className="btn outline"
+                type="button"
+                onClick={() =>
+                  router.push(
+                    `/checkout?buyNow=${product.id}&qty=${qty}&finish=${encodeURIComponent(finish)}`
+                  )
+                }
+              >
+                Buy now
+              </button>
+
+              <button
                 className={`btn outline wishlist-button ${isWish ? 'active' : ''}`}
                 type="button"
                 aria-label={`Save ${product.name} to wishlist`}
                 aria-pressed={isWish}
                 onClick={() => toggleWish(product.id)}
               >
-                <Icon name="heart" />
+                <Icon name={isWish ? 'heart-fill' : 'heart'} />
               </button>
             </div>
 

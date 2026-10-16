@@ -11,8 +11,8 @@ export default function HomePage() {
   return (
     <>
       <section className="hero">
+        <div className="hero-visual-mobile" aria-hidden="true" />
         <div className="hero-copy">
-          <div className="eyebrow">The heirloom edit · 2026</div>
           <h1>
             Some stories
             <br />
@@ -27,7 +27,6 @@ export default function HomePage() {
             Discover the collection <Icon name="arrow-up-right" />
           </Link>
         </div>
-        <div className="hero-note">The art of tradition, the joy of being you.</div>
         <div className="hero-counter">Silk, in its finest form</div>
       </section>
 

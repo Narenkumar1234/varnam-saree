@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useStore } from '@/context/store-context';
 import { money } from '@/data/products';
+import { signInWithPopup } from 'firebase/auth';
+import { auth, googleAuthProvider } from '@/lib/firebase';
 
 interface AccountViewProps {
   initialSignUp?: boolean;
@@ -14,20 +16,83 @@ export function AccountView({ initialSignUp = false }: AccountViewProps) {
   const [isSignUp, setIsSignUp] = useState(initialSignUp);
   const [nameInput, setNameInput] = useState('');
   const [emailInput, setEmailInput] = useState('');
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [dbOrders, setDbOrders] = useState<any[]>([]);
 
-  const handleAuthSubmit = (e: React.FormEvent) => {
+  // Fetch orders from database when profile is available
+  useEffect(() => {
+    if (profile?.email) {
+      fetch(`/api/orders?email=${encodeURIComponent(profile.email)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.orders) {
+            setDbOrders(data.orders);
+          }
+        })
+        .catch((err) => console.error('Failed to load db orders:', err));
+    }
+  }, [profile?.email]);
+
+  const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const displayName = isSignUp ? nameInput : emailInput.split('@')[0] || 'Varnam customer';
-    setProfile({
+    const newProfile = {
       name: displayName,
       email: emailInput,
-    });
-    showToast('Signed in to demo account');
+      uid: `local-${Date.now()}`,
+    };
+    setProfile(newProfile);
+
+    try {
+      await fetch('/api/auth/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uid: newProfile.uid,
+          email: newProfile.email,
+          name: newProfile.name,
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to sync user with database:', err);
+    }
+
+    showToast(`Welcome, ${displayName}`);
   };
 
-  const handleGoogleMockClick = () => {
-    showToast('Google sign-in is ready for the store OAuth client ID.');
+  const handleGoogleSignIn = async () => {
+    setIsSigningIn(true);
+    try {
+      const cred = await signInWithPopup(auth, googleAuthProvider);
+      const user = cred.user;
+      const profileData = {
+        name: user.displayName || user.email?.split('@')[0] || 'Varnam customer',
+        email: user.email || '',
+        uid: user.uid,
+      };
+      setProfile(profileData);
+
+      // Sync user into PostgreSQL database
+      await fetch('/api/auth/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uid: user.uid,
+          email: user.email,
+          name: profileData.name,
+        }),
+      });
+
+      showToast(`Signed in as ${profileData.name}`);
+    } catch (err: any) {
+      console.error('Google sign-in error:', err);
+      showToast(err.message || 'Could not complete Google sign-in');
+    } finally {
+      setIsSigningIn(false);
+    }
   };
+
+  const displayOrders = dbOrders.length > 0 ? dbOrders : orders;
 
   if (!profile) {
     return (
@@ -59,8 +124,8 @@ export function AccountView({ initialSignUp = false }: AccountViewProps) {
             <button
               className="google-setup"
               type="button"
-              aria-disabled="true"
-              onClick={handleGoogleMockClick}
+              disabled={isSigningIn}
+              onClick={handleGoogleSignIn}
             >
               <span className="google-mark" aria-hidden="true">
                 <svg viewBox="0 0 18 18" width="18" height="18" focusable="false">
@@ -82,16 +147,14 @@ export function AccountView({ initialSignUp = false }: AccountViewProps) {
                   />
                 </svg>
               </span>
-              <span>Continue with Google</span>
+              <span>{isSigningIn ? 'Connecting…' : 'Continue with Google'}</span>
             </button>
-            <small>Google connection details are being configured.</small>
+            <small>Secure one-click sign in with Google</small>
           </div>
 
           <div className="auth-divider">
             <span>or continue with email</span>
           </div>
-
-          <p className="demo-note">Demo profile saved in this browser. No online account is created.</p>
 
           <form onSubmit={handleAuthSubmit}>
             {isSignUp && (
@@ -118,10 +181,9 @@ export function AccountView({ initialSignUp = false }: AccountViewProps) {
               />
             </label>
             <button className="btn" type="submit">
-              {isSignUp ? 'Create demo profile' : 'Continue with demo profile'}
+              {isSignUp ? 'Create profile' : 'Continue with email'}
             </button>
           </form>
-          <p style={{ marginTop: '16px' }}>No password needed for this preview.</p>
         </div>
       </>
     );
@@ -153,20 +215,24 @@ export function AccountView({ initialSignUp = false }: AccountViewProps) {
               <br />
               <span className="muted">{profile.email}</span>
             </p>
-            <p className="demo-note">This profile exists only on this browser.</p>
 
             <h2 style={{ marginTop: '30px' }}>Recent orders</h2>
-            {orders.length > 0 ? (
-              orders.map((o) => (
+            {displayOrders.length > 0 ? (
+              displayOrders.map((o) => (
                 <div key={o.id} className="order-card">
                   <h3>
                     {o.id}{' '}
                     <span className="muted" style={{ fontSize: '11px' }}>
-                      · Demo order
+                      · {o.status || 'Confirmed'}
                     </span>
                   </h3>
                   <p>
-                    {o.date} · {o.items.reduce((s, x) => s + x.qty, 0)} item(s) · {money(o.total)}
+                    {o.date || new Date(o.createdAt || Date.now()).toLocaleDateString('en-IN', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    })}{' '}
+                    · {money(o.total)}
                   </p>
                   <Link className="text-link" href={`/track?order=${o.id}`}>
                     View order & tracking
@@ -176,7 +242,7 @@ export function AccountView({ initialSignUp = false }: AccountViewProps) {
             ) : (
               <div className="empty" style={{ padding: '30px 0', textAlign: 'left' }}>
                 <h3 style={{ margin: '0 0 10px' }}>Your stories start here</h3>
-                <p className="muted">You have no demo orders yet.</p>
+                <p className="muted">You have no orders yet.</p>
               </div>
             )}
           </div>

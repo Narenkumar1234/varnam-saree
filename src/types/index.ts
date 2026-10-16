@@ -28,6 +28,7 @@ export interface Order {
 export interface UserProfile {
   name: string;
   email: string;
+  uid?: string;
 }
 
 export interface ShopFilterState {

@@ -55,26 +55,17 @@ export default function CartPage() {
 
                 return (
                   <div key={item.id} className="cart-item">
-                    <Link
-                      href={`/product/${p.id}`}
-                      style={{
-                        position: 'relative',
-                        width: '100px',
-                        height: '125px',
-                        overflow: 'hidden',
-                        display: 'block',
-                      }}
-                    >
+                    <Link href={`/product/${p.id}`} className="cart-item-image">
                       <Image
                         src={p.image}
                         alt={p.name}
                         fill
-                        sizes="100px"
+                        sizes="(max-width: 700px) 85px, 100px"
                         style={{ objectFit: 'cover' }}
                       />
                     </Link>
 
-                    <div>
+                    <div className="cart-item-details">
                       <h3>
                         <Link href={`/product/${p.id}`}>{p.name}</Link>
                       </h3>

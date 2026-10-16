@@ -1,15 +1,38 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useStore } from '@/context/store-context';
 import { getProductById, money } from '@/data/products';
 import { Icon } from '@/components/Icons';
+import { CartItem } from '@/types';
 
-export default function CheckoutPage() {
+function CheckoutContent() {
   const router = useRouter();
-  const { cart, subtotal, total, shipping, discount, discountAmount, placeOrder } = useStore();
+  const searchParams = useSearchParams();
+  const { cart, subtotal, total, shipping, discount, discountAmount, placeOrder, profile } = useStore();
+
+  const buyNowId = searchParams.get('buyNow');
+  const buyNowQty = Math.max(1, parseInt(searchParams.get('qty') || '1', 10));
+  const buyNowFinish = searchParams.get('finish') || 'Unstitched blouse · included';
+
+  const buyNowProduct = buyNowId ? getProductById(parseInt(buyNowId, 10)) : null;
+
+  // Single-item direct checkout if buyNow is provided, otherwise full cart
+  const checkoutItems: CartItem[] = buyNowProduct
+    ? [{ id: buyNowProduct.id, qty: buyNowQty, finish: buyNowFinish }]
+    : cart;
+
+  const checkoutSubtotal = buyNowProduct
+    ? buyNowProduct.price * buyNowQty
+    : subtotal;
+
+  const checkoutShipping = 0; // Complimentary
+  const checkoutDiscountAmount = discount
+    ? Math.round(checkoutSubtotal * 0.1)
+    : 0;
+  const checkoutTotal = Math.max(0, checkoutSubtotal - checkoutDiscountAmount);
 
   const [formData, setFormData] = useState({
     first: '',
@@ -24,7 +47,7 @@ export default function CheckoutPage() {
     country: 'India',
   });
 
-  if (cart.length === 0) {
+  if (checkoutItems.length === 0) {
     return (
       <>
         <div className="page-title">
@@ -41,17 +64,42 @@ export default function CheckoutPage() {
     );
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const orderId = placeOrder(formData);
+    const orderId = buyNowProduct
+      ? placeOrder(formData, checkoutItems, checkoutTotal)
+      : placeOrder(formData);
+
+    try {
+      await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: orderId,
+          customerName: `${formData.first} ${formData.last}`.trim(),
+          email: formData.email,
+          phone: formData.phone,
+          address: `${formData.address} ${formData.apartment}`.trim(),
+          city: formData.city,
+          state: formData.state,
+          pincode: formData.pin,
+          total: checkoutTotal,
+          items: checkoutItems,
+          uid: profile?.uid,
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to save order to database:', err);
+    }
+
     router.push(`/confirmation/${orderId}`);
   };
 
   return (
     <>
       <div className="page-title">
-        <h1>A step closer to beautiful</h1>
-        <p>Bag / Delivery / Demo order</p>
+        <h1>{buyNowProduct ? 'Complete your purchase' : 'A step closer to beautiful'}</h1>
+        <p>{buyNowProduct ? `Direct purchase for ${buyNowProduct.name}` : 'Bag / Delivery / Order'}</p>
       </div>
 
       <section className="section" style={{ paddingTop: '10px' }}>
@@ -174,20 +222,14 @@ export default function CheckoutPage() {
               days
             </label>
 
-            <h3>Payment</h3>
-            <div className="demo-note">
-              This is a sample shopping experience. Place a demo order to preview the confirmation and
-              tracking screens. No payment is taken and no real shipment is created.
-            </div>
-
             <button className="btn" type="submit" style={{ width: '100%', marginTop: '24px' }}>
-              Place demo order <Icon name="arrow-up-right" />
+              Place order <Icon name="arrow-up-right" />
             </button>
           </form>
 
           <aside className="summary-box">
             <h2>Your order</h2>
-            {cart.map((x) => {
+            {checkoutItems.map((x) => {
               const p = getProductById(x.id);
               if (!p) return null;
               return (
@@ -201,26 +243,33 @@ export default function CheckoutPage() {
             })}
             <div className="summary-row">
               <span>Subtotal</span>
-              <span>{money(subtotal)}</span>
+              <span>{money(checkoutSubtotal)}</span>
             </div>
             <div className="summary-row">
               <span>Delivery</span>
-              <span>{shipping ? money(shipping) : 'Complimentary'}</span>
+              <span>Complimentary</span>
             </div>
             {discount && (
               <div className="summary-row">
                 <span>WELCOME10</span>
-                <span>−{money(discountAmount)}</span>
+                <span>−{money(checkoutDiscountAmount)}</span>
               </div>
             )}
             <div className="summary-row total">
               <span>Total</span>
-              <span>{money(total)}</span>
+              <span>{money(checkoutTotal)}</span>
             </div>
-            <small>Demo checkout · no payment is collected.</small>
           </aside>
         </div>
       </section>
     </>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={<div className="page-title"><h1>Loading checkout…</h1></div>}>
+      <CheckoutContent />
+    </Suspense>
   );
 }
