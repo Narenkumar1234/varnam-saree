@@ -76,6 +76,16 @@ export interface UserProfile {
   uid?: string;
 }
 
+export interface DeliveryAddress {
+  first: string;
+  last: string;
+  phone: string;
+  address: string;
+  city: string;
+  pin: string;
+  state: string;
+}
+
 export interface PriceRange {
   min: number;
   max: number;

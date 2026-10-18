@@ -1,7 +1,7 @@
 'use client';
 
 import { DeliveryPolicy } from '@/components/DeliveryPolicy';
-import React, { useState, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useStore } from '@/context/store-context';
@@ -11,6 +11,9 @@ import { previewOrderQuote } from '@/lib/pricing';
 import { CouponForm } from '@/components/CouponForm';
 import { OrderTotals } from '@/components/OrderTotals';
 import { OrderLinePrice } from '@/components/OrderLinePrice';
+import { AddressFields } from '@/components/AddressFields';
+import { ADDRESS_FIELDS, readSavedAddress } from '@/lib/address-storage';
+import type { DeliveryAddress } from '@/types';
 
 function CheckoutContent() {
   const router = useRouter();
@@ -48,6 +51,17 @@ function CheckoutContent() {
     state: '',
     country: 'India',
   });
+
+  useEffect(() => {
+    const saved = readSavedAddress();
+    if (saved) setFormData((current) => {
+      const next = { ...current };
+      for (const field of ADDRESS_FIELDS) if (!next[field]) next[field] = saved[field];
+      return next;
+    });
+  }, []);
+
+  const updateAddress = (field: keyof DeliveryAddress, value: string) => setFormData((current) => ({ ...current, [field]: value }));
 
   if (checkoutItems.length === 0) {
     return (
@@ -98,26 +112,8 @@ function CheckoutContent() {
           <form id="checkoutForm" onSubmit={handleSubmit}>
             <h2>Contact & delivery</h2>
             <div className="form-grid">
-              <label>
-                First name
-                <input
-                  name="first"
-                  autoComplete="given-name"
-                  required
-                  value={formData.first}
-                  onChange={(e) => setFormData({ ...formData, first: e.target.value })}
-                />
-              </label>
-              <label>
-                Last name
-                <input
-                  name="last"
-                  autoComplete="family-name"
-                  required
-                  value={formData.last}
-                  onChange={(e) => setFormData({ ...formData, last: e.target.value })}
-                />
-              </label>
+              <AddressFields value={formData} onChange={updateAddress} fields={['first', 'last']} />
+
               <label className="wide">
                 Email address
                 <input
@@ -129,29 +125,8 @@ function CheckoutContent() {
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 />
               </label>
-              <label className="wide">
-                Phone number
-                <input
-                  name="phone"
-                  type="tel"
-                  autoComplete="tel"
-                  pattern="[0-9+ ()-]{10,16}"
-                  required
-                  placeholder="+91 98765 43210"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                />
-              </label>
-              <label className="wide">
-                Street address
-                <input
-                  name="address"
-                  autoComplete="address-line1"
-                  required
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                />
-              </label>
+              <AddressFields value={formData} onChange={updateAddress} fields={['phone', 'address']} />
+
               <label className="wide">
                 Apartment, landmark (optional)
                 <input
@@ -161,39 +136,8 @@ function CheckoutContent() {
                   onChange={(e) => setFormData({ ...formData, apartment: e.target.value })}
                 />
               </label>
-              <label>
-                City
-                <input
-                  name="city"
-                  autoComplete="address-level2"
-                  required
-                  value={formData.city}
-                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                />
-              </label>
-              <label>
-                Pincode
-                <input
-                  name="pin"
-                  inputMode="numeric"
-                  autoComplete="postal-code"
-                  pattern="[0-9]{6}"
-                  maxLength={6}
-                  required
-                  value={formData.pin}
-                  onChange={(e) => setFormData({ ...formData, pin: e.target.value })}
-                />
-              </label>
-              <label>
-                State
-                <input
-                  name="state"
-                  autoComplete="address-level1"
-                  required
-                  value={formData.state}
-                  onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                />
-              </label>
+              <AddressFields value={formData} onChange={updateAddress} fields={['city', 'pin', 'state']} />
+
               <label>
                 Country
                 <select
