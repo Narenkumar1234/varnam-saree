@@ -11,7 +11,7 @@ Responsive luxury Indian saree boutique storefront migrated to **Next.js 15 (App
   - Product Details (`/product/[id]`): High-res optimized image, colour swatches, blouse finishing selection, quantity controls, WhatsApp order pre-filled generator, delivery pincode estimator, care guidelines, and recommended sarees.
   - Search (`/search`): Instant search across saree names, weaves, and colours.
   - Wishlist (`/wishlist`): Save favourites with persistent browser storage and one-click removal.
-  - Bag & Cart (`/cart`): Stepper controls, finishing notes, WELCOME10 coupon calculations, complimentary shipping threshold (>₹3,000), direct WhatsApp bag ordering, and checkout flow.
+  - Bag & Cart (`/cart`): Stepper controls, finishing notes, WELCOME10 coupon calculations, free delivery on orders above ₹2,999, direct WhatsApp bag ordering, and checkout flow.
   - Demo Checkout (`/checkout`): Contact and delivery form, Indian state and pincode validation, transparent demo order placement.
   - Confirmation (`/confirmation/[id]`): Verified demo order summary and order tracking link.
   - Tracking (`/track`): Order lookup with 3-stage visual progress timeline.

@@ -17,7 +17,7 @@ export function OrderTotals({ pricing }: { pricing: OrderPricing }) {
       )}
       <div className="summary-row">
         <span>Delivery</span>
-        <span>{pricing.shipping ? money(pricing.shipping) : 'Complimentary'}</span>
+        <span>{pricing.shipping ? money(pricing.shipping) : 'Free delivery'}</span>
       </div>
       <div className="summary-row total">
         <span>Total</span>

@@ -30,9 +30,19 @@ export function Header() {
 
   return (
     <>
-      <div className="announcement">
-        A little tradition. A lot of you.{' '}
-        <span>Complimentary delivery on orders over ₹3,000</span>
+      <div className="site-marquee" role="region" aria-label="Store updates">
+        <div className="site-marquee-track">
+          <p className="site-marquee-group">
+            <span>Dispatch time 2 to 5 business days</span>
+            <span className="site-marquee-star" aria-hidden="true">✦</span>
+            <span>Free delivery on orders above ₹2,999</span>
+          </p>
+          <p className="site-marquee-group" aria-hidden="true">
+            <span>Dispatch time 2 to 5 business days</span>
+            <span className="site-marquee-star">✦</span>
+            <span>Free delivery on orders above ₹2,999</span>
+          </p>
+        </div>
       </div>
 
       <header>

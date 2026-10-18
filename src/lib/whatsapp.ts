@@ -65,7 +65,7 @@ export function createProductWhatsAppMessage(
     const pricing = options.pricing;
     lines.push(`Subtotal: ${money(pricing.subtotal)}`);
     if (pricing.couponCode) lines.push(`${pricing.couponCode}: −${money(pricing.discountAmount)}`);
-    lines.push(`Delivery: ${pricing.shipping ? money(pricing.shipping) : 'Complimentary'}`);
+    lines.push(`Delivery: ${pricing.shipping ? money(pricing.shipping) : 'Free delivery'}`);
     lines.push(`Order total: ${money(pricing.total)}`);
   } else {
     lines.push(`Product total: ${money(product.price * quantity)}`);
@@ -105,7 +105,7 @@ export function createSavedOrderWhatsAppMessage(
     if (order.pricing.couponCode) {
       lines.push(`${order.pricing.couponCode}: −${money(order.pricing.discountAmount)}`);
     }
-    lines.push(`Delivery: ${order.pricing.shipping ? money(order.pricing.shipping) : 'Complimentary'}`);
+    lines.push(`Delivery: ${order.pricing.shipping ? money(order.pricing.shipping) : 'Free delivery'}`);
   }
   lines.push(`Order total: ${money(order.total)}`);
   const address = [order.address, order.city, order.state, order.pincode].filter(Boolean).join(', ');

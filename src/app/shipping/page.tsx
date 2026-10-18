@@ -16,7 +16,7 @@ export default function ShippingPage() {
         <h2>Delivery, with care</h2>
         <p>
           Standard delivery within India is estimated at 5–7 business days. The demo offers
-          complimentary delivery on orders over ₹3,000; otherwise, a ₹150 delivery charge applies.
+          free delivery on orders above ₹2,999; otherwise, a ₹150 delivery charge applies.
         </p>
 
         <h2>Returns & exchanges</h2>

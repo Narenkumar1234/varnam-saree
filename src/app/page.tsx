@@ -38,7 +38,7 @@ export default function HomePage() {
           <Icon name="leaf" /> Made for moments that matter
         </span>
         <span>
-          <Icon name="truck" /> Complimentary shipping over ₹3,000
+          <Icon name="truck" /> Free delivery on orders above ₹2,999
         </span>
         <span>
           <Icon name="heart" /> A little care in every fold

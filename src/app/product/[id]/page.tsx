@@ -165,7 +165,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             </button>
 
             <p className="muted" style={{ fontSize: '11px' }}>
-              Complimentary delivery on orders over ₹3,000.
+              Free delivery on orders above ₹2,999.
             </p>
 
             <form onSubmit={handleCheckPin}>
