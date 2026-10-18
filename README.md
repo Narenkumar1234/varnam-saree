@@ -1,6 +1,6 @@
 # Varnam Saree Storefront (Next.js)
 
-Responsive luxury Indian saree boutique storefront migrated to **Next.js 15 (App Router)** with TypeScript, React 19, and optimized responsive image loading via `next/image` and `sharp`.
+Responsive luxury Indian saree storefront migrated to **Next.js 15 (App Router)** with TypeScript, React 19, and optimized responsive image loading via `next/image` and `sharp`.
 
 ## Features Ported
 
@@ -36,11 +36,11 @@ Responsive luxury Indian saree boutique storefront migrated to **Next.js 15 (App
 
 ## Studio admin access
 
-Set `ADMIN_PASSCODE` in the server environment before using `/studio-desk`. There is no default passcode and no email-only login. If the passcode is missing or blank, login returns HTTP 503 with **Admin login is not configured.** The login screen does not display credentials.
+Set both `ADMIN_LOGIN_EMAIL` and `ADMIN_LOGIN_PASSWORD` in the server environment before using `/studio-desk`. Login requires an exact match for both values; there are no default credentials or email-only login. If either variable is missing or blank, login returns HTTP 503 with **Admin login is not configured.** The login screen does not display credentials. Studio is accessed directly by URL rather than through the storefront navigation.
 
-Also set `ADMIN_SESSION_SECRET` to an independent, high-entropy random secret (at least 32 random bytes). It is recommended but optional: if absent, the server derives a signing key with HMAC-SHA256 using `ADMIN_PASSCODE`. The derivation is domain-separated for Studio sessions and bound to the current passcode; rotating either value invalidates existing sessions. Both variables are server-only; `.env.example` contains blank placeholders.
+Also set `ADMIN_SESSION_SECRET` to an independent, high-entropy random secret (at least 32 random bytes). It is recommended but optional: if absent, the server derives a signing key with HMAC-SHA256 using `ADMIN_LOGIN_PASSWORD`. The existing derivation is domain-separated for Studio sessions and bound to the current password; rotating the password or signing secret invalidates existing sessions. All three variables are server-only; `.env.example` contains blank placeholders. Local environment files are ignored by Git, while `.env.example` remains tracked.
 
-Successful `POST /api/admin/auth` accepts `{ passcode }` and sets an eight-hour HMAC-SHA256-signed cookie. The cookie contains a version, audience, issue/expiry timestamps and random nonce, with no passcode or customer data. It is `HttpOnly`, `SameSite=Strict`, scoped to `/api/admin`, and `Secure` in production (HTTPS is required). Sessions are stateless: each admin handler verifies the signature and expiry on the server before reading request bodies or touching the database/filesystem. Browser storage flags are not used for authorization. Cross-origin admin mutations are rejected, and admin list/session responses are not cached.
+Successful `POST /api/admin/auth` accepts `{ email, password }` and sets the same eight-hour HMAC-SHA256-signed cookie. The cookie contains a version, audience, issue/expiry timestamps and random nonce, with no credentials or customer data. It is `HttpOnly`, `SameSite=Strict`, scoped to `/api/admin`, and `Secure` in production (HTTPS is required). Sessions are stateless: each admin handler verifies the signature and expiry on the server before reading request bodies or touching the database/filesystem. Browser storage flags are not used for authorization. Cross-origin admin mutations are rejected, and admin list/session responses are not cached.
 
 Every product, upload, and order handler under `/api/admin` uses the shared session guard. Studio loads orders from the protected `/api/admin/orders` endpoint; the legacy unfiltered `/api/orders` list also requires an admin session. Existing customer email-based order lookups are unchanged. `GET /api/admin/auth` restores a valid session after a refresh; `DELETE /api/admin/auth` expires the cookie on sign-out. Studio sends same-origin credentials on all admin requests and returns to login when an API reports an expired session. Logging out clears this browser's cookie; signing-key rotation invalidates all issued cookies.
 

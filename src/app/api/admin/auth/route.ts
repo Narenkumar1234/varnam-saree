@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   ADMIN_SESSION_COOKIE, ADMIN_SESSION_SECONDS, adminCookieOptions,
   adminLoginConfigured, createAdminSession, rejectCrossOriginAdminMutation,
-  requireAdminSession, validAdminPasscode,
+  requireAdminSession, validAdminCredentials,
 } from '@/lib/admin-session';
 
 export const runtime = 'nodejs';
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Admin login is not configured.' }, { status: 503, headers });
   }
   const denied = requireAdminSession(req);
-  return denied || NextResponse.json({ success: true, role: 'boutique_manager' }, { headers });
+  return denied || NextResponse.json({ success: true, role: 'store_manager' }, { headers });
 }
 
 export async function POST(req: NextRequest) {
@@ -25,10 +25,10 @@ export async function POST(req: NextRequest) {
   }
   try {
     const body = await req.json();
-    if (!validAdminPasscode(body?.passcode)) {
-      return NextResponse.json({ error: 'Invalid Studio passcode.' }, { status: 401, headers });
+    if (!validAdminCredentials(body?.email, body?.password)) {
+      return NextResponse.json({ error: 'Invalid Studio email or password.' }, { status: 401, headers });
     }
-    const response = NextResponse.json({ success: true, role: 'boutique_manager' }, { headers });
+    const response = NextResponse.json({ success: true, role: 'store_manager' }, { headers });
     response.cookies.set(ADMIN_SESSION_COOKIE, createAdminSession(), { ...adminCookieOptions(), maxAge: ADMIN_SESSION_SECONDS });
     return response;
   } catch (error) {

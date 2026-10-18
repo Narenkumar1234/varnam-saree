@@ -6,25 +6,29 @@ export const ADMIN_SESSION_SECONDS = 8 * 60 * 60;
 const SESSION_CONTEXT = 'varnam:studio-admin:session:v1';
 
 function configuration() {
-  const passcode = process.env.ADMIN_PASSCODE;
-  if (!passcode?.trim()) return null;
+  const email = process.env.ADMIN_LOGIN_EMAIL;
+  const password = process.env.ADMIN_LOGIN_PASSWORD;
+  if (!email?.trim() || !password?.trim()) return null;
   const configuredSecret = process.env.ADMIN_SESSION_SECRET;
-  const secret = configuredSecret?.trim() ? configuredSecret : passcode;
-  // Domain-separated HMAC derivation. Bind the signing key to the passcode too,
-  // so rotating either environment variable invalidates previously issued cookies.
-  const key = createHmac('sha256', secret).update(SESSION_CONTEXT).update('\0').update(passcode).digest();
-  return { passcode, key };
+  const secret = configuredSecret?.trim() ? configuredSecret : password;
+  // Domain-separated HMAC derivation. Bind the signing key to the password too,
+  // so rotating the password or signing secret invalidates previously issued cookies.
+  const key = createHmac('sha256', secret).update(SESSION_CONTEXT).update('\0').update(password).digest();
+  return { email, password, key };
 }
 
 export function adminLoginConfigured(): boolean {
   return configuration() !== null;
 }
 
-export function validAdminPasscode(candidate: unknown): boolean {
+export function validAdminCredentials(email: unknown, password: unknown): boolean {
   const config = configuration();
-  if (!config || typeof candidate !== 'string' || candidate.length > 4096) return false;
+  if (!config || typeof email !== 'string' || typeof password !== 'string' || email.length > 4096 || password.length > 4096) return false;
   const digest = (value: string) => createHash('sha256').update(value).digest();
-  return timingSafeEqual(digest(candidate), digest(config.passcode));
+  // Check both values without short-circuiting based on whether the email matches.
+  const emailMatches = timingSafeEqual(digest(email), digest(config.email));
+  const passwordMatches = timingSafeEqual(digest(password), digest(config.password));
+  return emailMatches && passwordMatches;
 }
 
 export function createAdminSession(now = Date.now()): string {

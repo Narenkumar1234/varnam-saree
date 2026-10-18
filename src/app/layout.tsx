@@ -9,10 +9,10 @@ import { PageTransitionLoader } from '@/components/PageTransitionLoader';
 
 export const metadata: Metadata = {
   title: 'Varnam | Sarees, woven with stories',
-  description: "Discover Varnam's collection of silk, cotton and occasion sarees. A thoughtfully designed boutique shopping experience.",
+  description: "Discover Varnam's collection of silk, cotton and occasion sarees. A thoughtfully designed saree shopping experience.",
   openGraph: {
     title: 'Varnam | Sarees, woven with stories',
-    description: "Discover Varnam's collection of silk, cotton and occasion sarees. A thoughtfully designed boutique shopping experience.",
+    description: "Discover Varnam's collection of silk, cotton and occasion sarees. A thoughtfully designed saree shopping experience.",
     images: ['/assets/varnam-logo.png'],
   },
   icons: {

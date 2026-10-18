@@ -41,9 +41,11 @@ const request = (url, method = 'GET', body, token, headers = {}) => new NextRequ
   ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
 });
 const login = (body) => auth.POST(request('/api/admin/auth', 'POST', body));
+const credentials = (overrides = {}) => ({ email: process.env.ADMIN_LOGIN_EMAIL, password: process.env.ADMIN_LOGIN_PASSWORD, ...overrides });
 
 beforeEach(() => {
-  process.env.ADMIN_PASSCODE = randomBytes(32).toString('hex');
+  process.env.ADMIN_LOGIN_EMAIL = randomBytes(12).toString('hex') + '@example.test';
+  process.env.ADMIN_LOGIN_PASSWORD = randomBytes(32).toString('hex');
   process.env.ADMIN_SESSION_SECRET = randomBytes(32).toString('hex');
   process.env.NODE_ENV = 'test';
   dbCalls = [];
@@ -51,15 +53,18 @@ beforeEach(() => {
   order = { id: 'VRN-admin-test', total: 2500, status: 'Confirmed', itemsJson: JSON.stringify({ version: 1, items: [{ id: 1, qty: 1, finish: 'Included' }], pricing: { subtotal: 2500, shipping: 0, discountAmount: 0, total: 2500 } }) };
 });
 afterAll(() => {
-  for (const key of ['ADMIN_PASSCODE', 'ADMIN_SESSION_SECRET', 'NODE_ENV']) {
+  for (const key of ['ADMIN_LOGIN_EMAIL', 'ADMIN_LOGIN_PASSWORD', 'ADMIN_SESSION_SECRET', 'NODE_ENV']) {
     if (originalEnv[key] === undefined) delete process.env[key]; else process.env[key] = originalEnv[key];
   }
   mock.restore();
 });
 
-test.each([undefined, '', '   '])('missing/blank ADMIN_PASSCODE fails closed even with a signing secret', async (value) => {
-  if (value === undefined) delete process.env.ADMIN_PASSCODE; else process.env.ADMIN_PASSCODE = value;
-  const response = await login({ passcode: 'anything', email: 'admin@varnamsaree.com' });
+test.each([
+  ['ADMIN_LOGIN_EMAIL', undefined], ['ADMIN_LOGIN_EMAIL', ''], ['ADMIN_LOGIN_EMAIL', '   '],
+  ['ADMIN_LOGIN_PASSWORD', undefined], ['ADMIN_LOGIN_PASSWORD', ''], ['ADMIN_LOGIN_PASSWORD', '   '],
+])('missing/blank %s fails closed even with a signing secret', async (key, value) => {
+  if (value === undefined) delete process.env[key]; else process.env[key] = value;
+  const response = await login(credentials());
   expect(response.status).toBe(503);
   expect((await response.json()).error).toBe('Admin login is not configured.');
   expect(response.headers.get('set-cookie')).toBeNull();
@@ -67,14 +72,23 @@ test.each([undefined, '', '   '])('missing/blank ADMIN_PASSCODE fails closed eve
   expect((await products.GET(request('/api/admin/products'))).status).toBe(401);
 });
 
-test.each([{ email: 'admin@varnamsaree.com' }, { passcode: 'admin@varnamsaree.com' }, { passcode: 'incorrect', email: 'admin@varnamsaree.com' }, {}, { passcode: 1 }])('email alone or invalid credentials cannot log in: %j', async (body) => {
-  const response = await login(body);
+test.each([
+  ['wrong email with correct password', () => credentials({ email: 'other-' + process.env.ADMIN_LOGIN_EMAIL })],
+  ['wrong password with correct email', () => credentials({ password: randomBytes(32).toString('hex') })],
+  ['email alone', () => ({ email: process.env.ADMIN_LOGIN_EMAIL })],
+  ['password alone', () => ({ password: process.env.ADMIN_LOGIN_PASSWORD })],
+  ['old passcode payload', () => ({ email: process.env.ADMIN_LOGIN_EMAIL, passcode: process.env.ADMIN_LOGIN_PASSWORD })],
+  ['empty body', () => ({})],
+  ['non-string email', () => credentials({ email: 1 })],
+  ['non-string password', () => credentials({ password: 1 })],
+])('%s cannot log in', async (_label, body) => {
+  const response = await login(body());
   expect(response.status).toBe(401);
   expect(response.headers.get('set-cookie')).toBeNull();
 });
 
-test('valid passcode issues a signed, scoped HttpOnly cookie with no secret in its payload', async () => {
-  const response = await login({ passcode: process.env.ADMIN_PASSCODE });
+test('valid email and password issue a signed, scoped HttpOnly cookie with no secret in its payload', async () => {
+  const response = await login(credentials());
   expect(response.status).toBe(200);
   const issued = response.cookies.get(session.ADMIN_SESSION_COOKIE).value;
   expect(session.validAdminSession(issued)).toBe(true);
@@ -83,31 +97,32 @@ test('valid passcode issues a signed, scoped HttpOnly cookie with no secret in i
   expect(header).toContain('Path=/api/admin'); expect(header).toContain('Max-Age=28800');
   expect(response.headers.get('cache-control')).toBe('no-store');
   const payload = Buffer.from(issued.split('.')[0], 'base64url').toString();
-  expect(payload).not.toContain(process.env.ADMIN_PASSCODE);
+  expect(payload).not.toContain(process.env.ADMIN_LOGIN_EMAIL);
+  expect(payload).not.toContain(process.env.ADMIN_LOGIN_PASSWORD);
   expect(payload).not.toContain(process.env.ADMIN_SESSION_SECRET);
   expect((await auth.GET(request('/api/admin/auth', 'GET', undefined, issued))).status).toBe(200);
 });
 
 test('production cookie is Secure; development still permits local HTTP login', async () => {
   process.env.NODE_ENV = 'production';
-  expect((await login({ passcode: process.env.ADMIN_PASSCODE })).headers.get('set-cookie')).toContain('Secure');
+  expect((await login(credentials())).headers.get('set-cookie')).toContain('Secure');
   process.env.NODE_ENV = 'development';
-  expect((await login({ passcode: process.env.ADMIN_PASSCODE })).headers.get('set-cookie')).not.toContain('Secure');
+  expect((await login(credentials())).headers.get('set-cookie')).not.toContain('Secure');
 });
 
 test('optional signing secret fallback uses domain-separated HMAC, and either rotation invalidates cookies', () => {
   delete process.env.ADMIN_SESSION_SECRET;
   const fallback = session.createAdminSession();
   const [payload, signature] = fallback.split('.');
-  const key = createHmac('sha256', process.env.ADMIN_PASSCODE).update('varnam:studio-admin:session:v1').update('\0').update(process.env.ADMIN_PASSCODE).digest();
+  const key = createHmac('sha256', process.env.ADMIN_LOGIN_PASSWORD).update('varnam:studio-admin:session:v1').update('\0').update(process.env.ADMIN_LOGIN_PASSWORD).digest();
   expect(createHmac('sha256', key).update(payload).digest('base64url')).toBe(signature);
   expect(session.validAdminSession(fallback)).toBe(true);
   process.env.ADMIN_SESSION_SECRET = randomBytes(32).toString('hex');
   expect(session.validAdminSession(fallback)).toBe(false);
   const explicit = session.createAdminSession();
-  process.env.ADMIN_PASSCODE = randomBytes(32).toString('hex');
+  process.env.ADMIN_LOGIN_PASSWORD = randomBytes(32).toString('hex');
   expect(session.validAdminSession(explicit)).toBe(false);
-  delete process.env.ADMIN_PASSCODE;
+  delete process.env.ADMIN_LOGIN_PASSWORD;
   expect(session.validAdminSession(explicit)).toBe(false);
 });
 
@@ -149,7 +164,7 @@ test('all exported admin handlers, including any newly added routes, reject anon
 });
 
 test('valid session permits inventory listing, create/edit/stock/delete, and dispatch updates', async () => {
-  const token = (await login({ passcode: process.env.ADMIN_PASSCODE })).cookies.get(session.ADMIN_SESSION_COOKIE).value;
+  const token = (await login(credentials())).cookies.get(session.ADMIN_SESSION_COOKIE).value;
   const productList = await products.GET(request('/api/admin/products', 'GET', undefined, token));
   expect((await productList.json()).products[0].name).toBe(product.name);
   expect(productList.headers.get('cache-control')).toBe('no-store');
@@ -189,7 +204,7 @@ test('authenticated image upload still processes an image', async () => {
 test('cross-origin login, mutations, and logout are rejected', async () => {
   const token = session.createAdminSession();
   const headers = { origin: 'https://untrusted.example' };
-  expect((await auth.POST(request('/api/admin/auth', 'POST', { passcode: process.env.ADMIN_PASSCODE }, undefined, headers))).status).toBe(403);
+  expect((await auth.POST(request('/api/admin/auth', 'POST', credentials(), undefined, headers))).status).toBe(403);
   expect((await products.POST(request('/api/admin/products', 'POST', product, token, headers))).status).toBe(403);
   expect((await auth.DELETE(request('/api/admin/auth', 'DELETE', undefined, token, headers))).status).toBe(403);
   expect(dbCalls).toHaveLength(0);
@@ -198,9 +213,9 @@ test('cross-origin login, mutations, and logout are rejected', async () => {
 test('same-origin login works with Host or forwarded host when Next uses an internal URL', async () => {
   for (const headers of [
     { host: '127.0.0.1:3109', origin: 'http://127.0.0.1:3109' },
-    { host: 'internal:3000', 'x-forwarded-host': 'boutique.example', 'x-forwarded-proto': 'https', origin: 'https://boutique.example' },
+    { host: 'internal:3000', 'x-forwarded-host': 'store.example', 'x-forwarded-proto': 'https', origin: 'https://store.example' },
   ]) {
-    const req = new NextRequest('http://localhost:3000/api/admin/auth', { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify({ passcode: process.env.ADMIN_PASSCODE }) });
+    const req = new NextRequest('http://localhost:3000/api/admin/auth', { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(credentials()) });
     expect((await auth.POST(req)).status).toBe(200);
   }
 });

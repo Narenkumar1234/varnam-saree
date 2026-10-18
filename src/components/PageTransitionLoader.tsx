@@ -77,7 +77,7 @@ function LoaderContent() {
         aria-hidden="true"
       />
 
-      {/* Boutique Animated Loader Overlay */}
+      {/* Saree Store Animated Loader Overlay */}
       {isNavigating && (
         <div className="route-loader-overlay" role="status" aria-label="Loading page">
           <div className="route-loader-card">

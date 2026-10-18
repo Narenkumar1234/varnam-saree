@@ -1,0 +1,11 @@
+# Environment files may contain secrets. Track only the blank example.
+.env*
+*.env
+!.env.example
+
+# Local dependencies and generated output
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo

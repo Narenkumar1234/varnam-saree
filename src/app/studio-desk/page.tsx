@@ -52,7 +52,8 @@ export default function StudioDeskPage() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [passcode, setPasscode] = useState('');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
@@ -132,7 +133,8 @@ export default function StudioDeskPage() {
     setOrders([]);
     setEditingProduct(null);
     setActiveTab('inventory');
-    setPasscode('');
+    setLoginEmail('');
+    setLoginPassword('');
   }
 
   async function adminFetch(url: string, options: RequestInit = {}) {
@@ -197,13 +199,13 @@ export default function StudioDeskPage() {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ passcode }),
+        body: JSON.stringify({ email: loginEmail, password: loginPassword }),
       });
       const data = await res.json();
 
       if (res.ok && data.success) {
         setIsAuthenticated(true);
-        setPasscode('');
+        setLoginPassword('');
         showToast('Authorized: Welcome to Studio Desk');
       } else {
         setAuthError(data.error || 'Access denied');
@@ -387,21 +389,32 @@ export default function StudioDeskPage() {
         <div className="admin-login-card">
           <div className="admin-login-header">
             <span className="admin-brand-mark">V</span>
-            <h1>Boutique Studio Desk</h1>
+            <h1>Varnam Studio Desk</h1>
             <p>Private management portal for inventory, catalog & dispatch</p>
           </div>
 
           <form onSubmit={handleLogin} className="admin-form">
             <label>
-              Studio Access Passcode
+              Admin email
+              <input
+                type="email"
+                required
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                placeholder="Enter admin email"
+                autoComplete="username"
+                autoFocus
+              />
+            </label>
+            <label>
+              Password
               <input
                 type="password"
                 required
-                value={passcode}
-                onChange={(e) => setPasscode(e.target.value)}
-                placeholder="Enter Studio passcode"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                placeholder="Enter password"
                 autoComplete="current-password"
-                autoFocus
               />
             </label>
 
@@ -648,7 +661,7 @@ export default function StudioDeskPage() {
           <div className="admin-panel-header">
             <div>
               <h2>Add New Handcrafted Saree</h2>
-              <p className="muted">Enter design details to publish directly to the live Varnam boutique.</p>
+              <p className="muted">Enter design details to publish directly to the live Varnam saree store.</p>
             </div>
           </div>
 

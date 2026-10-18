@@ -170,26 +170,11 @@ nav a:hover {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 6px 9px;
-  border: 1px solid #d9c5ac;
-  border-radius: 3px;
-  color: var(--ink);
-  background: #f4ead7;
   white-space: nowrap;
-  transition: background .15s, border-color .15s;
-}
-
-nav a.offers-nav-link:hover {
-  color: var(--ink);
-  border-color: var(--gold);
-  background: #eee0c5;
 }
 
 .offers-nav-badge {
-  padding: 2px 6px;
-  border-radius: 2px;
-  background: var(--gold);
-  color: var(--paper);
+  color: var(--gold);
   font-size: 9px;
   font-weight: 700;
   letter-spacing: .45px;
