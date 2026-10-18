@@ -31,6 +31,7 @@ export function createWhatsAppOrderUrl(message: string): string | null {
   return number ? `https://wa.me/${number}?text=${encodeURIComponent(message)}` : null;
 }
 
+/** Shared digits-only contact number for order URLs and visible retry help. */
 export function getWhatsAppNumber(): string {
   return String(VARNAM_CONFIG.whatsappNumber || '').replace(/\D/g, '');
 }
