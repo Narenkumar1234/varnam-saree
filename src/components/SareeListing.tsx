@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { collectionsData, COLOUR_HEX_MAP } from '@/data/products';
+import { COLOUR_HEX_MAP } from '@/data/products';
 import { useStore } from '@/context/store-context';
 import { ProductCard } from '@/components/ProductCard';
 import { Icon } from '@/components/Icons';
@@ -17,7 +17,7 @@ interface SareeListingProps {
 
 export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
   const { products } = useStore();
-  const { collections: collectionOptions, priceBounds } = useMemo(() => getShopFilterOptions(products, collectionsData.map((collection) => collection.query)), [products]);
+  const { collections: collectionOptions, priceBounds } = useMemo(() => getShopFilterOptions(products), [products]);
   const colourOptions = [...new Set(products.map((p) => p.colour))].map((colour) => [colour, COLOUR_HEX_MAP[colour] || '#d8d0c8']);
   const searchParams = useSearchParams();
   const initialCollection = searchParams.get('collection');
@@ -53,7 +53,7 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
     const c = searchParams.get('collection');
     if (c && collectionOptions.includes(c)) {
       setFilters((prev) => ({ ...prev, collection: c }));
-    } else if (!c && !initialSearchMode) {
+    } else if (!initialSearchMode || !collectionOptions.includes(filters.collection)) {
       setFilters((prev) => ({ ...prev, collection: 'All' }));
     }
     setVisibleCount(6);

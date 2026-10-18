@@ -2991,3 +2991,12 @@ footer {
 .stock-state { min-height: 18px; margin: 5px 0 10px; color: var(--muted); font-size: 12px; }
 .stock-state.sold-out { color: #9a2940; font-weight: 600; }
 .btn[aria-disabled='true'] { opacity: .55; cursor: default; }
+.studio-commerce-form fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.studio-commerce-form { margin-top: 24px; }
+.studio-commerce-form h3 { margin-bottom: 16px; }
+.studio-commerce-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.studio-commerce-actions .btn { min-height: 36px; padding: 8px 14px; font-size: 12px; }
+.studio-commerce-checkbox { display: flex; align-items: center; gap: 10px; margin: 16px 0; }
+.studio-commerce-checkbox input { width: auto; }
+.studio-commerce-preview { background: var(--ink); color: var(--paper); padding: 16px; display: flex; flex-wrap: wrap; gap: 16px; margin: 20px 0; }
+.delivery-policy { font-size: 12px; margin: 12px 0; }

@@ -10,6 +10,7 @@
     "test:payments": "bun test tests/razorpay.test.mjs",
     "test:admin": "bun test tests/admin-session.test.mjs",
     "test:catalogue": "bun test tests/catalogue.test.mjs",
+    "test:commerce": "bun test tests/commerce.test.mjs",
     "db:generate": "drizzle-kit generate --config=src/db/drizzle.config.ts",
     "db:migrate": "bun scripts/migrate.ts",
     "db:seed": "bun scripts/seed.ts",

@@ -1,15 +1,19 @@
 import { beforeEach, afterAll, expect, mock, test } from 'bun:test';
 import { randomBytes } from 'node:crypto';
 import { NextRequest } from 'next/server';
+import { products as productTable } from '../src/db/schema.ts';
 
 const originalEnv = { ...process.env };
 let rows, unavailable, savedOrders, updates;
 const sample = () => ({ id: 101, name: 'Studio-edited silk', type: 'Handloom silk', collection: 'Wedding', price: 4000, oldPrice: 5000, colour: 'Plum', stock: 3, tag: 'New arrival', image: '/assets/saree-rose.webp', description: 'Description saved by Studio.' });
 mock.module('../src/db/index.ts', () => ({ db: {
-  select: () => ({ from: () => ({ orderBy: async () => {
-    if (unavailable) throw new Error('Database unavailable');
-    return structuredClone(rows);
-  } }) }),
+  select: () => ({ from: (table) => {
+    const read = async () => {
+      if (unavailable) throw new Error('Database unavailable');
+      return table === productTable ? structuredClone(rows) : [];
+    };
+    return { orderBy: read, then: (resolve, reject) => read().then(resolve, reject) };
+  } }),
   update: () => ({ set: (values) => ({ where: () => ({ returning: async () => {
     rows[0] = { ...rows[0], ...values }; updates++; return [rows[0]];
   } }) }) }),

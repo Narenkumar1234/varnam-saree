@@ -1,12 +1,12 @@
 import { relations } from 'drizzle-orm';
-import { integer, pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core';
+import { boolean, date, integer, pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core';
 
 // Define the 'products' table
 export const products = pgTable('products', {
   id: serial('id').primaryKey(),
   name: text('name').notNull(),
   type: text('type').notNull(),
-  collection: text('collection').notNull(), // 'Silk' | 'Cotton' | 'Festive'
+  collection: text('collection').notNull(),
   price: integer('price').notNull(),
   oldPrice: integer('old_price'),
   colour: text('colour').notNull(),
@@ -51,6 +51,20 @@ export const wishlists = pgTable('wishlists', {
     .notNull(),
   productId: integer('product_id').notNull(),
   createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const coupons = pgTable('coupons', {
+  id: serial('id').primaryKey(),
+  code: text('code').notNull().unique(),
+  percentage: integer('percentage').notNull(),
+  enabled: boolean('enabled').notNull().default(true),
+  minSubtotal: integer('min_subtotal').notNull().default(0),
+  expiresOn: date('expires_on'),
+});
+
+export const siteSettings = pgTable('site_settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
 });
 
 // Relationships

@@ -1,5 +1,6 @@
 'use client';
 
+import { DeliveryPolicy } from '@/components/DeliveryPolicy';
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -42,7 +43,7 @@ export default function HomePage() {
           <Icon name="leaf" /> Made for moments that matter
         </span>
         <span>
-          <Icon name="truck" /> Free delivery on orders above ₹2,999
+          <Icon name="truck" /> <DeliveryPolicy />
         </span>
         <span>
           <Icon name="heart" /> A little care in every fold

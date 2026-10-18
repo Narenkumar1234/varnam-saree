@@ -1,12 +1,11 @@
 import type { PriceRange, Product, ShopFilterState } from '@/types';
 
-export function getShopFilterOptions(catalogue: Product[], availableCollections: string[] = []) {
+export function getShopFilterOptions(catalogue: Product[]) {
   const prices = catalogue.map((product) => product.price);
 
   return {
     collections: ['All', ...new Set([
-      ...availableCollections.filter((collection) => collection && collection !== 'All'),
-      ...catalogue.map((product) => product.collection),
+      ...catalogue.map((product) => product.collection).filter((collection) => collection && collection !== 'All'),
     ])],
     priceBounds: {
       min: prices.length ? Math.min(...prices) : 0,

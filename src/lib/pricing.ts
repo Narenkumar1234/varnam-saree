@@ -1,13 +1,10 @@
 import { validateCoupon } from '@/lib/coupons';
+import { DEFAULT_COMMERCE, deliveryCharge, type CommerceConfig } from '@/lib/commerce';
 import type { CartItem, OrderItem, OrderPricing, OrderQuote, OrderPayment, Product } from '@/types';
 
 export class OrderPricingError extends Error {}
 
-export function quoteFromCatalogue(items: CartItem[], code: string | null | undefined, catalogue: Product[], checkStock = true): OrderQuote {
-  const validation = code ? validateCoupon(code) : null;
-  if (validation && !validation.valid) throw new OrderPricingError(validation.error);
-  const coupon = validation?.valid ? validation.coupon : undefined;
-
+export function quoteFromCatalogue(items: CartItem[], code: string | null | undefined, catalogue: Product[], checkStock = true, commerce: CommerceConfig = DEFAULT_COMMERCE): OrderQuote {
   const quantities = new Map<number, number>();
   for (const item of items) quantities.set(item.id, (quantities.get(item.id) || 0) + item.qty);
   const pricedItems = items.map((item) => {
@@ -31,7 +28,7 @@ export function quoteFromCatalogue(items: CartItem[], code: string | null | unde
       name: product.name,
       unitPrice: product.price,
       subtotal,
-      discountAmount: Math.floor(subtotal * (coupon?.percentage || 0) / 100),
+      discountAmount: 0,
       total: subtotal,
     };
   });
@@ -40,6 +37,10 @@ export function quoteFromCatalogue(items: CartItem[], code: string | null | unde
   if (!Number.isSafeInteger(subtotal) || subtotal > 2_147_483_497) {
     throw new OrderPricingError('The order total is too large. Please reduce the quantity.');
   }
+  const validation = code ? validateCoupon(code, commerce.coupons, subtotal) : null;
+  if (validation && !validation.valid) throw new OrderPricingError(validation.error);
+  const coupon = validation?.valid ? validation.coupon : undefined;
+  for (const item of pricedItems) item.discountAmount = Math.floor(item.subtotal * (coupon?.percentage || 0) / 100);
   const discountAmount = Math.round(subtotal * (coupon?.percentage || 0) / 100);
 
   // Allocate any rounding difference so line totals always add up to the order total.
@@ -55,7 +56,8 @@ export function quoteFromCatalogue(items: CartItem[], code: string | null | unde
   }
   for (const item of pricedItems) item.total = item.subtotal - item.discountAmount;
 
-  const shipping = subtotal === 0 || subtotal >= 3000 ? 0 : 150;
+  const shipping = deliveryCharge(subtotal, commerce.settings);
+  if (!Number.isSafeInteger(subtotal - discountAmount + shipping) || subtotal - discountAmount + shipping > 2_147_483_647) throw new OrderPricingError('The order total is too large. Please reduce the quantity.');
   return {
     items: pricedItems,
     pricing: {
@@ -98,12 +100,12 @@ export function readOrderSnapshot(json: string): { items: OrderItem[]; pricing?:
 }
 
 // Keep current prices visible in a saved bag, while preventing unavailable orders.
-export function previewOrderQuote(items: CartItem[], code: string | null | undefined, catalogue: Product[]) {
-  try { return { quote: quoteFromCatalogue(items, code, catalogue), error: null }; }
+export function previewOrderQuote(items: CartItem[], code: string | null | undefined, catalogue: Product[], commerce: CommerceConfig = DEFAULT_COMMERCE) {
+  try { return { quote: quoteFromCatalogue(items, code, catalogue, true, commerce), error: null }; }
   catch (error) {
     let quote: OrderQuote;
-    try { quote = quoteFromCatalogue(items.filter((item) => catalogue.some((p) => p.id === item.id)), code, catalogue, false); }
-    catch { quote = quoteFromCatalogue([], null, catalogue); }
+    try { quote = quoteFromCatalogue(items.filter((item) => catalogue.some((p) => p.id === item.id)), null, catalogue, false, commerce); }
+    catch { quote = quoteFromCatalogue([], null, catalogue, false, commerce); }
     return { quote, error: error instanceof Error ? error.message : 'Please review your bag before ordering.' };
   }
 }

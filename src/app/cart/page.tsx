@@ -1,5 +1,6 @@
 'use client';
 
+import { DeliveryPolicy } from '@/components/DeliveryPolicy';
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -107,6 +108,7 @@ export default function CartPage() {
             <aside className="summary-box">
               <h2>Your order</h2>
               <OrderTotals pricing={cartQuote.pricing} />
+              <p className="muted delivery-policy"><DeliveryPolicy includeFee /></p>
 
               {cartError && <p className="coupon-feedback error" role="alert">{cartError}</p>}
               <Link className="btn" href={cartError ? '/cart' : '/checkout'} aria-disabled={!!cartError} onClick={(event) => { if (cartError) event.preventDefault(); }}>

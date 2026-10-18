@@ -1,5 +1,6 @@
 'use client';
 
+import { DeliveryPolicy } from '@/components/DeliveryPolicy';
 import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -14,7 +15,7 @@ import { OrderLinePrice } from '@/components/OrderLinePrice';
 function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { cart, products, getProductById, couponCode, placeOrder } = useStore();
+  const { cart, products, commerce, getProductById, couponCode, placeOrder } = useStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -31,7 +32,7 @@ function CheckoutContent() {
     ? [{ id: buyNowProduct.id, qty: buyNowQty, finish: buyNowFinish }]
     : buyNowId ? [] : cart;
 
-  const { quote: checkoutQuote, error: checkoutError } = previewOrderQuote(checkoutItems, couponCode, products);
+  const { quote: checkoutQuote, error: checkoutError } = previewOrderQuote(checkoutItems, couponCode, products, commerce);
 
   const [formData, setFormData] = useState({
     first: '',
@@ -230,7 +231,8 @@ function CheckoutContent() {
               );
             })}
             <OrderTotals pricing={checkoutQuote.pricing} />
-            <CouponForm disabled={isSubmitting} />
+            <p className="muted delivery-policy"><DeliveryPolicy includeFee /></p>
+            <CouponForm disabled={isSubmitting} items={checkoutItems} />
           </aside>
         </div>
       </section>

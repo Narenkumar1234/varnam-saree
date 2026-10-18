@@ -6,10 +6,14 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useStore } from '@/context/store-context';
 import { Icon } from './Icons';
+import { renderMarquee } from '@/lib/commerce';
+import { validateCoupon } from '@/lib/coupons';
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const { totalBagCount } = useStore();
+  const { totalBagCount, commerce, products } = useStore();
+  const collectionLinks = [...new Set(products.map((product) => product.collection))].filter(Boolean).slice(0, 3);
+  const offer = commerce.coupons.filter((coupon) => validateCoupon(coupon.code, commerce.coupons, Number.MAX_SAFE_INTEGER).valid).sort((a, b) => b.percentage - a.percentage)[0];
   const pathname = usePathname();
 
   // Close menu on navigation
@@ -33,14 +37,14 @@ export function Header() {
       <div className="site-marquee" role="region" aria-label="Store updates">
         <div className="site-marquee-track">
           <p className="site-marquee-group">
-            <span>Dispatch time 2 to 5 business days</span>
+            <span>{renderMarquee(commerce.settings.marqueeMessage1, commerce.settings)}</span>
             <span className="site-marquee-star" aria-hidden="true">✦</span>
-            <span>Free delivery on orders above ₹2,999</span>
+            <span>{renderMarquee(commerce.settings.marqueeMessage2, commerce.settings)}</span>
           </p>
           <p className="site-marquee-group" aria-hidden="true">
-            <span>Dispatch time 2 to 5 business days</span>
+            <span>{renderMarquee(commerce.settings.marqueeMessage1, commerce.settings)}</span>
             <span className="site-marquee-star">✦</span>
-            <span>Free delivery on orders above ₹2,999</span>
+            <span>{renderMarquee(commerce.settings.marqueeMessage2, commerce.settings)}</span>
           </p>
         </div>
       </div>
@@ -60,12 +64,10 @@ export function Header() {
         <nav id="main-nav" className={menuOpen ? 'open' : ''} aria-label="Main navigation">
           <Link href="/">Home</Link>
           <Link href="/shop">All sarees</Link>
-          <Link href="/shop?collection=Silk">Silk stories</Link>
-          <Link href="/shop?collection=Cotton">Everyday cottons</Link>
-          <Link href="/shop?collection=Festive">The festive edit</Link>
-          <Link className="offers-nav-link" href="/shop" aria-label="Offers: 50% off">
+          {collectionLinks.map((collection) => <Link key={collection} href={`/shop?collection=${encodeURIComponent(collection)}`}>{collection}</Link>)}
+          <Link className="offers-nav-link" href="/shop" aria-label={offer ? `Offers: up to ${offer.percentage}% off` : 'Offers'}>
             <span>Offers</span>
-            <span className="offers-nav-badge" aria-hidden="true">50% OFF</span>
+            {offer && <span className="offers-nav-badge" aria-hidden="true">{offer.percentage}% OFF</span>}
           </Link>
           <Link href="/story">Our story</Link>
           <Link className="mobile-nav-link" href="/account">

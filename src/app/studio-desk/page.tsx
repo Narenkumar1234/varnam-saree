@@ -9,6 +9,7 @@ import { Icon } from '@/components/Icons';
 import { readOrderSnapshot } from '@/lib/pricing';
 import { OrderSavings } from '@/components/OrderTotals';
 import { StudioPayment } from '@/components/StudioPayment';
+import { StudioCommerce } from '@/components/StudioCommerce';
 import { createProductWhatsAppMessage, createSavedOrderWhatsAppMessage, openWhatsAppOrder } from '@/lib/whatsapp';
 
 type AdminProduct = Omit<Product, 'stock' | 'tag'> & { stock: number; tag?: string | null };
@@ -46,7 +47,7 @@ export default function StudioDeskPage() {
   const [authError, setAuthError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'inventory' | 'add' | 'orders'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'add' | 'orders' | 'coupons' | 'settings'>('inventory');
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -476,6 +477,8 @@ export default function StudioDeskPage() {
         </div>
       </div>
 
+      <datalist id="studio-collections">{[...new Set(products.map((product) => product.collection))].map((collection) => <option key={collection} value={collection} />)}</datalist>
+
       {/* Tabs */}
       <div className="admin-tabs">
         <button
@@ -499,7 +502,11 @@ export default function StudioDeskPage() {
         >
           Customer Orders ({orders.length})
         </button>
+        <button type="button" className={activeTab === 'coupons' ? 'active' : ''} onClick={() => setActiveTab('coupons')}>Coupons</button>
+        <button type="button" className={activeTab === 'settings' ? 'active' : ''} onClick={() => setActiveTab('settings')}>Site settings</button>
       </div>
+
+      {(activeTab === 'coupons' || activeTab === 'settings') && <StudioCommerce key={activeTab} section={activeTab} adminFetch={adminFetch} />}
 
       {/* TAB 1: INVENTORY & CATALOG */}
       {activeTab === 'inventory' && (
@@ -673,14 +680,7 @@ export default function StudioDeskPage() {
             <div className="admin-form-row two-col">
               <label>
                 Collection
-                <select
-                  value={newSaree.collection}
-                  onChange={(e) => setNewSaree({ ...newSaree, collection: e.target.value })}
-                >
-                  <option value="Silk">Silk</option>
-                  <option value="Cotton">Cotton</option>
-                  <option value="Festive">Festive</option>
-                </select>
+                <input required list="studio-collections" value={newSaree.collection} onChange={(e) => setNewSaree({ ...newSaree, collection: e.target.value })} placeholder="Choose or enter a collection" />
               </label>
 
               <label>
@@ -989,14 +989,7 @@ export default function StudioDeskPage() {
               <div className="admin-form-row two-col">
                 <label>
                   Collection
-                  <select
-                    value={editingProduct.collection}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, collection: e.target.value })}
-                  >
-                    <option value="Silk">Silk</option>
-                    <option value="Cotton">Cotton</option>
-                    <option value="Festive">Festive</option>
-                  </select>
+                  <input required list="studio-collections" value={editingProduct.collection} onChange={(e) => setEditingProduct({ ...editingProduct, collection: e.target.value })} placeholder="Choose or enter a collection" />
                 </label>
 
                 <label>

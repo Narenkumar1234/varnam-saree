@@ -1,3 +1,4 @@
+import { DeliveryPolicy } from '@/components/DeliveryPolicy';
 import React from 'react';
 import Link from 'next/link';
 
@@ -16,7 +17,7 @@ export default function ShippingPage() {
         <h2>Delivery, with care</h2>
         <p>
           Standard delivery within India is estimated at 5–7 business days. The demo offers
-          free delivery on orders above ₹2,999; otherwise, a ₹150 delivery charge applies.
+          <DeliveryPolicy includeFee />
         </p>
 
         <h2>Returns & exchanges</h2>

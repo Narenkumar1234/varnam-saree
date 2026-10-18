@@ -6,9 +6,11 @@ import { money } from '@/data/products';
 import { validateCoupon, type CouponValidation } from '@/lib/coupons';
 import { quoteFromCatalogue, previewOrderQuote, parseOrderItems } from '@/lib/pricing';
 import { usePathname } from 'next/navigation';
+import { DEFAULT_COMMERCE, type CommerceConfig } from '@/lib/commerce';
 import { createProductWhatsAppMessage, formatWhatsAppOrderMessage, openWhatsAppOrder } from '@/lib/whatsapp';
 
 interface StoreContextType {
+  commerce: CommerceConfig;
   products: Product[];
   getProductById: (id: number | string) => Product | undefined;
   refreshProducts: () => Promise<Product[]>;
@@ -25,7 +27,7 @@ interface StoreContextType {
   adjustCardQuantity: (id: number, delta: number) => void;
   removeItem: (id: number) => void;
   toggleWish: (id: number) => void;
-  applyCoupon: (code: string) => CouponValidation;
+  applyCoupon: (code: string, subtotal?: number) => CouponValidation;
   removeCoupon: () => void;
   placeOrder: (
     details: { first: string; last: string; email: string; phone: string; address: string; city: string; state: string; pin: string },
@@ -41,7 +43,10 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-export function StoreProvider({ children, initialProducts }: { children: ReactNode; initialProducts: Product[] }) {
+export function StoreProvider({ children, initialProducts, initialCommerce = DEFAULT_COMMERCE }: { children: ReactNode; initialProducts: Product[]; initialCommerce?: CommerceConfig }) {
+  const [commerce, setCommerce] = useState(initialCommerce);
+  const commerceRef = useRef(initialCommerce);
+  useEffect(() => { commerceRef.current = initialCommerce; setCommerce(initialCommerce); }, [initialCommerce]);
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const catalogueRef = useRef(initialProducts);
   const refreshing = useRef<Promise<Product[]> | null>(null);
@@ -49,6 +54,10 @@ export function StoreProvider({ children, initialProducts }: { children: ReactNo
   useEffect(() => { catalogueRef.current = initialProducts; setProducts(initialProducts); }, [initialProducts]);
   const refreshProducts = useCallback(() => {
     if (refreshing.current) return refreshing.current;
+    const commercialRefresh = fetch('/api/commerce', { cache: 'no-store' }).then(async (response) => {
+      const data = await response.json();
+      if (response.ok && Array.isArray(data.coupons) && data.settings) { commerceRef.current = data; setCommerce(data); }
+    }).catch(() => {});
     refreshing.current = fetch('/api/products', { cache: 'no-store' })
       .then(async (response) => {
         const data = await response.json();
@@ -57,7 +66,7 @@ export function StoreProvider({ children, initialProducts }: { children: ReactNo
           setProducts(data.products);
         }
         return catalogueRef.current;
-      }).catch(() => catalogueRef.current).finally(() => { refreshing.current = null; });
+      }).catch(() => catalogueRef.current).then(async (catalogue) => { await commercialRefresh; return catalogue; }).finally(() => { refreshing.current = null; });
     return refreshing.current;
   }, []);
   useEffect(() => {
@@ -99,8 +108,7 @@ export function StoreProvider({ children, initialProducts }: { children: ReactNo
       if (savedProfile) setProfileState(JSON.parse(savedProfile));
 
       const savedCoupon = localStorage.getItem('varnam-coupon');
-      const coupon = validateCoupon(savedCoupon);
-      if (coupon.valid) setCouponCode(coupon.coupon.code);
+      if (savedCoupon?.trim()) setCouponCode(savedCoupon.trim().toUpperCase());
     } catch {
       // Local storage may be disabled or empty
     }
@@ -131,12 +139,12 @@ export function StoreProvider({ children, initialProducts }: { children: ReactNo
 
   const totalBagCount = cart.reduce((sum, item) => sum + item.qty, 0);
 
-  const { quote: cartQuote, error: cartError } = useMemo(() => previewOrderQuote(cart, couponCode, products), [cart, couponCode, products]);
+  const { quote: cartQuote, error: cartError } = useMemo(() => previewOrderQuote(cart, couponCode, products, commerce), [cart, couponCode, products, commerce]);
 
   const addToCart = (id: number, qty = 1, finish = 'Unstitched blouse · included') => {
     const current = cart.find((item) => item.id === id);
     const next = current ? cart.map((item) => item.id === id ? { ...item, qty: item.qty + qty, finish } : item) : [...cart, { id, qty, finish }];
-    try { quoteFromCatalogue(next, couponCode, products); }
+    try { quoteFromCatalogue(next, null, products, true, commerce); }
     catch (error) { showToast(error instanceof Error ? error.message : 'This saree is unavailable.'); return; }
     setCart(next);
     showToast('Added to your bag');
@@ -149,7 +157,7 @@ export function StoreProvider({ children, initialProducts }: { children: ReactNo
     if (qty <= 0) { setCart(cart.filter((item) => item.id !== id)); return; }
     const next = cart.map((item) => item.id === id ? { ...item, qty } : item);
     if (delta > 0) {
-      try { quoteFromCatalogue(next, couponCode, products); }
+      try { quoteFromCatalogue(next, null, products, true, commerce); }
       catch (error) { showToast(error instanceof Error ? error.message : 'Please review your bag.'); return; }
     }
     setCart(next);
@@ -173,8 +181,8 @@ export function StoreProvider({ children, initialProducts }: { children: ReactNo
     });
   };
 
-  const applyCoupon = (code: string) => {
-    const result = validateCoupon(code);
+  const applyCoupon = (code: string, subtotal = cartQuote.pricing.subtotal) => {
+    const result = validateCoupon(code, commerce.coupons, subtotal);
     if (result.valid) setCouponCode(result.coupon.code);
     return result;
   };
@@ -188,9 +196,9 @@ export function StoreProvider({ children, initialProducts }: { children: ReactNo
     const id = 'VRN-' + crypto.randomUUID();
     const orderItems = customItems || [...cart];
     // Validate locally, then let the API calculate and save the authoritative price.
-    const displayedQuote = quoteFromCatalogue(parseOrderItems(orderItems), couponCode, products);
+    const displayedQuote = quoteFromCatalogue(parseOrderItems(orderItems), couponCode, products, true, commerce);
     const latest = await refreshProducts();
-    const latestQuote = quoteFromCatalogue(orderItems, couponCode, latest);
+    const latestQuote = quoteFromCatalogue(orderItems, couponCode, latest, true, commerceRef.current);
     if (displayedQuote.pricing.total !== latestQuote.pricing.total) throw new Error('Prices have changed. Please review the updated total and place your order again.');
     const response = await fetch('/api/orders', {
       method: 'POST',
@@ -267,7 +275,7 @@ export function StoreProvider({ children, initialProducts }: { children: ReactNo
     if (!product) return;
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     try {
-      const { pricing } = quoteFromCatalogue([{ id, qty, finish }], couponCode, products);
+      const { pricing } = quoteFromCatalogue([{ id, qty, finish }], couponCode, products, true, commerce);
       openWhatsAppMessage(createProductWhatsAppMessage(product, { quantity: qty, finish, origin, pricing }));
     } catch (error) { showToast(error instanceof Error ? error.message : 'This saree is unavailable.'); }
   };
@@ -289,7 +297,7 @@ export function StoreProvider({ children, initialProducts }: { children: ReactNo
   return (
     <StoreContext.Provider
       value={{
-        products, getProductById, refreshProducts, cartError,
+        commerce, products, getProductById, refreshProducts, cartError,
         cart,
         wish,
         orders,

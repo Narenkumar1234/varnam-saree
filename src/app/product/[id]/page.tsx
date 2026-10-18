@@ -1,5 +1,6 @@
 'use client';
 
+import { DeliveryPolicy } from '@/components/DeliveryPolicy';
 import React, { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -172,7 +173,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             </button>
 
             <p className="muted" style={{ fontSize: '11px' }}>
-              Free delivery on orders above ₹2,999.
+              <DeliveryPolicy />
             </p>
 
             <form onSubmit={handleCheckPin}>

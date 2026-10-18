@@ -7,6 +7,7 @@ import { FloatingSocials } from '@/components/FloatingSocials';
 import { Toast } from '@/components/Toast';
 import { PageTransitionLoader } from '@/components/PageTransitionLoader';
 import { getCatalogue } from '@/lib/catalogue-server';
+import { getCommerce } from '@/lib/commerce-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +29,7 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const catalogue = await getCatalogue();
+  const [catalogue, commerce] = await Promise.all([getCatalogue(), getCommerce()]);
   return (
     <html lang="en">
       <head>
@@ -40,7 +41,7 @@ export default async function RootLayout({
         />
       </head>
       <body>
-        <StoreProvider initialProducts={catalogue.products}>
+        <StoreProvider initialProducts={catalogue.products} initialCommerce={commerce}>
           <PageTransitionLoader />
           <Header />
           <main id="app">{children}</main>

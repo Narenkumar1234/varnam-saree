@@ -159,7 +159,7 @@ test('all exported admin handlers, including any newly added routes, reject anon
       covered++;
     }
   }
-  expect(covered).toBe(7);
+  expect(covered).toBe(13);
   expect(dbCalls).toHaveLength(0);
 });
 

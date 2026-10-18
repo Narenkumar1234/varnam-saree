@@ -45,7 +45,7 @@ Fresh setup (Bun is used for database scripts and tests):
 1. Run `bun install --frozen-lockfile`.
 2. Copy `.env.example` to `.env.local` and configure `SQL_HOST`, `SQL_PORT` (default 5432), `SQL_DB_NAME`, `SQL_USER`, and `SQL_PASSWORD`. The password may be blank only if your PostgreSQL instance permits passwordless local authentication. Set `SQL_SSL=true` if your provider requires TLS with a trusted certificate; it defaults to false.
 3. Optionally configure `SQL_ADMIN_USER` and `SQL_ADMIN_PASSWORD` for migrations and seeding. Otherwise those scripts use the application SQL identity. The application identity must be able to read/write the store tables, and the setup identity must be able to create tables/sequences/constraints.
-4. Run `bun run db:setup` (or `bun run db:migrate` followed by `bun run db:seed`). The committed Drizzle migration creates `products`, `users`, `orders`, and `wishlists`. The baseline leaves existing matching tables/data intact; it does not repair an incompatible pre-existing schema. Check the schema and back up an existing database before adopting the baseline.
+4. Run `bun run db:setup` (or `bun run db:migrate` followed by `bun run db:seed`). The committed Drizzle migrations create `products`, `users`, `orders`, `wishlists`, `coupons`, and `site_settings`. The baseline leaves existing matching tables/data intact; it does not repair an incompatible pre-existing schema. Check the schema and back up an existing database before adopting the baseline.
 5. The seed loads the eight current sample sarees with stable IDs 1–8 and an initial stock of 5 each. It skips existing IDs, preserves Studio edits on reruns, and advances the sequence so a new Studio product receives a fresh ID. Update stock to your actual inventory in Studio.
 6. Configure the admin and optional Razorpay variables described below, then run `bun run dev` or `bun run build` and `bun run start`.
 
@@ -56,6 +56,31 @@ For future schema changes, edit `src/db/schema.ts`, run `bun run db:generate`, r
 Stock is checked against the current catalogue before ordering, and sold-out products cannot be added, bought directly, or sent as new WhatsApp orders. This change does not reserve/decrement stock automatically or implement inventory reservations across concurrent orders; Studio manages stock quantities. Existing saved-order confirmations remain available on WhatsApp.
 
 Run `bun test` (including `bun run test:catalogue`), `bun run lint`, and `bun run build`. Catalogue tests cover an authenticated Studio price edit reaching the public API and server quote, empty/unreachable fallback, sold-out/duplicate-line limits, coupons, and stale-total rejection.
+
+## Owner-managed commercial settings
+
+After pulling this change, run `bun run db:migrate` and `bun run db:seed` (or `bun run db:setup`) with the existing SQL environment variables. No new environment variables are required. The second migration adds `coupons` (unique code, integer discount percentage, active flag, minimum subtotal, inclusive UTC expiry date) and `site_settings` (text key/value rows). The seed adds OFFER50 and WELCOME10 once and fills missing settings without overwriting owner edits. Repeat setup preserves disabled coupons, renamed/deleted codes, and deliberately deleting every coupon.
+
+Sign in at `/studio-desk` and open **Coupons** to create, edit, activate/deactivate, or delete codes. Codes are normalized to uppercase and require 2–40 letters, numbers, underscores or hyphens. Discounts are whole percentages from 1 to 100. Minimum spend uses the product subtotal **before discounts and delivery**. Expiry dates remain valid through the selected date in UTC. Checkout reads fresh coupons on the server and rejects inactive, expired, below-minimum, and deleted codes with a clear error. Customers can remove a previously applied code if it becomes unavailable.
+
+**Site settings** manages these keys:
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `marqueeMessage1` | Dispatch time 2 to 5 business days | First scrolling message |
+| `marqueeMessage2` | Free delivery on orders above {freeDeliveryThreshold} | Second scrolling message; keep the token so the amount stays accurate |
+| `freeDeliveryThreshold` | 2999 | Delivery is free when the subtotal before discounts is strictly above this rupee amount |
+| `standardShippingFee` | 150 | Rupee delivery charge for other non-empty orders |
+
+Set either delivery amount to zero for free delivery on all orders. The marquee token expands to the threshold with the ₹ sign and Indian number formatting. Home, product details, shipping policy, cart, and checkout display the same delivery policy used by the shared pricing function. The Offers badge also follows currently active, unexpired coupons instead of promising a fixed discount. Empty bags have no delivery charge. Existing order/payment snapshots keep their original discounts and delivery charges.
+
+The root layout and no-store `/api/commerce` share `src/lib/commerce-server.ts`. The browser refreshes commercial data with the product catalogue on navigation, focus, and every 30 seconds while visible. Orders always re-read the database; a changed total requires customer review. Empty/unconfigured or unreachable commercial storage uses the existing two coupons and current delivery/marquee defaults so browsing remains usable. Settings fall back per missing/invalid key. A private `couponsInitialized` key distinguishes an unconfigured coupon table from an intentionally empty one; a reachable configured store with no coupons offers no discounts. An outage uses fallback commercial values, including fallback coupons. Admin APIs return a clear error on storage failure and never claim a failed write succeeded.
+
+New `/api/admin/coupons`, `/api/admin/coupons/[id]`, and `/api/admin/settings` handlers require the existing signed session and reject cross-origin mutations. All unauthorized calls return 401 before database access. No signing, login, WhatsApp number, Razorpay credential, or payment-verification behavior is changed.
+
+Shop collection/colour filter labels and price bounds come from live products. Studio's collection field accepts a new name and suggests existing names. New collections appear after the next storefront refresh; removed collections are not kept as empty hardcoded filters.
+
+Run `bun run test:commerce` for coupon CRUD, disabling/expiry/minimum checks, delivery-threshold changes, stale-total rejection, defaults, intentional empty-coupon handling, and admin protection. `bun test` also runs the catalogue, payment, and existing admin-session regressions.
 
 ## Studio admin access
 
