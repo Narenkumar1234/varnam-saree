@@ -4,16 +4,17 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useStore } from '@/context/store-context';
 import { money } from '@/data/products';
-import { Icon } from '@/components/Icons';
 import { OrderSavings } from '@/components/OrderTotals';
+import { loadTrackedOrder, type TrackedOrder } from '@/lib/order-lookup';
 
 function TrackContent() {
   const searchParams = useSearchParams();
   const { getOrderById } = useStore();
   const [orderQuery, setOrderQuery] = useState('');
   const [searchedId, setSearchedId] = useState('');
-  const [dbOrder, setDbOrder] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+  const [lookup, setLookup] = useState<{ id: string; status: 'loading' | 'found' | 'not-found' | 'error'; order?: TrackedOrder } | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const localOrder = searchedId ? getOrderById(searchedId) : undefined;
 
   useEffect(() => {
     const o = searchParams.get('order');
@@ -24,36 +25,30 @@ function TrackContent() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (searchedId) {
-      const local = getOrderById(searchedId);
-      if (local) {
-        setDbOrder(local);
-      } else {
-        setLoading(true);
-        fetch(`/api/orders/${encodeURIComponent(searchedId)}`)
-          .then((res) => (res.ok ? res.json() : null))
-          .then((data) => {
-            if (data?.order) {
-              setDbOrder(data.order);
-            } else {
-              setDbOrder(null);
-            }
-          })
-          .catch((err) => {
-            console.error('Failed to lookup order in DB:', err);
-            setDbOrder(null);
-          })
-          .finally(() => setLoading(false));
-      }
-    }
-  }, [searchedId, getOrderById]);
+    if (!searchedId) { setLookup(null); return; }
+    if (localOrder) { setLookup({ id: searchedId, status: 'found', order: localOrder }); return; }
+    const controller = new AbortController();
+    setLookup({ id: searchedId, status: 'loading' });
+    loadTrackedOrder(searchedId, controller.signal)
+      .then((order) => {
+        if (!controller.signal.aborted) setLookup(order ? { id: searchedId, status: 'found', order } : { id: searchedId, status: 'not-found' });
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setLookup({ id: searchedId, status: 'error' });
+      });
+    return () => controller.abort();
+  }, [searchedId, localOrder, attempt]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setSearchedId(orderQuery.trim());
+    setAttempt((current) => current + 1);
   };
 
-  const order = dbOrder || (searchedId ? getOrderById(searchedId) : undefined);
+  const currentLookup = lookup?.id === searchedId ? lookup : null;
+  const loading = Boolean(searchedId && !localOrder && (!currentLookup || currentLookup.status === 'loading'));
+  const lookupError = currentLookup?.status === 'error';
+  const order: TrackedOrder | undefined = localOrder || currentLookup?.order;
 
   return (
     <>
@@ -85,7 +80,12 @@ function TrackContent() {
               Looking up your order…
             </p>
           ) : searchedId ? (
-            order ? (
+            lookupError ? (
+              <div>
+                <p role="alert">Could not load your order — check your connection and retry.</p>
+                <button type="button" className="btn outline" onClick={() => setAttempt((current) => current + 1)}>Retry lookup</button>
+              </div>
+            ) : order ? (
               <div>
                 <h2 style={{ fontSize: '24px' }}>{order.id}</h2>
                 <p className="muted">

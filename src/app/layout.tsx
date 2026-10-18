@@ -9,10 +9,12 @@ import { PageTransitionLoader } from '@/components/PageTransitionLoader';
 import { getCatalogue } from '@/lib/catalogue-server';
 import { getCommerce } from '@/lib/commerce-server';
 import { WhatsAppFallback } from '@/components/WhatsAppFallback';
+import { getSiteUrl } from '@/lib/site-url';
 
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
+  metadataBase: getSiteUrl(),
   title: 'Varnam | Sarees, woven with stories',
   description: "Discover Varnam's collection of silk, cotton and occasion sarees. A thoughtfully designed saree shopping experience.",
   openGraph: {

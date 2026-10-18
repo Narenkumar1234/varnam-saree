@@ -57,6 +57,14 @@ Stock is checked against the current catalogue before ordering, and sold-out pro
 
 Run `bun test` (including `bun run test:catalogue`), `bun run lint`, and `bun run build`. Catalogue tests cover an authenticated Studio price edit reaching the public API and server quote, empty/unreachable fallback, sold-out/duplicate-line limits, coupons, and stale-total rejection.
 
+## Product metadata and crawler URLs
+
+Set optional `SITE_URL` to the public HTTPS origin of the deployed store. It supplies `metadataBase`, canonical product URLs, and the absolute URLs in `/robots.txt` and `/sitemap.xml`. Blank, malformed, or non-HTTP(S) values safely use `http://localhost:3000`. `.env.example` keeps the value blank; no credentials are needed. Restart/redeploy after changing it.
+
+Each product page exports server-side `generateMetadata` using the same database catalogue/fallback as the storefront: product name + Varnam, product description (or a generated description), and the product image for OpenGraph and Twitter sharing. Interactive product controls remain in `src/components/ProductDetail.tsx`. Missing products are marked noindex. The dynamic sitemap includes public content pages, journal articles, and current product URLs; an empty/unreachable database uses the fallback catalogue. Transactional, account, tracking, and Studio routes are omitted from the sitemap and disallowed in robots. Admin authentication continues to protect admin data.
+
+Tracking distinguishes confirmed 404 responses from connection/server/malformed-response failures, offers a retry, and cancels superseded lookups so an old response cannot replace the current result. Repeating Find order also retries the same number. Delivery copy comes from `deliveryPolicyText`; `DeliveryPolicy` defaults to a full sentence and accepts `embedded` for lowercase text with no final punctuation. The shipping page uses that mode inside its sentence.
+
 ## Owner-managed commercial settings
 
 After pulling this change, run `bun run db:migrate` and `bun run db:seed` (or `bun run db:setup`) with the existing SQL environment variables. No new environment variables are required. The second migration adds `coupons` (unique code, integer discount percentage, active flag, minimum subtotal, inclusive UTC expiry date) and `site_settings` (text key/value rows). The seed adds OFFER50 and WELCOME10 once and fills missing settings without overwriting owner edits. Repeat setup preserves disabled coupons, renamed/deleted codes, and deliberately deleting every coupon.

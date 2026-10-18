@@ -10,21 +10,17 @@ export default function ShippingPage() {
       </div>
 
       <article className="prose">
-        <p className="demo-note">
-          Proposed policy for the store preview. Confirm these terms before launching real sales.
-        </p>
-
         <h2>Delivery, with care</h2>
         <p>
-          Standard delivery within India is estimated at 5–7 business days. The demo offers
-          <DeliveryPolicy includeFee />
+          Standard delivery within India is estimated at 5–7 business days. We offer{' '}
+          <DeliveryPolicy includeFee embedded />.
         </p>
 
         <h2>Returns & exchanges</h2>
         <p>
-          Proposed return window: 7 days from delivery for unworn, unwashed sarees with tags and
-          original packaging. Custom finishing would be excluded except for defects. The business
-          should confirm return shipping costs and refund timelines.
+          Please contact Varnam within 7 days of delivery to discuss a return or exchange. Sarees
+          must be unworn and unwashed, with tags and original packaging. Custom finishing is
+          excluded except for defects. Contact us to confirm return shipping costs and refund timelines.
         </p>
 
         <h2>Need a hand?</h2>
@@ -32,7 +28,7 @@ export default function ShippingPage() {
           <Link className="text-link" href="/contact">
             Contact Varnam
           </Link>{' '}
-          for questions about your order. Demo orders do not create shipments.
+          for questions about your order, delivery, returns, or exchanges.
         </p>
       </article>
     </>

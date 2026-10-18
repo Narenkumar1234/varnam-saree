@@ -1,10 +1,9 @@
 'use client';
 
 import { useStore } from '@/context/store-context';
-import { freeDeliveryCopy } from '@/lib/commerce';
-import { money } from '@/data/products';
+import { deliveryPolicyText } from '@/lib/delivery-policy';
 
-export function DeliveryPolicy({ includeFee = false }: { includeFee?: boolean }) {
+export function DeliveryPolicy({ includeFee = false, embedded = false }: { includeFee?: boolean; embedded?: boolean }) {
   const { commerce: { settings } } = useStore();
-  return <span>{freeDeliveryCopy(settings)}{includeFee && settings.standardShippingFee > 0 && settings.freeDeliveryThreshold > 0 ? `; otherwise, a ${money(settings.standardShippingFee)} delivery charge applies` : ''}.</span>;
+  return <span>{deliveryPolicyText(settings, { includeFee, embedded })}</span>;
 }
