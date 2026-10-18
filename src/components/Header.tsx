@@ -52,6 +52,10 @@ export function Header() {
           <Link href="/shop?collection=Silk">Silk stories</Link>
           <Link href="/shop?collection=Cotton">Everyday cottons</Link>
           <Link href="/shop?collection=Festive">The festive edit</Link>
+          <Link className="offers-nav-link" href="/shop" aria-label="Offers: 50% off">
+            <span>Offers</span>
+            <span className="offers-nav-badge" aria-hidden="true">50% OFF</span>
+          </Link>
           <Link href="/story">Our story</Link>
           <Link className="mobile-nav-link" href="/account">
             My account
