@@ -3,10 +3,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { products, COLOUR_HEX_MAP } from '@/data/products';
+import { products, collectionsData, COLOUR_HEX_MAP } from '@/data/products';
 import { ProductCard } from '@/components/ProductCard';
 import { Icon } from '@/components/Icons';
-import { ShopFilterState } from '@/types';
+import { PriceRangeFilter } from '@/components/PriceRangeFilter';
+import { createShopFilters, filterShopProducts, getShopFilterOptions } from '@/lib/shop-filters';
+import type { ShopFilterState } from '@/types';
+
+const { collections: collectionOptions, priceBounds } = getShopFilterOptions(
+  products,
+  collectionsData.map((collection) => collection.query)
+);
 
 interface SareeListingProps {
   initialSearchMode?: boolean;
@@ -17,14 +24,12 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
   const initialCollection = searchParams.get('collection');
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [filters, setFilters] = useState<ShopFilterState>({
-    collection:
-      initialCollection && ['Silk', 'Cotton', 'Festive'].includes(initialCollection)
-        ? initialCollection
-        : 'All',
-    colours: [],
-    budget: false,
-  });
+  const [filters, setFilters] = useState<ShopFilterState>(() => createShopFilters(
+    priceBounds,
+    initialCollection && collectionOptions.includes(initialCollection)
+      ? initialCollection
+      : 'All'
+  ));
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetDraft, setSheetDraft] = useState<ShopFilterState>(filters);
@@ -34,7 +39,7 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
   // Sync if URL search params change
   useEffect(() => {
     const c = searchParams.get('collection');
-    if (c && ['Silk', 'Cotton', 'Festive'].includes(c)) {
+    if (c && collectionOptions.includes(c)) {
       setFilters((prev) => ({ ...prev, collection: c }));
     } else if (!c && !initialSearchMode) {
       setFilters((prev) => ({ ...prev, collection: 'All' }));
@@ -43,25 +48,10 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
   }, [searchParams, initialSearchMode]);
 
   // Compute matching products combining query + filters
-  const filteredProducts = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-
-    return products.filter((p) => {
-      // Query match (searches name, weave type, collection, colour)
-      const matchesQuery =
-        !q ||
-        `${p.name} ${p.type} ${p.collection} ${p.colour}`.toLowerCase().includes(q);
-
-      // Filter matches
-      const matchesCollection =
-        filters.collection === 'All' || p.collection === filters.collection;
-      const matchesColour =
-        !filters.colours.length || filters.colours.includes(p.colour);
-      const matchesBudget = !filters.budget || p.price < 5000;
-
-      return matchesQuery && matchesCollection && matchesColour && matchesBudget;
-    });
-  }, [searchQuery, filters]);
+  const filteredProducts = useMemo(
+    () => filterShopProducts(products, filters, searchQuery),
+    [searchQuery, filters]
+  );
 
   // Sort products
   const sortedProducts = useMemo(() => {
@@ -80,41 +70,32 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
   const activeFilterCount =
     (filters.collection !== 'All' ? 1 : 0) +
     filters.colours.length +
-    (filters.budget ? 1 : 0);
+    (filters.priceRange.min !== priceBounds.min || filters.priceRange.max !== priceBounds.max ? 1 : 0);
 
   // Draft count for mobile bottom sheet
-  const draftMatchingCount = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    return products.filter((p) => {
-      const matchesQuery =
-        !q || `${p.name} ${p.type} ${p.collection} ${p.colour}`.toLowerCase().includes(q);
-      const matchesCollection =
-        sheetDraft.collection === 'All' || p.collection === sheetDraft.collection;
-      const matchesColour =
-        !sheetDraft.colours.length || sheetDraft.colours.includes(p.colour);
-      const matchesBudget = !sheetDraft.budget || p.price < 5000;
-      return matchesQuery && matchesCollection && matchesColour && matchesBudget;
-    }).length;
-  }, [searchQuery, sheetDraft]);
+  const draftMatchingCount = useMemo(
+    () => filterShopProducts(products, sheetDraft, searchQuery).length,
+    [searchQuery, sheetDraft]
+  );
 
   const resetFilters = () => {
-    setFilters({ collection: 'All', colours: [], budget: false });
+    setFilters(createShopFilters(priceBounds));
     setVisibleCount(6);
   };
 
   const handleOpenSheet = () => {
-    setSheetDraft({ ...filters, colours: [...filters.colours] });
+    setSheetDraft({ ...filters, colours: [...filters.colours], priceRange: { ...filters.priceRange } });
     setSheetOpen(true);
   };
 
   const handleApplySheet = () => {
-    setFilters({ ...sheetDraft, colours: [...sheetDraft.colours] });
+    setFilters({ ...sheetDraft, colours: [...sheetDraft.colours], priceRange: { ...sheetDraft.priceRange } });
     setVisibleCount(6);
     setSheetOpen(false);
   };
 
   const handleResetSheet = () => {
-    setSheetDraft({ collection: 'All', colours: [], budget: false });
+    setSheetDraft(createShopFilters(priceBounds));
   };
 
   return (
@@ -164,7 +145,7 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
           <fieldset>
             <legend>Collection</legend>
             <div className="filter-options">
-              {['All', 'Silk', 'Cotton', 'Festive'].map((c) => (
+              {collectionOptions.map((c) => (
                 <label key={c} htmlFor={`desktop-${c}`}>
                   <input
                     id={`desktop-${c}`}
@@ -214,19 +195,14 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
 
           <fieldset>
             <legend>Price range</legend>
-            <label htmlFor="desktop-budget">
-              <input
-                id="desktop-budget"
-                type="checkbox"
-                name="desktop-budget"
-                checked={filters.budget}
-                onChange={(e) => {
-                  setFilters((prev) => ({ ...prev, budget: e.target.checked }));
-                  setVisibleCount(6);
-                }}
-              />
-              <span>Under ₹5,000</span>
-            </label>
+            <PriceRangeFilter
+              bounds={priceBounds}
+              value={filters.priceRange}
+              onChange={(priceRange) => {
+                setFilters((prev) => ({ ...prev, priceRange }));
+                setVisibleCount(6);
+              }}
+            />
           </fieldset>
 
           <button className="text-link filter-reset" type="button" onClick={resetFilters}>
@@ -287,7 +263,7 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
               <p className="muted">
                 {searchQuery
                   ? `No weaves found for "${searchQuery}". Try another keyword or clear filters.`
-                  : 'Try another colour or collection.'}
+                  : 'Try another price range, colour, or collection.'}
               </p>
               <button
                 className="btn"
@@ -351,7 +327,7 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
               <fieldset>
                 <legend>Collection</legend>
                 <div className="filter-options">
-                  {['All', 'Silk', 'Cotton', 'Festive'].map((c) => (
+                  {collectionOptions.map((c) => (
                     <label
                       key={c}
                       htmlFor={`sheet-${c}`}
@@ -405,21 +381,13 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
 
               <fieldset>
                 <legend>Price range</legend>
-                <label
-                  htmlFor="sheet-budget"
-                  className={sheetDraft.budget ? 'checked' : ''}
-                >
-                  <input
-                    id="sheet-budget"
-                    type="checkbox"
-                    name="sheet-budget"
-                    checked={sheetDraft.budget}
-                    onChange={(e) =>
-                      setSheetDraft((prev) => ({ ...prev, budget: e.target.checked }))
-                    }
-                  />
-                  <span>Under ₹5,000</span>
-                </label>
+                <PriceRangeFilter
+                  bounds={priceBounds}
+                  value={sheetDraft.priceRange}
+                  onChange={(priceRange) =>
+                    setSheetDraft((prev) => ({ ...prev, priceRange }))
+                  }
+                />
               </fieldset>
             </div>
 

@@ -736,6 +736,121 @@ nav a.offers-nav-link:hover {
   cursor: pointer;
 }
 
+.price-range-filter {
+  padding-top: 4px;
+}
+
+.price-range-filter .price-range-values {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.price-range-filter .price-range-values label {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+  font-size: 11px;
+}
+
+.price-range-filter .price-range-values label:last-child {
+  align-items: flex-end;
+}
+
+.price-range-values span {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.price-range-slider {
+  position: relative;
+  height: 44px;
+  margin-top: 5px;
+}
+
+.price-range-track {
+  position: absolute;
+  top: 20px;
+  left: 10px;
+  right: 10px;
+  height: 4px;
+  background: var(--line);
+  border-radius: 4px;
+}
+
+.price-range-selected {
+  position: absolute;
+  height: 100%;
+  background: var(--gold);
+  border-radius: inherit;
+}
+
+.price-range-filter .price-range-slider input[type=range] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 44px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.price-range-slider input[type=range]::-webkit-slider-runnable-track {
+  height: 4px;
+  background: transparent;
+}
+
+.price-range-slider input[type=range]::-moz-range-track {
+  height: 4px;
+  background: transparent;
+}
+
+.price-range-slider input[type=range]::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -8px;
+  border: 3px solid var(--paper);
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: 0 0 0 1px var(--gold);
+  pointer-events: auto;
+  cursor: ew-resize;
+}
+
+.price-range-slider input[type=range]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 3px solid var(--paper);
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: 0 0 0 1px var(--gold);
+  pointer-events: auto;
+  cursor: ew-resize;
+}
+
+.price-range-filter .price-range-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
 .toolbar {
   display: flex;
   align-items: center;

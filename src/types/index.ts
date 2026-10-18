@@ -31,8 +31,13 @@ export interface UserProfile {
   uid?: string;
 }
 
+export interface PriceRange {
+  min: number;
+  max: number;
+}
+
 export interface ShopFilterState {
   collection: string;
   colours: string[];
-  budget: boolean;
+  priceRange: PriceRange;
 }
