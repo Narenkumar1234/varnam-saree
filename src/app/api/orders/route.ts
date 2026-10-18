@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { orders, users } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
+import { calculateOrderQuote, parseOrderItems, readOrderSnapshot, serializeOrderQuote, OrderPricingError } from '@/lib/order-pricing';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, customerName, email, phone, address, city, state, pincode, total, items, uid } = body;
+    const { id, customerName, email, phone, address, city, state, pincode, items, uid, couponCode } = body;
+    if (couponCode != null && typeof couponCode !== 'string') {
+      throw new OrderPricingError('Please enter a valid coupon code.');
+    }
+    const quote = calculateOrderQuote(parseOrderItems(items), couponCode);
 
     let dbUserId: number | null = null;
     if (uid) {
@@ -19,7 +24,7 @@ export async function POST(req: NextRequest) {
     const newOrder = await db
       .insert(orders)
       .values({
-        id: id || `VS-${Math.floor(1000 + Math.random() * 9000)}`,
+        id: id || `VRN-${crypto.randomUUID()}`,
         userId: dbUserId,
         customerName: customerName || 'Varnam Patron',
         email: email || 'order@varnamsaree.com',
@@ -28,17 +33,20 @@ export async function POST(req: NextRequest) {
         city: city || '',
         state: state || '',
         pincode: pincode || '',
-        total: total || 0,
+        total: quote.pricing.total,
         status: 'Confirmed',
-        itemsJson: JSON.stringify(items || []),
+        itemsJson: serializeOrderQuote(quote),
       })
       .returning();
 
-    return NextResponse.json({ success: true, order: newOrder[0] });
+    return NextResponse.json({ success: true, order: { ...newOrder[0], ...quote } });
   } catch (error: any) {
+    if (error instanceof OrderPricingError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     console.error('Failed to create order in database:', error);
     return NextResponse.json(
-      { error: 'Failed to record order in database.' },
+      { error: 'Your order could not be saved. Please try again.' },
       { status: 500 }
     );
   }
@@ -60,7 +68,7 @@ export async function GET(req: NextRequest) {
       result = await db.select().from(orders).orderBy(desc(orders.createdAt)).limit(20);
     }
 
-    return NextResponse.json({ orders: result });
+    return NextResponse.json({ orders: result.map((order) => ({ ...order, ...readOrderSnapshot(order.itemsJson) })) });
   } catch (error: any) {
     console.error('Failed to fetch orders from database:', error);
     return NextResponse.json(

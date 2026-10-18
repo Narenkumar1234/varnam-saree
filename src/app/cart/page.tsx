@@ -1,34 +1,23 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useStore } from '@/context/store-context';
-import { getProductById, money } from '@/data/products';
+import { getProductById } from '@/data/products';
 import { Icon } from '@/components/Icons';
+import { CouponForm } from '@/components/CouponForm';
+import { OrderTotals } from '@/components/OrderTotals';
+import { OrderLinePrice } from '@/components/OrderLinePrice';
 
 export default function CartPage() {
   const {
     cart,
-    subtotal,
-    total,
-    shipping,
-    discount,
-    discountAmount,
+    cartQuote,
     adjustCardQuantity,
     removeItem,
-    applyCoupon,
     orderCartOnWhatsApp,
   } = useStore();
-
-  const [couponInput, setCouponInput] = useState('');
-
-  const handleCouponSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (couponInput.trim()) {
-      applyCoupon(couponInput);
-    }
-  };
 
   return (
     <>
@@ -49,7 +38,7 @@ export default function CartPage() {
         <section className="section" style={{ paddingTop: '10px' }}>
           <div className="cart-layout">
             <div>
-              {cart.map((item) => {
+              {cartQuote.items.map((item) => {
                 const p = getProductById(item.id);
                 if (!p) return null;
 
@@ -100,7 +89,7 @@ export default function CartPage() {
                       </button>
                     </div>
 
-                    <div className="price">{money(p.price * item.qty)}</div>
+                    <OrderLinePrice item={item} />
                   </div>
                 );
               })}
@@ -114,24 +103,7 @@ export default function CartPage() {
 
             <aside className="summary-box">
               <h2>Your order</h2>
-              <div className="summary-row">
-                <span>Subtotal</span>
-                <span>{money(subtotal)}</span>
-              </div>
-              <div className="summary-row">
-                <span>Delivery</span>
-                <span>{shipping ? money(shipping) : 'Complimentary'}</span>
-              </div>
-              {discount && (
-                <div className="summary-row">
-                  <span>WELCOME10</span>
-                  <span>−{money(discountAmount)}</span>
-                </div>
-              )}
-              <div className="summary-row total">
-                <span>Total</span>
-                <span>{money(total)}</span>
-              </div>
+              <OrderTotals pricing={cartQuote.pricing} />
 
               <Link className="btn" href="/checkout">
                 Continue to checkout <Icon name="arrow-up-right" />
@@ -147,18 +119,7 @@ export default function CartPage() {
 
               <small>Taxes included in the total.</small>
 
-              <form className="coupon" onSubmit={handleCouponSubmit}>
-                <label htmlFor="coupon">Have a little gift code?</label>
-                <div className="inline">
-                  <input
-                    id="coupon"
-                    placeholder="Try WELCOME10"
-                    value={couponInput}
-                    onChange={(e) => setCouponInput(e.target.value)}
-                  />
-                  <button type="submit">Apply</button>
-                </div>
-              </form>
+              <CouponForm />
             </aside>
           </div>
         </section>

@@ -4,35 +4,37 @@ import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useStore } from '@/context/store-context';
-import { getProductById, money } from '@/data/products';
+import { getProductById } from '@/data/products';
 import { Icon } from '@/components/Icons';
 import { CartItem } from '@/types';
+import { calculateOrderQuote } from '@/lib/order-pricing';
+import { CouponForm } from '@/components/CouponForm';
+import { OrderTotals } from '@/components/OrderTotals';
+import { OrderLinePrice } from '@/components/OrderLinePrice';
 
 function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { cart, subtotal, total, shipping, discount, discountAmount, placeOrder, profile } = useStore();
+  const { cart, cartQuote, couponCode, placeOrder } = useStore();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const buyNowId = searchParams.get('buyNow');
-  const buyNowQty = Math.max(1, parseInt(searchParams.get('qty') || '1', 10));
+  const requestedQty = Number(searchParams.get('qty') || '1');
   const buyNowFinish = searchParams.get('finish') || 'Unstitched blouse · included';
 
   const buyNowProduct = buyNowId ? getProductById(parseInt(buyNowId, 10)) : null;
+  const buyNowQty = Number.isSafeInteger(requestedQty) && requestedQty > 0 &&
+    requestedQty * (buyNowProduct?.price || 1) <= 2_147_483_497 ? requestedQty : 1;
 
   // Single-item direct checkout if buyNow is provided, otherwise full cart
   const checkoutItems: CartItem[] = buyNowProduct
     ? [{ id: buyNowProduct.id, qty: buyNowQty, finish: buyNowFinish }]
     : cart;
 
-  const checkoutSubtotal = buyNowProduct
-    ? buyNowProduct.price * buyNowQty
-    : subtotal;
-
-  const checkoutShipping = 0; // Complimentary
-  const checkoutDiscountAmount = discount
-    ? Math.round(checkoutSubtotal * 0.1)
-    : 0;
-  const checkoutTotal = Math.max(0, checkoutSubtotal - checkoutDiscountAmount);
+  const checkoutQuote = buyNowProduct
+    ? calculateOrderQuote(checkoutItems, couponCode)
+    : cartQuote;
 
   const [formData, setFormData] = useState({
     first: '',
@@ -66,33 +68,22 @@ function CheckoutContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const orderId = buyNowProduct
-      ? placeOrder(formData, checkoutItems, checkoutTotal)
-      : placeOrder(formData);
-
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    setSubmitError(null);
     try {
-      await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: orderId,
-          customerName: `${formData.first} ${formData.last}`.trim(),
-          email: formData.email,
-          phone: formData.phone,
-          address: `${formData.address} ${formData.apartment}`.trim(),
-          city: formData.city,
-          state: formData.state,
-          pincode: formData.pin,
-          total: checkoutTotal,
-          items: checkoutItems,
-          uid: profile?.uid,
-        }),
-      });
+      const orderId = await placeOrder(
+        { ...formData, address: `${formData.address} ${formData.apartment}`.trim() },
+        buyNowProduct ? checkoutItems : undefined
+      );
+      router.push(`/confirmation/${orderId}`);
     } catch (err) {
-      console.error('Failed to save order to database:', err);
+      setSubmitError(err instanceof TypeError
+        ? 'Your order could not be saved. Check your connection and try again.'
+        : err instanceof Error ? err.message : 'Your order could not be saved. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    router.push(`/confirmation/${orderId}`);
   };
 
   return (
@@ -222,43 +213,26 @@ function CheckoutContent() {
               days
             </label>
 
-            <button className="btn" type="submit" style={{ width: '100%', marginTop: '24px' }}>
-              Place order <Icon name="arrow-up-right" />
+            {submitError && <p className="coupon-feedback error" role="alert">{submitError}</p>}
+            <button className="btn" type="submit" disabled={isSubmitting} style={{ width: '100%', marginTop: '24px' }}>
+              {isSubmitting ? 'Placing order…' : 'Place order'} <Icon name="arrow-up-right" />
             </button>
           </form>
 
           <aside className="summary-box">
             <h2>Your order</h2>
-            {checkoutItems.map((x) => {
-              const p = getProductById(x.id);
-              if (!p) return null;
+            {checkoutQuote.items.map((x) => {
               return (
                 <div key={x.id} className="summary-row">
                   <span>
-                    {p.name} × {x.qty}
+                    {x.name} × {x.qty}
                   </span>
-                  <span>{money(p.price * x.qty)}</span>
+                  <OrderLinePrice item={x} />
                 </div>
               );
             })}
-            <div className="summary-row">
-              <span>Subtotal</span>
-              <span>{money(checkoutSubtotal)}</span>
-            </div>
-            <div className="summary-row">
-              <span>Delivery</span>
-              <span>Complimentary</span>
-            </div>
-            {discount && (
-              <div className="summary-row">
-                <span>WELCOME10</span>
-                <span>−{money(checkoutDiscountAmount)}</span>
-              </div>
-            )}
-            <div className="summary-row total">
-              <span>Total</span>
-              <span>{money(checkoutTotal)}</span>
-            </div>
+            <OrderTotals pricing={checkoutQuote.pricing} />
+            <CouponForm disabled={isSubmitting} />
           </aside>
         </div>
       </section>

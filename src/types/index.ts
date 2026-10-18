@@ -21,8 +21,39 @@ export interface Order {
   id: string;
   date: string;
   name: string;
-  items: CartItem[];
+  items: OrderItem[];
   total: number;
+  pricing?: OrderPricing;
+}
+
+export interface OrderItem extends CartItem {
+  name?: string;
+  unitPrice?: number;
+  subtotal?: number;
+  discountAmount?: number;
+  total?: number;
+}
+
+export interface PricedOrderItem extends CartItem {
+  name: string;
+  unitPrice: number;
+  subtotal: number;
+  discountAmount: number;
+  total: number;
+}
+
+export interface OrderPricing {
+  subtotal: number;
+  discountAmount: number;
+  shipping: number;
+  total: number;
+  couponCode?: string;
+  discountPercentage?: number;
+}
+
+export interface OrderQuote {
+  items: PricedOrderItem[];
+  pricing: OrderPricing;
 }
 
 export interface UserProfile {

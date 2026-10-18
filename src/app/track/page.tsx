@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useStore } from '@/context/store-context';
 import { money } from '@/data/products';
 import { Icon } from '@/components/Icons';
+import { OrderSavings } from '@/components/OrderTotals';
 
 function TrackContent() {
   const searchParams = useSearchParams();
@@ -112,6 +113,7 @@ function TrackContent() {
 
                 <div style={{ marginTop: '24px', borderTop: '1px solid var(--line)', paddingTop: '15px' }}>
                   <strong>Total: {money(order.total)}</strong>
+                  <OrderSavings pricing={order.pricing} />
                 </div>
               </div>
             ) : (

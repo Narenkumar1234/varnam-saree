@@ -6,6 +6,7 @@ import { useStore } from '@/context/store-context';
 import { money } from '@/data/products';
 import { signInWithPopup } from 'firebase/auth';
 import { auth, googleAuthProvider } from '@/lib/firebase';
+import { OrderSavings } from '@/components/OrderTotals';
 
 interface AccountViewProps {
   initialSignUp?: boolean;
@@ -234,6 +235,7 @@ export function AccountView({ initialSignUp = false }: AccountViewProps) {
                     })}{' '}
                     · {money(o.total)}
                   </p>
+                  <OrderSavings pricing={o.pricing} />
                   <Link className="text-link" href={`/track?order=${o.id}`}>
                     View order & tracking
                   </Link>

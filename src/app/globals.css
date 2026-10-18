@@ -1217,6 +1217,71 @@ details p {
   margin-top: 24px;
 }
 
+.coupon-hint {
+  margin: 9px 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.coupon-feedback {
+  margin: 10px 0 0;
+  color: #176047;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.coupon-feedback.error {
+  color: #9b263a;
+}
+
+.coupon-applied {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.coupon-applied button {
+  border: 0;
+  padding: 0;
+  color: var(--ink);
+  background: transparent;
+  font-size: 12px;
+  text-decoration: underline;
+}
+
+.coupon-saving, .coupon-price-note {
+  color: #176047;
+  font-size: 11px;
+}
+
+.coupon-price-note {
+  display: block;
+  margin: -5px 0 10px;
+}
+
+.order-line-price {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.order-line-price s {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 400;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: .65;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

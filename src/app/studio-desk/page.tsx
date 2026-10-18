@@ -5,6 +5,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { money } from '@/data/products';
 import { Icon } from '@/components/Icons';
+import { readOrderSnapshot } from '@/lib/order-pricing';
+import { OrderSavings } from '@/components/OrderTotals';
 
 interface AdminProduct {
   id: number;
@@ -807,12 +809,7 @@ export default function StudioDeskPage() {
                 </thead>
                 <tbody>
                   {orders.map((o) => {
-                    let parsedItems: any[] = [];
-                    try {
-                      parsedItems = JSON.parse(o.itemsJson || '[]');
-                    } catch (e) {
-                      parsedItems = [];
-                    }
+                    const { items: parsedItems, pricing } = readOrderSnapshot(o.itemsJson);
 
                     return (
                       <tr key={o.id}>
@@ -850,6 +847,7 @@ export default function StudioDeskPage() {
                         </td>
                         <td>
                           <strong style={{ color: 'var(--ink)' }}>{money(o.total)}</strong>
+                          <OrderSavings pricing={pricing} />
                         </td>
                         <td>
                           <select

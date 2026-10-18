@@ -1,31 +1,30 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { CartItem, Order, UserProfile } from '@/types';
+import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
+import { CartItem, Order, OrderQuote, UserProfile } from '@/types';
 import { getProductById, money, VARNAM_CONFIG } from '@/data/products';
+import { validateCoupon, type CouponValidation } from '@/lib/coupons';
+import { calculateOrderQuote, parseOrderItems } from '@/lib/order-pricing';
 
 interface StoreContextType {
   cart: CartItem[];
   wish: number[];
   orders: Order[];
   profile: UserProfile | null;
-  discount: boolean;
+  couponCode: string | null;
+  cartQuote: OrderQuote;
   toastMessage: string | null;
   totalBagCount: number;
-  subtotal: number;
-  total: number;
-  shipping: number;
-  discountAmount: number;
   addToCart: (id: number, qty?: number, finish?: string) => void;
   adjustCardQuantity: (id: number, delta: number) => void;
   removeItem: (id: number) => void;
   toggleWish: (id: number) => void;
-  applyCoupon: (code: string) => boolean;
+  applyCoupon: (code: string) => CouponValidation;
+  removeCoupon: () => void;
   placeOrder: (
     details: { first: string; last: string; email: string; phone: string; address: string; city: string; state: string; pin: string },
-    customItems?: CartItem[],
-    customTotal?: number
-  ) => string;
+    customItems?: CartItem[]
+  ) => Promise<string>;
   setProfile: (p: UserProfile | null) => void;
   clearDemo: () => void;
   showToast: (msg: string) => void;
@@ -41,7 +40,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [wish, setWish] = useState<number[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [profile, setProfileState] = useState<UserProfile | null>(null);
-  const [discount, setDiscount] = useState<boolean>(false);
+  const [couponCode, setCouponCode] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
 
@@ -49,7 +48,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const savedCart = localStorage.getItem('varnam-cart');
-      if (savedCart) setCart(JSON.parse(savedCart));
+      if (savedCart) {
+        const items = JSON.parse(savedCart);
+        if (Array.isArray(items) && items.length) {
+          const validItems = parseOrderItems(items);
+          calculateOrderQuote(validItems);
+          setCart(validItems);
+        }
+      }
 
       const savedWish = localStorage.getItem('varnam-wish');
       if (savedWish) setWish(JSON.parse(savedWish));
@@ -59,6 +65,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       const savedProfile = localStorage.getItem('varnam-profile');
       if (savedProfile) setProfileState(JSON.parse(savedProfile));
+
+      const savedCoupon = localStorage.getItem('varnam-coupon');
+      const coupon = validateCoupon(savedCoupon);
+      if (coupon.valid) setCouponCode(coupon.coupon.code);
     } catch {
       // Local storage may be disabled or empty
     }
@@ -73,10 +83,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('varnam-wish', JSON.stringify(wish));
       localStorage.setItem('varnam-orders', JSON.stringify(orders));
       localStorage.setItem('varnam-profile', JSON.stringify(profile));
+      if (couponCode) localStorage.setItem('varnam-coupon', couponCode);
+      else localStorage.removeItem('varnam-coupon');
     } catch {
       // ignore
     }
-  }, [cart, wish, orders, profile, isLoaded]);
+  }, [cart, wish, orders, profile, couponCode, isLoaded]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -87,14 +99,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const totalBagCount = cart.reduce((sum, item) => sum + item.qty, 0);
 
-  const subtotal = cart.reduce((sum, item) => {
-    const p = getProductById(item.id);
-    return sum + (p ? p.price * item.qty : 0);
-  }, 0);
-
-  const discountAmount = discount ? Math.round(subtotal * 0.1) : 0;
-  const shipping = subtotal >= 3000 || subtotal === 0 ? 0 : 150;
-  const total = Math.max(0, subtotal - discountAmount + shipping);
+  const cartQuote = useMemo(() => calculateOrderQuote(cart, couponCode), [cart, couponCode]);
 
   const addToCart = (id: number, qty = 1, finish = 'Unstitched blouse · included') => {
     setCart((prev) => {
@@ -146,39 +151,59 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   const applyCoupon = (code: string) => {
-    if (code.trim().toUpperCase() === 'WELCOME10') {
-      setDiscount(true);
-      showToast('10% welcome discount applied');
-      return true;
-    }
-    showToast('Use WELCOME10 for this demo');
-    return false;
+    const result = validateCoupon(code);
+    if (result.valid) setCouponCode(result.coupon.code);
+    return result;
   };
 
-  const placeOrder = (
+  const removeCoupon = () => setCouponCode(null);
+
+  const placeOrder = async (
     details: { first: string; last: string; email: string; phone: string; address: string; city: string; state: string; pin: string },
-    customItems?: CartItem[],
-    customTotal?: number
+    customItems?: CartItem[]
   ) => {
-    const id = 'VRN' + Date.now().toString().slice(-7);
+    const id = 'VRN-' + crypto.randomUUID();
+    const orderItems = customItems || [...cart];
+    // Validate locally, then let the API calculate and save the authoritative price.
+    calculateOrderQuote(parseOrderItems(orderItems), couponCode);
+    const response = await fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id,
+        customerName: `${details.first} ${details.last}`.trim(),
+        email: details.email,
+        phone: details.phone,
+        address: details.address,
+        city: details.city,
+        state: details.state,
+        pincode: details.pin,
+        items: orderItems,
+        couponCode,
+        uid: profile?.uid,
+      }),
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data?.order?.pricing || !Array.isArray(data.order.items)) {
+      throw new Error(data?.error || 'Your order could not be saved. Please try again.');
+    }
     const date = new Date().toLocaleDateString('en-IN', {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
     });
-    const orderItems = customItems || [...cart];
-    const orderTotal = customTotal !== undefined ? customTotal : total;
     const newOrder: Order = {
       id,
       date,
       name: details.first,
-      items: orderItems,
-      total: orderTotal,
+      items: data.order.items,
+      pricing: data.order.pricing,
+      total: data.order.total,
     };
     setOrders((prev) => [newOrder, ...prev]);
     if (!customItems) {
       setCart([]);
-      setDiscount(false);
+      setCouponCode(null);
     }
     return id;
   };
@@ -192,11 +217,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setWish([]);
     setOrders([]);
     setProfileState(null);
-    setDiscount(false);
+    setCouponCode(null);
     localStorage.removeItem('varnam-cart');
     localStorage.removeItem('varnam-wish');
     localStorage.removeItem('varnam-orders');
     localStorage.removeItem('varnam-profile');
+    localStorage.removeItem('varnam-coupon');
     localStorage.removeItem('varnam-address');
     localStorage.removeItem('varnam-address-label');
     showToast('Demo data cleared');
@@ -216,21 +242,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const product = getProductById(id);
     if (!product) return;
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const { pricing } = calculateOrderQuote([{ id, qty, finish }], couponCode);
     openWhatsAppOrder([
       `${product.name} × ${qty}`,
       finish,
-      `Price: ${money(product.price * qty)}`,
+      `Subtotal: ${money(pricing.subtotal)}`,
+      ...(pricing.couponCode ? [`${pricing.couponCode}: −${money(pricing.discountAmount)}`] : []),
+      `Delivery: ${money(pricing.shipping)}`,
+      `Order total: ${money(pricing.total)}`,
       `Product: ${origin}/product/${product.id}`,
     ]);
   };
 
   const orderCartOnWhatsApp = () => {
     if (!cart.length) return;
-    const lines = cart.map((item) => {
-      const p = getProductById(item.id);
-      return `${p?.name || 'Saree'} × ${item.qty} — ${money((p?.price || 0) * item.qty)}`;
-    });
-    lines.push(`Order total shown: ${money(total)}`);
+    const { pricing } = cartQuote;
+    const lines = cartQuote.items.map((item) => `${item.name} × ${item.qty} — ${money(item.total)}`);
+    if (pricing.couponCode) lines.push(`${pricing.couponCode}: saving ${money(pricing.discountAmount)} included above`);
+    lines.push(`Delivery: ${money(pricing.shipping)}`, `Order total: ${money(pricing.total)}`);
     openWhatsAppOrder(lines);
   };
 
@@ -245,18 +274,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         wish,
         orders,
         profile,
-        discount,
+        couponCode,
+        cartQuote,
         toastMessage,
         totalBagCount,
-        subtotal,
-        total,
-        shipping,
-        discountAmount,
         addToCart,
         adjustCardQuantity,
         removeItem,
         toggleWish,
         applyCoupon,
+        removeCoupon,
         placeOrder,
         setProfile,
         clearDemo,

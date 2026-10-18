@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { useStore } from '@/context/store-context';
 import { money } from '@/data/products';
+import { OrderSavings } from '@/components/OrderTotals';
 
 export default function OrdersPage() {
   const { orders } = useStore();
@@ -28,6 +29,7 @@ export default function OrdersPage() {
               <p>
                 {o.date} · {o.items.reduce((s, x) => s + x.qty, 0)} item(s) · {money(o.total)}
               </p>
+              <OrderSavings pricing={o.pricing} />
               <Link className="text-link" href={`/track?order=${o.id}`}>
                 View order & tracking
               </Link>

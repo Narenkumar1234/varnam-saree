@@ -5,9 +5,9 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Product } from '@/types';
-import { money } from '@/data/products';
 import { useStore } from '@/context/store-context';
 import { Icon } from './Icons';
+import { ProductPrice } from './ProductPrice';
 
 interface ProductCardProps {
   product: Product;
@@ -43,10 +43,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
         </div>
         <h3>{product.name}</h3>
         <div className="meta">{product.type}</div>
-        <div className="price">
-          {money(product.price)}
-          {product.old ? <span className="old">{money(product.old)}</span> : null}
-        </div>
+        <ProductPrice price={product.price} oldPrice={product.old} />
       </Link>
 
       <div className="product-actions">

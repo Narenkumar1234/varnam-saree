@@ -4,10 +4,11 @@ import React, { useState, use } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { notFound, useRouter } from 'next/navigation';
-import { getProductById, products, money, COLOUR_HEX_MAP } from '@/data/products';
+import { getProductById, products, COLOUR_HEX_MAP } from '@/data/products';
 import { useStore } from '@/context/store-context';
 import { ProductCard } from '@/components/ProductCard';
 import { Icon } from '@/components/Icons';
+import { ProductPrice } from '@/components/ProductPrice';
 
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -79,10 +80,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               <Icon name="sparkle" />{' '}
               <span className="muted">Thoughtfully selected for the Varnam collection</span>
             </div>
-            <div className="price">
-              {money(product.price)}{' '}
-              {product.old ? <span className="old">{money(product.old)}</span> : null}
-            </div>
+            <ProductPrice price={product.price} oldPrice={product.old} />
             <small className="muted">Inclusive of all taxes</small>
 
             <p className="desc">

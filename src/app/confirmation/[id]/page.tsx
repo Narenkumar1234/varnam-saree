@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useStore } from '@/context/store-context';
 import { getProductById, money } from '@/data/products';
 import { Icon } from '@/components/Icons';
+import { OrderTotals } from '@/components/OrderTotals';
+import { OrderLinePrice } from '@/components/OrderLinePrice';
 
 export default function ConfirmationPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -37,22 +39,23 @@ export default function ConfirmationPage({ params }: { params: Promise<{ id: str
       </p>
 
       <div className="order-card" style={{ maxWidth: '480px', margin: '30px auto', textAlign: 'left' }}>
-        <div className="summary-row">
-          <span>Order total</span>
-          <strong>{money(order.total)}</strong>
-        </div>
         {order.items.map((x) => {
           const p = getProductById(x.id);
-          if (!p) return null;
           return (
             <div key={x.id} className="summary-row">
               <span>
-                {p.name} × {x.qty}
+                {x.name || p?.name || 'Saree'} × {x.qty}
               </span>
-              <span>{money(p.price * x.qty)}</span>
+              <OrderLinePrice item={x} />
             </div>
           );
         })}
+        {order.pricing ? <OrderTotals pricing={order.pricing} /> : (
+          <div className="summary-row total">
+            <span>Order total</span>
+            <strong>{money(order.total)}</strong>
+          </div>
+        )}
       </div>
 
       <div style={{ marginTop: '25px' }}>

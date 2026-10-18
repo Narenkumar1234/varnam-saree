@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { orders } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { readOrderSnapshot } from '@/lib/order-pricing';
 
 export async function GET(
   req: NextRequest,
@@ -19,7 +20,7 @@ export async function GET(
     return NextResponse.json({
       order: {
         ...order,
-        items: JSON.parse(order.itemsJson || '[]'),
+        ...readOrderSnapshot(order.itemsJson),
       },
     });
   } catch (error: any) {
