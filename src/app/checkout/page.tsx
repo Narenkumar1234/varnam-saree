@@ -24,15 +24,17 @@ function CheckoutContent() {
   const buyNowFinish = searchParams.get('finish') || 'Unstitched blouse · included';
 
   const buyNowProduct = buyNowId ? getProductById(parseInt(buyNowId, 10)) : null;
-  const buyNowQty = Number.isSafeInteger(requestedQty) && requestedQty > 0 &&
-    requestedQty * (buyNowProduct?.price || 1) <= 2_147_483_497 ? requestedQty : 1;
+  const buyNowQty = requestedQty;
+  const quantityError = buyNowProduct && (!Number.isSafeInteger(requestedQty) || requestedQty < 1)
+    ? 'Choose a whole quantity of at least 1. Return to the product page to update your order.' : null;
 
   // Single-item direct checkout if buyNow is provided, otherwise full cart
   const checkoutItems: CartItem[] = buyNowProduct
     ? [{ id: buyNowProduct.id, qty: buyNowQty, finish: buyNowFinish }]
     : buyNowId ? [] : cart;
 
-  const { quote: checkoutQuote, error: checkoutError } = previewOrderQuote(checkoutItems, couponCode, products, commerce);
+  const { quote: checkoutQuote, error: quoteError } = previewOrderQuote(checkoutItems, couponCode, products, commerce);
+  const checkoutError = quantityError || quoteError;
 
   const [formData, setFormData] = useState({
     first: '',
@@ -212,6 +214,7 @@ function CheckoutContent() {
             </label>
 
             {checkoutError && <p className="coupon-feedback error" role="alert">{checkoutError}</p>}
+            {checkoutError && <p><Link className="text-link" href={buyNowProduct ? `/product/${buyNowProduct.id}` : '/cart'}>{buyNowProduct ? 'Review this saree' : 'Review your bag'}</Link></p>}
             {submitError && <p className="coupon-feedback error" role="alert">{submitError}</p>}
             <button className="btn" type="submit" disabled={isSubmitting || !!checkoutError} style={{ width: '100%', marginTop: '24px' }}>
               {isSubmitting ? 'Placing order…' : 'Place order'} <Icon name="arrow-up-right" />

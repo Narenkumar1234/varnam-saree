@@ -27,8 +27,12 @@ export interface WhatsAppSavedOrder {
 }
 
 export function createWhatsAppOrderUrl(message: string): string | null {
-  const number = String(VARNAM_CONFIG.whatsappNumber || '').replace(/\D/g, '');
+  const number = getWhatsAppNumber();
   return number ? `https://wa.me/${number}?text=${encodeURIComponent(message)}` : null;
+}
+
+export function getWhatsAppNumber(): string {
+  return String(VARNAM_CONFIG.whatsappNumber || '').replace(/\D/g, '');
 }
 
 export function formatWhatsAppOrderMessage(
@@ -121,6 +125,12 @@ export function createSavedOrderWhatsAppMessage(
 export function openWhatsAppOrder(message: string): boolean {
   const url = createWhatsAppOrderUrl(message);
   if (!url || typeof window === 'undefined') return false;
-  window.open(url, '_blank', 'noopener,noreferrer');
-  return true;
+  try {
+    // Called synchronously from an order click. Top-level navigation does not
+    // depend on a popup window or a noopener WindowProxy return value.
+    window.location.assign(url);
+    return true;
+  } catch {
+    return false;
+  }
 }

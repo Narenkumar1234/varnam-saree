@@ -3000,3 +3000,8 @@ footer {
 .studio-commerce-checkbox input { width: auto; }
 .studio-commerce-preview { background: var(--ink); color: var(--paper); padding: 16px; display: flex; flex-wrap: wrap; gap: 16px; margin: 20px 0; }
 .delivery-policy { font-size: 12px; margin: 12px 0; }
+.whatsapp-fallback { position: fixed; bottom: 84px; right: 20px; z-index: 1100; width: min(360px, calc(100vw - 40px)); padding: 18px 38px 18px 18px; border: 1px solid var(--gold); background: var(--paper); color: var(--ink); box-shadow: 0 5px 24px #39253526; }
+.whatsapp-fallback p { margin: 0 0 8px; }
+.whatsapp-fallback p:last-child { margin: 8px 0 0; }
+.whatsapp-fallback-close { position: absolute; top: 4px; right: 4px; border: 0; background: transparent; font-size: 22px; min-width: 32px; min-height: 32px; }
+.whatsapp-number { user-select: all; overflow-wrap: anywhere; font-weight: 600; }

@@ -38,7 +38,7 @@ Responsive luxury Indian saree storefront migrated to **Next.js 15 (App Router)*
 
 The shared server reader in `src/lib/catalogue-server.ts` is the source for both the root layout and `/api/products`. The layout passes that catalogue into the storefront provider, so home, shop/search, product details, wishlist, bag, and checkout start with the same server-rendered product data. Browser catalogue requests use `cache: no-store`; the provider refreshes on navigation, window focus, and every 30 seconds while visible. No product catalogue is permanently cached.
 
-A non-empty `products` table is authoritative, including sold-out rows: it is never merged with the sample list. Only an empty or unreachable database uses `fallbackProducts` from `src/data/products.ts`. Fallback stock is unknown. The same rule is used by server-side order pricing. A missing product ID in a non-empty database is unavailable, rather than silently restored from the sample catalogue. Fallback browsing works without a database, but saving an order still requires a working orders table.
+A non-empty `products` table is authoritative, including sold-out rows: it is never merged with the sample list. Only an empty or unreachable database uses `fallbackProducts` from `src/data/products.ts`. Fallback stock is unknown, so each product is limited to 10 pieces per order in product, bag, checkout, and server pricing. Known stock continues to use its actual available quantity. The same rule is used by server-side order pricing. A missing product ID in a non-empty database is unavailable, rather than silently restored from the sample catalogue. Fallback browsing works without a database, but saving an order still requires a working orders table.
 
 Fresh setup (Bun is used for database scripts and tests):
 
@@ -93,6 +93,8 @@ Successful `POST /api/admin/auth` accepts `{ email, password }` and sets the sam
 Every product, upload, and order handler under `/api/admin` uses the shared session guard. Studio loads orders from the protected `/api/admin/orders` endpoint; the legacy unfiltered `/api/orders` list also requires an admin session. Existing customer email-based order lookups are unchanged. `GET /api/admin/auth` restores a valid session after a refresh; `DELETE /api/admin/auth` expires the cookie on sign-out. Studio sends same-origin credentials on all admin requests and returns to login when an API reports an expired session. Logging out clears this browser's cookie; signing-key rotation invalidates all issued cookies.
 
 Run `bun run test:admin` for login, cookie, expiry, tampering, route coverage, and logout checks. A request without a cookie, for example `curl -i http://localhost:3000/api/admin/products`, must return **401 Unauthorized**. Login/logout and session restoration can be exercised locally over HTTP in development; production cookies require HTTPS.
+
+WhatsApp order actions navigate in the same tab directly from the click, without a popup. A visible retry link and selectable business number remain available if the handoff fails. Message contents and saved-order totals are unchanged.
 
 ## Studio Razorpay payments
 

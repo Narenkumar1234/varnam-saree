@@ -136,3 +136,14 @@ test('Studio rejects negative stock and invalid prices before saving', async () 
   }
   expect(updates).toBe(0);
 });
+
+test('the order API rejects an excessive unknown-stock fallback quantity with a clear 400', async () => {
+  rows = [];
+  const response = await submitOrder(new NextRequest('http://localhost/api/orders', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ items: [{ id: fallbackProducts[0].id, qty: 11, finish: 'Included' }] }),
+  }));
+  expect(response.status).toBe(400);
+  expect((await response.json()).error).toContain('no more than 10');
+  expect(savedOrders).toHaveLength(0);
+});

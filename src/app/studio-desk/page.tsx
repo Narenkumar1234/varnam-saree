@@ -10,7 +10,8 @@ import { readOrderSnapshot } from '@/lib/pricing';
 import { OrderSavings } from '@/components/OrderTotals';
 import { StudioPayment } from '@/components/StudioPayment';
 import { StudioCommerce } from '@/components/StudioCommerce';
-import { createProductWhatsAppMessage, createSavedOrderWhatsAppMessage, openWhatsAppOrder } from '@/lib/whatsapp';
+import { createProductWhatsAppMessage, createSavedOrderWhatsAppMessage } from '@/lib/whatsapp';
+import { useStore } from '@/context/store-context';
 
 type AdminProduct = Omit<Product, 'stock' | 'tag'> & { stock: number; tag?: string | null };
 
@@ -39,6 +40,7 @@ const IMAGE_PRESETS = [
 ];
 
 export default function StudioDeskPage() {
+  const { openWhatsAppMessage, clearWhatsAppFallback } = useStore();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -107,7 +109,7 @@ export default function StudioDeskPage() {
   const orderProductOnWhatsApp = (product: AdminProduct) => {
     if (product.stock <= 0) { showToast('This saree is sold out.'); return; }
     const message = createProductWhatsAppMessage(product, { includeProductLink: false });
-    if (!openWhatsAppOrder(message)) showToast('WhatsApp ordering is currently unavailable.');
+    openWhatsAppMessage(message);
   };
 
   const confirmOrderOnWhatsApp = (order: AdminOrder) => {
@@ -115,10 +117,11 @@ export default function StudioDeskPage() {
     const message = createSavedOrderWhatsAppMessage(
       { ...order, ...snapshot }, products, window.location.origin
     );
-    if (!openWhatsAppOrder(message)) showToast('WhatsApp ordering is currently unavailable.');
+    openWhatsAppMessage(message);
   };
 
   function clearAdminState() {
+    clearWhatsAppFallback();
     setIsAuthenticated(false);
     setProducts([]);
     setOrders([]);

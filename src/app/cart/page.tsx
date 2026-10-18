@@ -9,6 +9,7 @@ import { Icon } from '@/components/Icons';
 import { CouponForm } from '@/components/CouponForm';
 import { OrderTotals } from '@/components/OrderTotals';
 import { OrderLinePrice } from '@/components/OrderLinePrice';
+import { getProductQuantityLimit } from '@/lib/product-quantity';
 
 export default function CartPage() {
   const {
@@ -78,7 +79,7 @@ export default function CartPage() {
                         <button
                           type="button"
                           aria-label="Increase quantity"
-                          disabled={p.stock != null && item.qty >= p.stock}
+                          disabled={item.qty >= getProductQuantityLimit(p)}
                           onClick={() => adjustCardQuantity(item.id, 1)}
                         >
                           <Icon name="plus" />

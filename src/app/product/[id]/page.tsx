@@ -10,19 +10,21 @@ import { useStore } from '@/context/store-context';
 import { ProductCard } from '@/components/ProductCard';
 import { Icon } from '@/components/Icons';
 import { ProductPrice } from '@/components/ProductPrice';
+import { getProductQuantityLimit } from '@/lib/product-quantity';
 
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const resolvedParams = use(params);
   const { products, getProductById, addToCart, wish, toggleWish, orderProductOnWhatsApp } = useStore();
   const product = getProductById(resolvedParams.id);
+  const quantityLimit = product ? getProductQuantityLimit(product) : 1;
 
   const [qty, setQty] = useState(1);
   const [finish, setFinish] = useState('Unstitched blouse · included');
   const [pincode, setPincode] = useState('');
   const [pinMessage, setPinMessage] = useState('');
 
-  useEffect(() => { setQty((current) => product?.stock != null ? Math.max(1, Math.min(current, product.stock)) : current); }, [product?.id, product?.stock]);
+  useEffect(() => { setQty((current) => Math.max(1, Math.min(current, quantityLimit))); }, [product?.id, quantityLimit]);
 
   if (!product) {
     return (
@@ -125,7 +127,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   <Icon name="minus" />
                 </button>
                 <span id="pqty">{soldOut ? 0 : qty}</span>
-                <button type="button" aria-label="Increase quantity" disabled={soldOut || (product.stock != null && qty >= product.stock)} onClick={() => setQty(product.stock != null ? Math.min(qty + 1, product.stock) : qty + 1)}>
+                <button type="button" aria-label="Increase quantity" disabled={soldOut || qty >= quantityLimit} onClick={() => setQty((current) => Math.min(current + 1, quantityLimit))}>
                   <Icon name="plus" />
                 </button>
               </div>

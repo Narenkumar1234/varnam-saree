@@ -1,5 +1,6 @@
 import { validateCoupon } from '@/lib/coupons';
 import { DEFAULT_COMMERCE, deliveryCharge, type CommerceConfig } from '@/lib/commerce';
+import { getProductQuantityLimit } from '@/lib/product-quantity';
 import type { CartItem, OrderItem, OrderPricing, OrderQuote, OrderPayment, Product } from '@/types';
 
 export class OrderPricingError extends Error {}
@@ -13,6 +14,9 @@ export function quoteFromCatalogue(items: CartItem[], code: string | null | unde
       throw new OrderPricingError('Your bag contains an unavailable saree or an invalid quantity.');
     }
     if (!Number.isSafeInteger(product.price) || product.price < 1) throw new OrderPricingError('This saree has an invalid price. Please contact Varnam.');
+    if (checkStock && product.stock == null && (quantities.get(product.id) || 0) > getProductQuantityLimit(product)) {
+      throw new OrderPricingError(`Choose no more than ${getProductQuantityLimit(product)} of ${product.name} per order while availability is unconfirmed.`);
+    }
     if (checkStock && product.stock != null) {
       if (product.stock <= 0) throw new OrderPricingError(`${product.name} is sold out. Please remove it before ordering.`);
       if ((quantities.get(product.id) || 0) > product.stock) throw new OrderPricingError(`Only ${product.stock} of ${product.name} are available. Please reduce the quantity.`);

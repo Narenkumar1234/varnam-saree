@@ -8,6 +8,7 @@ import { Toast } from '@/components/Toast';
 import { PageTransitionLoader } from '@/components/PageTransitionLoader';
 import { getCatalogue } from '@/lib/catalogue-server';
 import { getCommerce } from '@/lib/commerce-server';
+import { WhatsAppFallback } from '@/components/WhatsAppFallback';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,6 +49,7 @@ export default async function RootLayout({
           <Footer />
           <FloatingSocials />
           <Toast />
+          <WhatsAppFallback />
         </StoreProvider>
       </body>
     </html>

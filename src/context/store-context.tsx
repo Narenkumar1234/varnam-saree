@@ -7,9 +7,12 @@ import { validateCoupon, type CouponValidation } from '@/lib/coupons';
 import { quoteFromCatalogue, previewOrderQuote, parseOrderItems } from '@/lib/pricing';
 import { usePathname } from 'next/navigation';
 import { DEFAULT_COMMERCE, type CommerceConfig } from '@/lib/commerce';
-import { createProductWhatsAppMessage, formatWhatsAppOrderMessage, openWhatsAppOrder } from '@/lib/whatsapp';
+import { createProductWhatsAppMessage, createWhatsAppOrderUrl, formatWhatsAppOrderMessage, openWhatsAppOrder } from '@/lib/whatsapp';
 
 interface StoreContextType {
+  whatsAppFallback: { url: string | null } | null;
+  clearWhatsAppFallback: () => void;
+  openWhatsAppMessage: (message: string) => void;
   commerce: CommerceConfig;
   products: Product[];
   getProductById: (id: number | string) => Product | undefined;
@@ -44,6 +47,8 @@ interface StoreContextType {
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
 export function StoreProvider({ children, initialProducts, initialCommerce = DEFAULT_COMMERCE }: { children: ReactNode; initialProducts: Product[]; initialCommerce?: CommerceConfig }) {
+  const [whatsAppFallback, setWhatsAppFallback] = useState<{ url: string | null } | null>(null);
+  const clearWhatsAppFallback = () => setWhatsAppFallback(null);
   const [commerce, setCommerce] = useState(initialCommerce);
   const commerceRef = useRef(initialCommerce);
   useEffect(() => { commerceRef.current = initialCommerce; setCommerce(initialCommerce); }, [initialCommerce]);
@@ -249,6 +254,7 @@ export function StoreProvider({ children, initialProducts, initialCommerce = DEF
   };
 
   const clearDemo = () => {
+    clearWhatsAppFallback();
     setCart([]);
     setWish([]);
     setOrders([]);
@@ -265,8 +271,11 @@ export function StoreProvider({ children, initialProducts, initialCommerce = DEF
   };
 
   const openWhatsAppMessage = (message: string) => {
+    // Keep an ordinary retry link visible even if a browser silently refuses
+    // the external-app handoff. Do not infer success from a popup return value.
+    setWhatsAppFallback({ url: createWhatsAppOrderUrl(message) });
     if (!openWhatsAppOrder(message)) {
-      showToast('WhatsApp ordering is ready for the Varnam business number.');
+      showToast('WhatsApp could not open. Use the retry link or business number below.');
     }
   };
 
@@ -297,6 +306,7 @@ export function StoreProvider({ children, initialProducts, initialCommerce = DEF
   return (
     <StoreContext.Provider
       value={{
+        whatsAppFallback, clearWhatsAppFallback, openWhatsAppMessage,
         commerce, products, getProductById, refreshProducts, cartError,
         cart,
         wish,

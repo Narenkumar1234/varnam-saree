@@ -8,6 +8,7 @@ import { Product } from '@/types';
 import { useStore } from '@/context/store-context';
 import { Icon } from './Icons';
 import { ProductPrice } from './ProductPrice';
+import { getProductQuantityLimit } from '@/lib/product-quantity';
 
 interface ProductCardProps {
   product: Product;
@@ -19,6 +20,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
   const { cart, wish, toggleWish, adjustCardQuantity } = useStore();
 
   const soldOut = product.stock != null && product.stock <= 0;
+  const stockText = soldOut ? 'Sold out' : product.stock != null ? `${product.stock} available` : '';
   const isWish = wish.includes(product.id);
   const cartItem = cart.find((item) => item.id === product.id);
   const qty = cartItem?.qty || 0;
@@ -48,7 +50,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
         <ProductPrice price={product.price} oldPrice={product.oldPrice} />
       </Link>
 
-      <p className={`stock-state ${soldOut ? 'sold-out' : ''}`}>{soldOut ? 'Sold out' : product.stock != null ? `${product.stock} available` : ''}</p>
+      {stockText && <p className={`stock-state ${soldOut ? 'sold-out' : ''}`}>{stockText}</p>}
       <div className="product-actions">
         <div className="card-bag-control">
           {qty > 0 ? (
@@ -66,7 +68,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
                 type="button"
                 data-step="plus"
                 aria-label={`Add one ${product.name}`}
-                disabled={soldOut || (product.stock != null && qty >= product.stock)}
+                disabled={soldOut || qty >= getProductQuantityLimit(product)}
                 onClick={() => adjustCardQuantity(product.id, 1)}
               >
                 <Icon name="plus" />
