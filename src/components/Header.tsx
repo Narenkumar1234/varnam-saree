@@ -58,6 +58,7 @@ export function Header() {
             <span className="offers-nav-badge" aria-hidden="true">50% OFF</span>
           </Link>
           <Link href="/story">Our story</Link>
+          <Link href="/studio-desk">Studio</Link>
           <Link className="mobile-nav-link" href="/account">
             My account
           </Link>
