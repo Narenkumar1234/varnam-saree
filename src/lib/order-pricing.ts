@@ -1,6 +1,6 @@
 import { getProductById } from '@/data/products';
 import { validateCoupon } from '@/lib/coupons';
-import type { CartItem, OrderItem, OrderPricing, OrderQuote } from '@/types';
+import type { CartItem, OrderItem, OrderPricing, OrderQuote, OrderPayment } from '@/types';
 
 export class OrderPricingError extends Error {}
 
@@ -77,13 +77,13 @@ export function serializeOrderQuote(quote: OrderQuote): string {
   return JSON.stringify({ version: 1, ...quote });
 }
 
-export function readOrderSnapshot(json: string): { items: OrderItem[]; pricing?: OrderPricing } {
+export function readOrderSnapshot(json: string): { items: OrderItem[]; pricing?: OrderPricing; payment?: OrderPayment } {
   try {
     const stored = JSON.parse(json);
     // Orders created before coupon support stored only an array of items.
     if (Array.isArray(stored)) return { items: stored };
     if (stored && Array.isArray(stored.items)) {
-      return { items: stored.items, pricing: stored.pricing };
+      return { items: stored.items, pricing: stored.pricing, ...(stored.payment ? { payment: stored.payment } : {}) };
     }
   } catch {
     // A malformed legacy record should not prevent the order list from loading.

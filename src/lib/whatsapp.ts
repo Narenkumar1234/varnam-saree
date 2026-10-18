@@ -1,5 +1,5 @@
 import { money, VARNAM_CONFIG } from '@/data/products';
-import type { OrderItem, OrderPricing } from '@/types';
+import type { OrderItem, OrderPricing, OrderPayment } from '@/types';
 
 export interface WhatsAppProduct {
   id: number;
@@ -16,6 +16,7 @@ export interface WhatsAppSavedOrder {
   total: number;
   items: OrderItem[];
   pricing?: OrderPricing;
+  payment?: OrderPayment;
   status?: string;
   customerName?: string;
   phone?: string | null;
@@ -84,6 +85,8 @@ export function createSavedOrderWhatsAppMessage(
   const lines = [
     `Order: ${order.id}`,
     ...(order.status ? [`Status: ${order.status}`] : []),
+    ...(order.payment ? [`Payment: ${order.payment.status === 'paid' ? 'Paid via Razorpay' : order.payment.status === 'authorized' ? 'Authorized, awaiting capture' : 'Not yet confirmed'}`] : []),
+    ...(order.payment?.paymentId ? [`Payment reference: ${order.payment.paymentId}`] : []),
     ...(order.customerName ? [`Customer: ${order.customerName}`] : []),
     ...(order.phone ? [`Customer phone: ${order.phone}`] : []),
     '',

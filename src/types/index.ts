@@ -24,6 +24,18 @@ export interface Order {
   items: OrderItem[];
   total: number;
   pricing?: OrderPricing;
+  payment?: OrderPayment;
+}
+
+export interface OrderPayment {
+  provider: 'razorpay';
+  status: 'pending' | 'authorized' | 'paid';
+  razorpayOrderId: string;
+  /** Amount in paise, including the saved coupon discount and shipping. */
+  amount: number;
+  currency: 'INR';
+  paymentId?: string;
+  paidAt?: string;
 }
 
 export interface OrderItem extends CartItem {

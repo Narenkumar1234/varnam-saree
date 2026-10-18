@@ -2731,6 +2731,33 @@ footer {
   margin-top: 8px;
 }
 
+.studio-payment {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  max-width: 250px;
+}
+
+.studio-payment-button {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.studio-payment-button:hover { background: #51364b; }
+.studio-payment-button:disabled { opacity: .55; cursor: default; }
+.studio-payment-button:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+.studio-payment-message, .studio-payment small { font-size: 11px; line-height: 1.5; }
+.studio-payment-message.error { color: #9a2940; }
+.studio-payment-paid { color: #176047; font-size: 12px; font-weight: 600; }
+.studio-payment-paid small { display: block; overflow-wrap: anywhere; font-weight: 400; }
+
 .admin-edit-form {
   display: flex;
   flex-direction: column;

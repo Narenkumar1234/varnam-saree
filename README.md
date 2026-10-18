@@ -33,3 +33,26 @@ Responsive luxury Indian saree boutique storefront migrated to **Next.js 15 (App
 - Type check: `npm run lint`
 - Production build: `npm run build`
 - Ready for full-stack API routes or Server Actions in future phases without architectural changes.
+
+## Studio Razorpay payments
+
+In `/studio-desk`, open **Customer Orders** and choose **Pay with Razorpay** on a saved order. The existing order API creates the customer order and calculates its price, coupon discount, and delivery charge on the server. The payment endpoint creates a Razorpay order from that saved total, in INR paise; it does not accept a browser-supplied amount. **Confirm on WhatsApp** and inventory WhatsApp ordering remain available.
+
+Set these environment variables on the server and restart/redeploy:
+
+- `RAZORPAY_KEY_ID`: dashboard key ID.
+- `RAZORPAY_KEY_SECRET`: matching server-only API secret.
+- `RAZORPAY_WEBHOOK_SECRET`: separate secret you choose when configuring the webhook below.
+
+Blank entries are provided in `.env.example`. No `NEXT_PUBLIC_RAZORPAY_KEY_ID` is needed: the order endpoint returns only the public key ID to Checkout. Do not put API secrets in client code or commit configured environment files. Existing PostgreSQL configuration is still required.
+
+Enable automatic payment capture in Razorpay. Configure a webhook for **payment.captured** at `https://YOUR_DOMAIN/api/payments/razorpay/webhook`, using the matching webhook secret. Configure Test and Live modes separately, with their respective keys and webhooks.
+
+`POST /api/payments/razorpay/order` accepts `{ orderId }` for a saved customer order. Pending Razorpay orders are reused under a database row lock. `POST /api/payments/razorpay/verify` accepts the local `orderId` plus Checkout's `razorpay_order_id`, `razorpay_payment_id`, and `razorpay_signature`. The server verifies HMAC against its stored Razorpay order ID, then fetches the payment to check the order, amount, INR currency, and captured state. Only then is the payment marked paid. Authorized payments wait for capture; signed webhooks finish confirmation if the browser closes. Duplicate callbacks/webhooks are safe. A payment captured after an order is cancelled is still recorded for reconciliation; cancellation does not automatically refund it.
+
+Payment state and references are stored alongside the existing price snapshot in `orders.itemsJson`, so no schema migration is required. Fulfilment status remains separate. Verification receipts are cached in session storage for retries; no card details or API secrets are stored there. If online payments are unconfigured, unavailable, or cancelled, customers can continue using WhatsApp. If debited but confirmation is pending, use **Retry payment verification** or contact Varnam before paying again.
+
+Before accepting real payments, test a successful payment, Checkout dismissal/failure, verification retry, a late capture via webhook, and duplicate webhook delivery using your Razorpay Test-mode account. Run `bun run test:payments`, `bun run lint`, and `bun run build`. Test-mode and live transactions require configured keys and a reachable database/webhook.
+
+Official references: [Standard Checkout integration](https://razorpay.com/docs/payments/payment-gateway/web-integration/standard/integration-steps/) and [webhook validation](https://razorpay.com/docs/webhooks/validate-test/).
+

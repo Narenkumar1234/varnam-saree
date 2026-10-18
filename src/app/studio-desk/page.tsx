@@ -7,6 +7,7 @@ import { money } from '@/data/products';
 import { Icon } from '@/components/Icons';
 import { readOrderSnapshot } from '@/lib/order-pricing';
 import { OrderSavings } from '@/components/OrderTotals';
+import { StudioPayment } from '@/components/StudioPayment';
 import { createProductWhatsAppMessage, createSavedOrderWhatsAppMessage, openWhatsAppOrder } from '@/lib/whatsapp';
 
 interface AdminProduct {
@@ -802,7 +803,7 @@ export default function StudioDeskPage() {
           <div className="admin-panel-header">
             <div>
               <h2>Customer Orders & Dispatch Status</h2>
-              <p className="muted">Update delivery status or review an order with Varnam on WhatsApp before confirming.</p>
+              <p className="muted">Pay securely with Razorpay, update delivery status, or confirm an order with Varnam on WhatsApp.</p>
             </div>
             <button type="button" onClick={loadData} className="btn outline" style={{ minHeight: '36px', padding: '6px 14px', fontSize: '12px' }}>
               Refresh
@@ -831,7 +832,7 @@ export default function StudioDeskPage() {
                 </thead>
                 <tbody>
                   {orders.map((o) => {
-                    const { items: parsedItems, pricing } = readOrderSnapshot(o.itemsJson);
+                    const { items: parsedItems, pricing, payment } = readOrderSnapshot(o.itemsJson);
 
                     return (
                       <tr key={o.id}>
@@ -883,6 +884,11 @@ export default function StudioDeskPage() {
                             <option value="Delivered">Delivered</option>
                             <option value="Cancelled">Cancelled</option>
                           </select>
+                          <StudioPayment
+                            orderId={o.id} total={o.total} customerName={o.customerName}
+                            email={o.email} phone={o.phone} payment={payment}
+                            cancelled={o.status?.toLowerCase() === 'cancelled'} onPaid={loadData}
+                          />
                           <button
                             type="button"
                             className="studio-whatsapp order-whatsapp-action"
