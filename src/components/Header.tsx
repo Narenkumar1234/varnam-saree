@@ -48,6 +48,7 @@ export function Header() {
         </Link>
 
         <nav id="main-nav" className={menuOpen ? 'open' : ''} aria-label="Main navigation">
+          <Link href="/">Home</Link>
           <Link href="/shop">All sarees</Link>
           <Link href="/shop?collection=Silk">Silk stories</Link>
           <Link href="/shop?collection=Cotton">Everyday cottons</Link>
