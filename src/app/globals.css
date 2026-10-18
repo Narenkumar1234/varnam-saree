@@ -2695,6 +2695,42 @@ footer {
   background: #fef2f2;
 }
 
+.admin-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 165px;
+  max-width: 210px;
+}
+
+.studio-whatsapp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 7px 11px;
+  border: 1px solid #176047;
+  border-radius: 2px;
+  color: #176047;
+  background: #edf3ee;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.studio-whatsapp:hover {
+  background: #dcebe0;
+}
+
+.admin-row-actions .studio-whatsapp {
+  flex-basis: 100%;
+}
+
+.order-whatsapp-action {
+  margin-top: 8px;
+}
+
 .admin-edit-form {
   display: flex;
   flex-direction: column;

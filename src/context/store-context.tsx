@@ -2,9 +2,10 @@
 
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
 import { CartItem, Order, OrderQuote, UserProfile } from '@/types';
-import { getProductById, money, VARNAM_CONFIG } from '@/data/products';
+import { getProductById, money } from '@/data/products';
 import { validateCoupon, type CouponValidation } from '@/lib/coupons';
 import { calculateOrderQuote, parseOrderItems } from '@/lib/order-pricing';
+import { createProductWhatsAppMessage, formatWhatsAppOrderMessage, openWhatsAppOrder } from '@/lib/whatsapp';
 
 interface StoreContextType {
   cart: CartItem[];
@@ -228,14 +229,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     showToast('Demo data cleared');
   };
 
-  const openWhatsAppOrder = (lines: string[]) => {
-    const number = String(VARNAM_CONFIG.whatsappNumber || '').replace(/\D/g, '');
-    if (!number) {
+  const openWhatsAppMessage = (message: string) => {
+    if (!openWhatsAppOrder(message)) {
       showToast('WhatsApp ordering is ready for the Varnam business number.');
-      return;
     }
-    const message = ['Hello Varnam, I would like to order:', ...lines, '', 'Please confirm availability and delivery details.'].join('\n');
-    window.open(`https://wa.me/${number}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
   };
 
   const orderProductOnWhatsApp = (id: number, qty = 1, finish = 'Unstitched blouse · included') => {
@@ -243,15 +240,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!product) return;
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const { pricing } = calculateOrderQuote([{ id, qty, finish }], couponCode);
-    openWhatsAppOrder([
-      `${product.name} × ${qty}`,
-      finish,
-      `Subtotal: ${money(pricing.subtotal)}`,
-      ...(pricing.couponCode ? [`${pricing.couponCode}: −${money(pricing.discountAmount)}`] : []),
-      `Delivery: ${money(pricing.shipping)}`,
-      `Order total: ${money(pricing.total)}`,
-      `Product: ${origin}/product/${product.id}`,
-    ]);
+    openWhatsAppMessage(createProductWhatsAppMessage(product, { quantity: qty, finish, origin, pricing }));
   };
 
   const orderCartOnWhatsApp = () => {
@@ -260,7 +249,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const lines = cartQuote.items.map((item) => `${item.name} × ${item.qty} — ${money(item.total)}`);
     if (pricing.couponCode) lines.push(`${pricing.couponCode}: saving ${money(pricing.discountAmount)} included above`);
     lines.push(`Delivery: ${money(pricing.shipping)}`, `Order total: ${money(pricing.total)}`);
-    openWhatsAppOrder(lines);
+    openWhatsAppMessage(formatWhatsAppOrderMessage(lines));
   };
 
   const getOrderById = (id: string) => {

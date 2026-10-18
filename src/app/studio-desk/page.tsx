@@ -7,6 +7,7 @@ import { money } from '@/data/products';
 import { Icon } from '@/components/Icons';
 import { readOrderSnapshot } from '@/lib/order-pricing';
 import { OrderSavings } from '@/components/OrderTotals';
+import { createProductWhatsAppMessage, createSavedOrderWhatsAppMessage, openWhatsAppOrder } from '@/lib/whatsapp';
 
 interface AdminProduct {
   id: number;
@@ -107,6 +108,19 @@ export default function StudioDeskPage() {
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
+  };
+
+  const orderProductOnWhatsApp = (product: AdminProduct) => {
+    const message = createProductWhatsAppMessage(product, { includeProductLink: false });
+    if (!openWhatsAppOrder(message)) showToast('WhatsApp ordering is currently unavailable.');
+  };
+
+  const confirmOrderOnWhatsApp = (order: AdminOrder) => {
+    const snapshot = readOrderSnapshot(order.itemsJson);
+    const message = createSavedOrderWhatsAppMessage(
+      { ...order, ...snapshot }, products, window.location.origin
+    );
+    if (!openWhatsAppOrder(message)) showToast('WhatsApp ordering is currently unavailable.');
   };
 
   // Check existing session
@@ -549,7 +563,7 @@ export default function StudioDeskPage() {
                           <span className="admin-tag-label">{p.tag || '—'}</span>
                         </td>
                         <td>
-                          <div style={{ display: 'flex', gap: '6px' }}>
+                          <div className="admin-row-actions">
                             <button
                               type="button"
                               className="btn-edit"
@@ -564,6 +578,14 @@ export default function StudioDeskPage() {
                               onClick={() => deleteProduct(p.id, p.name)}
                             >
                               Remove
+                            </button>
+                            <button
+                              type="button"
+                              className="studio-whatsapp"
+                              aria-label={`Order ${p.name} on WhatsApp`}
+                              onClick={() => orderProductOnWhatsApp(p)}
+                            >
+                              <Icon name="whatsapp" size={16} /> Order on WhatsApp
                             </button>
                           </div>
                         </td>
@@ -780,7 +802,7 @@ export default function StudioDeskPage() {
           <div className="admin-panel-header">
             <div>
               <h2>Customer Orders & Dispatch Status</h2>
-              <p className="muted">Orders saved in Cloud SQL. Update delivery status to notify customers on their tracking screen.</p>
+              <p className="muted">Update delivery status or review an order with Varnam on WhatsApp before confirming.</p>
             </div>
             <button type="button" onClick={loadData} className="btn outline" style={{ minHeight: '36px', padding: '6px 14px', fontSize: '12px' }}>
               Refresh
@@ -861,6 +883,15 @@ export default function StudioDeskPage() {
                             <option value="Delivered">Delivered</option>
                             <option value="Cancelled">Cancelled</option>
                           </select>
+                          <button
+                            type="button"
+                            className="studio-whatsapp order-whatsapp-action"
+                            aria-label={`Confirm order ${o.id} on WhatsApp`}
+                            title="Review the pre-filled message with Varnam on WhatsApp"
+                            onClick={() => confirmOrderOnWhatsApp(o)}
+                          >
+                            <Icon name="whatsapp" size={16} /> Confirm on WhatsApp
+                          </button>
                         </td>
                       </tr>
                     );
