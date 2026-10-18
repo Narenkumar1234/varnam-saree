@@ -2,11 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { products } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { requireAdminSession } from '@/lib/admin-session';
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = requireAdminSession(req);
+  if (denied) return denied;
   try {
     const { id } = await params;
     const numId = parseInt(id, 10);
@@ -45,6 +48,8 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = requireAdminSession(req);
+  if (denied) return denied;
   try {
     const { id } = await params;
     const numId = parseInt(id, 10);

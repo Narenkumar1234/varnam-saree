@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { products } from '@/db/schema';
 import { desc } from 'drizzle-orm';
+import { requireAdminSession } from '@/lib/admin-session';
 
-export async function GET() {
+export const dynamic = 'force-dynamic';
+
+export async function GET(req: NextRequest) {
+  const denied = requireAdminSession(req);
+  if (denied) return denied;
   try {
     const list = await db.select().from(products).orderBy(desc(products.id));
-    return NextResponse.json({ products: list });
+    return NextResponse.json({ products: list }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error: any) {
     console.error('Failed to fetch admin products:', error);
     return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
@@ -14,6 +19,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = requireAdminSession(req);
+  if (denied) return denied;
   try {
     const body = await req.json();
     const { name, type, collection, price, oldPrice, colour, stock, tag, image, description } = body;

@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
 import sharp from 'sharp';
+import { requireAdminSession } from '@/lib/admin-session';
 
 export async function POST(req: NextRequest) {
+  const denied = requireAdminSession(req);
+  if (denied) return denied;
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File;

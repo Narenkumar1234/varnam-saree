@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { orders, users } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { calculateOrderQuote, parseOrderItems, readOrderSnapshot, serializeOrderQuote, OrderPricingError } from '@/lib/order-pricing';
+import { requireAdminSession } from '@/lib/admin-session';
 
 export async function POST(req: NextRequest) {
   try {
@@ -56,6 +57,13 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const email = searchParams.get('email');
+
+    // The unfiltered list is an admin view. Customer email lookups retain the
+    // existing storefront contract; Studio uses /api/admin/orders instead.
+    if (!email) {
+      const denied = requireAdminSession(req);
+      if (denied) return denied;
+    }
 
     let result;
     if (email) {

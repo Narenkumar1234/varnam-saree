@@ -50,6 +50,8 @@ const IMAGE_PRESETS = [
 
 export default function StudioDeskPage() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [passcode, setPasscode] = useState('');
   const [authError, setAuthError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -87,7 +89,7 @@ export default function StudioDeskPage() {
     formData.append('file', file);
 
     try {
-      const res = await fetch('/api/admin/upload', {
+      const res = await adminFetch('/api/admin/upload', {
         method: 'POST',
         body: formData,
       });
@@ -124,21 +126,48 @@ export default function StudioDeskPage() {
     if (!openWhatsAppOrder(message)) showToast('WhatsApp ordering is currently unavailable.');
   };
 
-  // Check existing session
-  useEffect(() => {
-    const session = sessionStorage.getItem('varnam_studio_auth');
-    if (session === 'true') {
-      setIsAuthenticated(true);
+  function clearAdminState() {
+    setIsAuthenticated(false);
+    setProducts([]);
+    setOrders([]);
+    setEditingProduct(null);
+    setActiveTab('inventory');
+    setPasscode('');
+  }
+
+  async function adminFetch(url: string, options: RequestInit = {}) {
+    const response = await fetch(url, { ...options, credentials: 'same-origin', cache: 'no-store' });
+    if (response.status === 401) {
+      clearAdminState();
+      setAuthError('Your Studio session has expired. Please sign in again.');
+      throw new Error('Studio session expired');
     }
+    return response;
+  }
+
+  // Only the server can restore access; a browser storage flag grants nothing.
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch('/api/admin/auth', { credentials: 'same-origin', cache: 'no-store', signal: controller.signal })
+      .then(async (response) => {
+        const data = await response.json();
+        if (controller.signal.aborted) return;
+        setIsAuthenticated(response.ok && data.success === true);
+        if (response.status === 503) setAuthError(data.error || 'Admin login is not configured.');
+      })
+      .catch(() => { if (!controller.signal.aborted) setAuthError('Unable to check Studio access. Please sign in again.'); })
+      .finally(() => { if (!controller.signal.aborted) setCheckingSession(false); });
+    return () => controller.abort();
   }, []);
 
   const loadData = async () => {
     setLoading(true);
     try {
       const [prodRes, orderRes] = await Promise.all([
-        fetch('/api/admin/products'),
-        fetch('/api/orders'),
+        adminFetch('/api/admin/products'),
+        adminFetch('/api/admin/orders'),
       ]);
+      if (!prodRes.ok || !orderRes.ok) throw new Error('Unable to load Studio data');
       const prodData = await prodRes.json();
       const orderData = await orderRes.json();
 
@@ -166,14 +195,15 @@ export default function StudioDeskPage() {
     try {
       const res = await fetch('/api/admin/auth', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ passcode: passcode.trim(), email: passcode.trim() }),
+        body: JSON.stringify({ passcode }),
       });
       const data = await res.json();
 
       if (res.ok && data.success) {
         setIsAuthenticated(true);
-        sessionStorage.setItem('varnam_studio_auth', 'true');
+        setPasscode('');
         showToast('Authorized: Welcome to Studio Desk');
       } else {
         setAuthError(data.error || 'Access denied');
@@ -185,9 +215,18 @@ export default function StudioDeskPage() {
     }
   };
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    sessionStorage.removeItem('varnam_studio_auth');
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      const response = await fetch('/api/admin/auth', { method: 'DELETE', credentials: 'same-origin' });
+      if (!response.ok) throw new Error('Sign out failed');
+      clearAdminState();
+      setAuthError('');
+    } catch {
+      showToast('Unable to sign out. Please try again.');
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   // Inline Stock Update
@@ -198,7 +237,7 @@ export default function StudioDeskPage() {
     );
 
     try {
-      const res = await fetch(`/api/admin/products/${id}`, {
+      const res = await adminFetch(`/api/admin/products/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stock: validStock }),
@@ -216,7 +255,7 @@ export default function StudioDeskPage() {
   // Inline Price Update
   const updatePrice = async (id: number, newPrice: number) => {
     try {
-      const res = await fetch(`/api/admin/products/${id}`, {
+      const res = await adminFetch(`/api/admin/products/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ price: newPrice }),
@@ -239,7 +278,7 @@ export default function StudioDeskPage() {
 
     setIsSavingEdit(true);
     try {
-      const res = await fetch(`/api/admin/products/${editingProduct.id}`, {
+      const res = await adminFetch(`/api/admin/products/${editingProduct.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editingProduct),
@@ -268,7 +307,7 @@ export default function StudioDeskPage() {
     }
 
     try {
-      const res = await fetch(`/api/admin/products/${id}`, { method: 'DELETE' });
+      const res = await adminFetch(`/api/admin/products/${id}`, { method: 'DELETE' });
       if (res.ok) {
         setProducts((prev) => prev.filter((p) => p.id !== id));
         showToast(`Removed "${name}" from store`);
@@ -282,7 +321,7 @@ export default function StudioDeskPage() {
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/admin/products', {
+      const res = await adminFetch('/api/admin/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newSaree),
@@ -316,7 +355,7 @@ export default function StudioDeskPage() {
   // Update Order Status
   const updateOrderStatus = async (orderId: string, status: string) => {
     try {
-      const res = await fetch(`/api/admin/orders/${orderId}`, {
+      const res = await adminFetch(`/api/admin/orders/${orderId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
@@ -338,6 +377,10 @@ export default function StudioDeskPage() {
   const lowStockCount = products.filter((p) => p.stock <= 2).length;
 
   // LOGIN SCREEN
+  if (checkingSession) {
+    return <div className="admin-container"><div className="admin-login-card" role="status">Checking Studio access…</div></div>;
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="admin-container">
@@ -350,26 +393,24 @@ export default function StudioDeskPage() {
 
           <form onSubmit={handleLogin} className="admin-form">
             <label>
-              Studio Access Passcode or Admin Email
+              Studio Access Passcode
               <input
                 type="password"
                 required
                 value={passcode}
                 onChange={(e) => setPasscode(e.target.value)}
-                placeholder="Enter passcode or admin email"
+                placeholder="Enter Studio passcode"
+                autoComplete="current-password"
                 autoFocus
               />
             </label>
 
-            {authError && <div className="admin-error-badge">{authError}</div>}
+            {authError && <div className="admin-error-badge" role="alert">{authError}</div>}
 
             <button type="submit" className="btn" disabled={isLoggingIn} style={{ width: '100%', marginTop: '12px' }}>
               {isLoggingIn ? 'Verifying access…' : 'Enter Studio Desk'}
             </button>
 
-            <div className="admin-login-hint">
-              Default passcode: <code>varnam2026</code> or your admin email
-            </div>
           </form>
         </div>
       </div>
@@ -399,10 +440,11 @@ export default function StudioDeskPage() {
           <button
             type="button"
             onClick={handleLogout}
+            disabled={isLoggingOut}
             className="btn outline"
             style={{ minHeight: '38px', padding: '8px 16px', fontSize: '12px' }}
           >
-            Sign out
+            {isLoggingOut ? 'Signing out…' : 'Sign out'}
           </button>
         </div>
       </header>

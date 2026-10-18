@@ -34,6 +34,18 @@ Responsive luxury Indian saree boutique storefront migrated to **Next.js 15 (App
 - Production build: `npm run build`
 - Ready for full-stack API routes or Server Actions in future phases without architectural changes.
 
+## Studio admin access
+
+Set `ADMIN_PASSCODE` in the server environment before using `/studio-desk`. There is no default passcode and no email-only login. If the passcode is missing or blank, login returns HTTP 503 with **Admin login is not configured.** The login screen does not display credentials.
+
+Also set `ADMIN_SESSION_SECRET` to an independent, high-entropy random secret (at least 32 random bytes). It is recommended but optional: if absent, the server derives a signing key with HMAC-SHA256 using `ADMIN_PASSCODE`. The derivation is domain-separated for Studio sessions and bound to the current passcode; rotating either value invalidates existing sessions. Both variables are server-only; `.env.example` contains blank placeholders.
+
+Successful `POST /api/admin/auth` accepts `{ passcode }` and sets an eight-hour HMAC-SHA256-signed cookie. The cookie contains a version, audience, issue/expiry timestamps and random nonce, with no passcode or customer data. It is `HttpOnly`, `SameSite=Strict`, scoped to `/api/admin`, and `Secure` in production (HTTPS is required). Sessions are stateless: each admin handler verifies the signature and expiry on the server before reading request bodies or touching the database/filesystem. Browser storage flags are not used for authorization. Cross-origin admin mutations are rejected, and admin list/session responses are not cached.
+
+Every product, upload, and order handler under `/api/admin` uses the shared session guard. Studio loads orders from the protected `/api/admin/orders` endpoint; the legacy unfiltered `/api/orders` list also requires an admin session. Existing customer email-based order lookups are unchanged. `GET /api/admin/auth` restores a valid session after a refresh; `DELETE /api/admin/auth` expires the cookie on sign-out. Studio sends same-origin credentials on all admin requests and returns to login when an API reports an expired session. Logging out clears this browser's cookie; signing-key rotation invalidates all issued cookies.
+
+Run `bun run test:admin` for login, cookie, expiry, tampering, route coverage, and logout checks. A request without a cookie, for example `curl -i http://localhost:3000/api/admin/products`, must return **401 Unauthorized**. Login/logout and session restoration can be exercised locally over HTTP in development; production cookies require HTTPS.
+
 ## Studio Razorpay payments
 
 In `/studio-desk`, open **Customer Orders** and choose **Pay with Razorpay** on a saved order. The existing order API creates the customer order and calculates its price, coupon discount, and delivery charge on the server. The payment endpoint creates a Razorpay order from that saved total, in INR paise; it does not accept a browser-supplied amount. **Confirm on WhatsApp** and inventory WhatsApp ordering remain available.
