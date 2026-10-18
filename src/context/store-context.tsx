@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useMemo, useRef, useCallback, ReactNode } from 'react';
-import { CartItem, Order, OrderQuote, UserProfile, Product } from '@/types';
+import { CartItem, Order, OrderQuote, Product } from '@/types';
 import { money } from '@/data/products';
 import { validateCoupon, type CouponValidation } from '@/lib/coupons';
 import { quoteFromCatalogue, previewOrderQuote, parseOrderItems } from '@/lib/pricing';
@@ -21,7 +21,6 @@ interface StoreContextType {
   cart: CartItem[];
   wish: number[];
   orders: Order[];
-  profile: UserProfile | null;
   couponCode: string | null;
   cartQuote: OrderQuote;
   toastMessage: string | null;
@@ -36,7 +35,6 @@ interface StoreContextType {
     details: { first: string; last: string; email: string; phone: string; address: string; city: string; state: string; pin: string },
     customItems?: CartItem[]
   ) => Promise<string>;
-  setProfile: (p: UserProfile | null) => void;
   clearDemo: () => void;
   showToast: (msg: string) => void;
   orderProductOnWhatsApp: (id: number, qty?: number, finish?: string) => void;
@@ -86,7 +84,6 @@ export function StoreProvider({ children, initialProducts, initialCommerce = DEF
   const [cart, setCart] = useState<CartItem[]>([]);
   const [wish, setWish] = useState<number[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [profile, setProfileState] = useState<UserProfile | null>(null);
   const [couponCode, setCouponCode] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
@@ -109,8 +106,8 @@ export function StoreProvider({ children, initialProducts, initialCommerce = DEF
       const savedOrders = localStorage.getItem('varnam-orders');
       if (savedOrders) setOrders(JSON.parse(savedOrders));
 
-      const savedProfile = localStorage.getItem('varnam-profile');
-      if (savedProfile) setProfileState(JSON.parse(savedProfile));
+      // Discard legacy email-only identities. Browser data never authenticates.
+      localStorage.removeItem('varnam-profile');
 
       const savedCoupon = localStorage.getItem('varnam-coupon');
       if (savedCoupon?.trim()) setCouponCode(savedCoupon.trim().toUpperCase());
@@ -127,13 +124,12 @@ export function StoreProvider({ children, initialProducts, initialCommerce = DEF
       localStorage.setItem('varnam-cart', JSON.stringify(cart));
       localStorage.setItem('varnam-wish', JSON.stringify(wish));
       localStorage.setItem('varnam-orders', JSON.stringify(orders));
-      localStorage.setItem('varnam-profile', JSON.stringify(profile));
       if (couponCode) localStorage.setItem('varnam-coupon', couponCode);
       else localStorage.removeItem('varnam-coupon');
     } catch {
       // ignore
     }
-  }, [cart, wish, orders, profile, couponCode, isLoaded]);
+  }, [cart, wish, orders, couponCode, isLoaded]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -220,7 +216,6 @@ export function StoreProvider({ children, initialProducts, initialCommerce = DEF
         items: orderItems,
         couponCode,
         expectedTotal: latestQuote.pricing.total,
-        uid: profile?.uid,
       }),
     });
     const data = await response.json().catch(() => null);
@@ -249,16 +244,11 @@ export function StoreProvider({ children, initialProducts, initialCommerce = DEF
     return id;
   };
 
-  const setProfile = (p: UserProfile | null) => {
-    setProfileState(p);
-  };
-
   const clearDemo = () => {
     clearWhatsAppFallback();
     setCart([]);
     setWish([]);
     setOrders([]);
-    setProfileState(null);
     setCouponCode(null);
     localStorage.removeItem('varnam-cart');
     localStorage.removeItem('varnam-wish');
@@ -311,7 +301,6 @@ export function StoreProvider({ children, initialProducts, initialCommerce = DEF
         cart,
         wish,
         orders,
-        profile,
         couponCode,
         cartQuote,
         toastMessage,
@@ -323,7 +312,6 @@ export function StoreProvider({ children, initialProducts, initialCommerce = DEF
         applyCoupon,
         removeCoupon,
         placeOrder,
-        setProfile,
         clearDemo,
         showToast,
         orderProductOnWhatsApp,

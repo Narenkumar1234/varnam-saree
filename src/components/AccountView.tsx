@@ -1,133 +1,30 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import Link from 'next/link';
-import { useStore } from '@/context/store-context';
 import { money } from '@/data/products';
-import { signInWithPopup } from 'firebase/auth';
-import { auth, googleAuthProvider } from '@/lib/firebase';
 import { OrderSavings } from '@/components/OrderTotals';
+import { useCustomerAccount } from '@/hooks/use-customer-account';
 
 interface AccountViewProps {
   initialSignUp?: boolean;
+  ordersOnly?: boolean;
 }
 
-export function AccountView({ initialSignUp = false }: AccountViewProps) {
-  const { profile, setProfile, orders, showToast } = useStore();
-  const [isSignUp, setIsSignUp] = useState(initialSignUp);
-  const [nameInput, setNameInput] = useState('');
-  const [emailInput, setEmailInput] = useState('');
-  const [isSigningIn, setIsSigningIn] = useState(false);
-  const [dbOrders, setDbOrders] = useState<any[]>([]);
-
-  // Fetch orders from database when profile is available
-  useEffect(() => {
-    if (profile?.email) {
-      fetch(`/api/orders?email=${encodeURIComponent(profile.email)}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.orders) {
-            setDbOrders(data.orders);
-          }
-        })
-        .catch((err) => console.error('Failed to load db orders:', err));
-    }
-  }, [profile?.email]);
-
-  const handleAuthSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const displayName = isSignUp ? nameInput : emailInput.split('@')[0] || 'Varnam customer';
-    const newProfile = {
-      name: displayName,
-      email: emailInput,
-      uid: `local-${Date.now()}`,
-    };
-    setProfile(newProfile);
-
-    try {
-      await fetch('/api/auth/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          uid: newProfile.uid,
-          email: newProfile.email,
-          name: newProfile.name,
-        }),
-      });
-    } catch (err) {
-      console.error('Failed to sync user with database:', err);
-    }
-
-    showToast(`Welcome, ${displayName}`);
-  };
-
-  const handleGoogleSignIn = async () => {
-    setIsSigningIn(true);
-    try {
-      const cred = await signInWithPopup(auth, googleAuthProvider);
-      const user = cred.user;
-      const profileData = {
-        name: user.displayName || user.email?.split('@')[0] || 'Varnam customer',
-        email: user.email || '',
-        uid: user.uid,
-      };
-      setProfile(profileData);
-
-      // Sync user into PostgreSQL database
-      await fetch('/api/auth/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          uid: user.uid,
-          email: user.email,
-          name: profileData.name,
-        }),
-      });
-
-      showToast(`Signed in as ${profileData.name}`);
-    } catch (err: any) {
-      console.error('Google sign-in error:', err);
-      showToast(err.message || 'Could not complete Google sign-in');
-    } finally {
-      setIsSigningIn(false);
-    }
-  };
-
-  const displayOrders = dbOrders.length > 0 ? dbOrders : orders;
+export function AccountView({ initialSignUp = false, ordersOnly = false }: AccountViewProps) {
+  const { profile, orders, loading, signingIn, error, ordersError, signIn, logOut, retry } = useCustomerAccount();
 
   if (!profile) {
     return (
       <>
         <div className="page-title">
-          <h1>{isSignUp ? 'Make yourself at home' : 'Welcome back'}</h1>
-          <p>Your colours. Your favourites. Your Varnam.</p>
+          <h1>{ordersOnly ? 'Your orders' : initialSignUp ? 'Make yourself at home' : 'Welcome back'}</h1>
+          <p>Sign in with Google to securely access your account and order history.</p>
         </div>
-
         <div className="auth">
-          <div className="tabs">
-            <button
-              type="button"
-              className={!isSignUp ? 'active' : ''}
-              onClick={() => setIsSignUp(false)}
-            >
-              Sign in
-            </button>
-            <button
-              type="button"
-              className={isSignUp ? 'active' : ''}
-              onClick={() => setIsSignUp(true)}
-            >
-              Create account
-            </button>
-          </div>
-
-          <div className="google-signin">
-            <button
-              className="google-setup"
-              type="button"
-              disabled={isSigningIn}
-              onClick={handleGoogleSignIn}
-            >
+          {loading ? <p role="status">Verifying your Google sign-in…</p> : (
+            <div className="google-signin">
+              <button className="google-setup" type="button" disabled={signingIn} onClick={signIn}>
               <span className="google-mark" aria-hidden="true">
                 <svg viewBox="0 0 18 18" width="18" height="18" focusable="false">
                   <path
@@ -148,43 +45,15 @@ export function AccountView({ initialSignUp = false }: AccountViewProps) {
                   />
                 </svg>
               </span>
-              <span>{isSigningIn ? 'Connecting…' : 'Continue with Google'}</span>
-            </button>
-            <small>Secure one-click sign in with Google</small>
-          </div>
-
-          <div className="auth-divider">
-            <span>or continue with email</span>
-          </div>
-
-          <form onSubmit={handleAuthSubmit}>
-            {isSignUp && (
-              <label>
-                Your name
-                <input
-                  name="name"
-                  autoComplete="name"
-                  required
-                  value={nameInput}
-                  onChange={(e) => setNameInput(e.target.value)}
-                />
-              </label>
-            )}
-            <label>
-              Email address
-              <input
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={emailInput}
-                onChange={(e) => setEmailInput(e.target.value)}
-              />
-            </label>
-            <button className="btn" type="submit">
-              {isSignUp ? 'Create profile' : 'Continue with email'}
-            </button>
-          </form>
+                <span>{signingIn ? 'Connecting…' : 'Continue with Google'}</span>
+              </button>
+              <small>Use the Google account email you used when ordering.</small>
+            </div>
+          )}
+          {(error || ordersError) && <p role="alert">{error || ordersError}</p>}
+          {!loading && (error || ordersError) && <button className="text-link" type="button" onClick={retry}>Retry verification</button>}
+          <p className="muted">You can browse, keep a bag and check out as a guest without signing in.</p>
+          <Link className="text-link" href="/shop">Continue shopping</Link>
         </div>
       </>
     );
@@ -193,10 +62,9 @@ export function AccountView({ initialSignUp = false }: AccountViewProps) {
   return (
     <>
       <div className="page-title">
-        <h1>Hello, {profile.name}</h1>
-        <p>A little corner of Varnam, just for you.</p>
+        <h1>{ordersOnly ? 'Your orders' : `Hello, ${profile.name}`}</h1>
+        <p>{ordersOnly ? 'Your Varnam stories, all in one place.' : 'A little corner of Varnam, just for you.'}</p>
       </div>
-
       <section className="section">
         <div className="account-layout">
           <aside className="account-menu">
@@ -204,47 +72,28 @@ export function AccountView({ initialSignUp = false }: AccountViewProps) {
             <Link href="/orders">My orders</Link>
             <Link href="/wishlist">My wishlist</Link>
             <Link href="/addresses">My addresses</Link>
-            <button type="button" onClick={() => setProfile(null)}>
-              Sign out
-            </button>
+            <button type="button" onClick={logOut}>Sign out</button>
           </aside>
-
           <div>
-            <h2>Your profile</h2>
-            <p>
-              {profile.name}
-              <br />
-              <span className="muted">{profile.email}</span>
-            </p>
-
-            <h2 style={{ marginTop: '30px' }}>Recent orders</h2>
-            {displayOrders.length > 0 ? (
-              displayOrders.map((o) => (
-                <div key={o.id} className="order-card">
-                  <h3>
-                    {o.id}{' '}
-                    <span className="muted" style={{ fontSize: '11px' }}>
-                      · {o.status || 'Confirmed'}
-                    </span>
-                  </h3>
-                  <p>
-                    {o.date || new Date(o.createdAt || Date.now()).toLocaleDateString('en-IN', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                    })}{' '}
-                    · {money(o.total)}
-                  </p>
-                  <OrderSavings pricing={o.pricing} />
-                  <Link className="text-link" href={`/track?order=${o.id}`}>
-                    View order & tracking
-                  </Link>
-                </div>
-              ))
-            ) : (
+            {!ordersOnly && <>
+              <h2>Your profile</h2>
+              <p>{profile.name}<br /><span className="muted">{profile.email}</span></p>
+            </>}
+            <h2 style={{ marginTop: ordersOnly ? 0 : '30px' }}>{ordersOnly ? 'Order history' : 'Recent orders'}</h2>
+            {loading ? <p role="status">Loading your orders…</p> : ordersError ? (
+              <div><p role="alert">{ordersError}</p><button className="btn outline" type="button" onClick={retry}>Retry</button></div>
+            ) : orders.length ? orders.map((order) => (
+              <div key={order.id} className="order-card">
+                <h3>{order.id}{' '}<span className="muted" style={{ fontSize: '11px' }}>· {order.status || 'Confirmed'}</span></h3>
+                <p>{order.date || new Date(order.createdAt || '').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} · {money(order.total)}</p>
+                <OrderSavings pricing={order.pricing} />
+                <Link className="text-link" href={`/track?order=${encodeURIComponent(order.id)}`}>View order & tracking</Link>
+              </div>
+            )) : (
               <div className="empty" style={{ padding: '30px 0', textAlign: 'left' }}>
                 <h3 style={{ margin: '0 0 10px' }}>Your stories start here</h3>
                 <p className="muted">You have no orders yet.</p>
+                <Link className="text-link" href="/shop">Explore sarees</Link>
               </div>
             )}
           </div>

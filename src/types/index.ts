@@ -70,10 +70,16 @@ export interface OrderQuote {
   pricing: OrderPricing;
 }
 
+export interface CustomerOrder extends Pick<Order, 'id' | 'items' | 'total' | 'pricing' | 'payment'> {
+  date?: string;
+  createdAt?: string | null;
+  status?: string;
+}
+
 export interface UserProfile {
   name: string;
   email: string;
-  uid?: string;
+  uid: string;
 }
 
 export interface DeliveryAddress {

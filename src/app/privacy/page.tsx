@@ -13,11 +13,12 @@ export default function PrivacyPage() {
       </div>
 
       <article className="prose">
-        <h2>Your data in this preview</h2>
+        <h2>Your saved information</h2>
         <p>
-          The demo stores your bag, wishlist, profile, address and sample orders in your browser’s
-          local storage. These entries are not submitted to a store backend. Anyone using this
-          browser may be able to view them.
+          Your bag, wishlist, saved address and order confirmation snapshots are stored in this
+          browser. Anyone using this browser may be able to view them. Checkout sends your contact,
+          delivery details and order to the store. Google sign-in uses Firebase Authentication;
+          the server verifies your identity before saving your account profile or showing order history.
         </p>
 
         <h2>External services</h2>

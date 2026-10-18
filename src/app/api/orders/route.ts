@@ -4,11 +4,15 @@ import { orders, users } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { calculateOrderQuote, parseOrderItems, readOrderSnapshot, serializeOrderQuote, OrderPricingError } from '@/lib/order-pricing';
 import { requireAdminSession } from '@/lib/admin-session';
+import { requireCustomerIdentity, customerAuthFailure, customerPrivateHeaders, CustomerAuthError } from '@/lib/customer-auth-server';
 
 export async function POST(req: NextRequest) {
   try {
+    // Guests can order without authentication. A supplied token must verify; a
+    // posted UID is never sufficient to associate an order with an account.
+    const customer = req.headers.has('authorization') ? await requireCustomerIdentity(req) : null;
     const body = await req.json();
-    const { id, customerName, email, phone, address, city, state, pincode, items, uid, couponCode } = body;
+    const { id, customerName, email, phone, address, city, state, pincode, items, couponCode } = body;
     if (couponCode != null && typeof couponCode !== 'string') {
       throw new OrderPricingError('Please enter a valid coupon code.');
     }
@@ -18,8 +22,8 @@ export async function POST(req: NextRequest) {
     }
 
     let dbUserId: number | null = null;
-    if (uid) {
-      const existingUser = await db.select().from(users).where(eq(users.uid, uid)).limit(1);
+    if (customer) {
+      const existingUser = await db.select().from(users).where(eq(users.uid, customer.uid)).limit(1);
       if (existingUser.length > 0) {
         dbUserId = existingUser[0].id;
       }
@@ -45,13 +49,15 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, order: { ...newOrder[0], ...quote } });
   } catch (error: any) {
+    const denied = customerAuthFailure(error);
+    if (denied) return denied;
     if (error instanceof OrderPricingError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
     console.error('Failed to create order in database:', error);
     return NextResponse.json(
       { error: 'Your order could not be saved. Please try again.' },
-      { status: 500 }
+      { status: 500, headers: customerPrivateHeaders }
     );
   }
 }
@@ -61,30 +67,29 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const email = searchParams.get('email');
 
-    // The unfiltered list is an admin view. Customer email lookups retain the
-    // existing storefront contract; Studio uses /api/admin/orders instead.
-    if (!email) {
+    let result;
+    if (!email && !req.headers.has('authorization')) {
+      // Retain the legacy admin-only list; Studio uses /api/admin/orders.
       const denied = requireAdminSession(req);
       if (denied) return denied;
-    }
-
-    let result;
-    if (email) {
-      result = await db
-        .select()
-        .from(orders)
-        .where(eq(orders.email, email))
-        .orderBy(desc(orders.createdAt));
-    } else {
       result = await db.select().from(orders).orderBy(desc(orders.createdAt)).limit(20);
+    } else {
+      const customer = await requireCustomerIdentity(req);
+      if (email && email !== customer.email) {
+        throw new CustomerAuthError('You can only view orders for your signed-in Google account.', 403);
+      }
+      // A verified email also lets customers see their earlier guest purchases.
+      // Never authorize from a query email or a legacy, client-supplied UID.
+      result = await db.select().from(orders).where(eq(orders.email, customer.email)).orderBy(desc(orders.createdAt));
     }
-
-    return NextResponse.json({ orders: result.map((order) => ({ ...order, ...readOrderSnapshot(order.itemsJson) })) });
+    return NextResponse.json({ orders: result.map((order) => ({ ...order, ...readOrderSnapshot(order.itemsJson) })) }, { headers: customerPrivateHeaders });
   } catch (error: any) {
+    const denied = customerAuthFailure(error);
+    if (denied) return denied;
     console.error('Failed to fetch orders from database:', error);
     return NextResponse.json(
       { error: 'Failed to fetch orders from database.' },
-      { status: 500 }
+      { status: 500, headers: customerPrivateHeaders }
     );
   }
 }
