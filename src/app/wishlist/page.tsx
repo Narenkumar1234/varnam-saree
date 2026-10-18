@@ -3,11 +3,10 @@
 import React from 'react';
 import Link from 'next/link';
 import { useStore } from '@/context/store-context';
-import { getProductById } from '@/data/products';
 import { ProductCard } from '@/components/ProductCard';
 
 export default function WishlistPage() {
-  const { wish } = useStore();
+  const { wish, getProductById } = useStore();
   const wishProducts = wish.map((id) => getProductById(id)).filter(Boolean);
 
   return (

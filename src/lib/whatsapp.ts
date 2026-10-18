@@ -8,7 +8,7 @@ export interface WhatsAppProduct {
   type?: string;
   collection?: string;
   colour?: string;
-  stock?: number;
+  stock?: number | null;
 }
 
 export interface WhatsAppSavedOrder {
@@ -69,7 +69,7 @@ export function createProductWhatsAppMessage(
     lines.push(`Order total: ${money(pricing.total)}`);
   } else {
     lines.push(`Product total: ${money(product.price * quantity)}`);
-    if (product.stock !== undefined) {
+    if (product.stock != null) {
       lines.push(`Availability: ${product.stock > 0 ? `${product.stock} in stock` : 'Please confirm restock availability'}`);
     }
   }

@@ -1,13 +1,18 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
-import { CartItem, Order, OrderQuote, UserProfile } from '@/types';
-import { getProductById, money } from '@/data/products';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef, useCallback, ReactNode } from 'react';
+import { CartItem, Order, OrderQuote, UserProfile, Product } from '@/types';
+import { money } from '@/data/products';
 import { validateCoupon, type CouponValidation } from '@/lib/coupons';
-import { calculateOrderQuote, parseOrderItems } from '@/lib/order-pricing';
+import { quoteFromCatalogue, previewOrderQuote, parseOrderItems } from '@/lib/pricing';
+import { usePathname } from 'next/navigation';
 import { createProductWhatsAppMessage, formatWhatsAppOrderMessage, openWhatsAppOrder } from '@/lib/whatsapp';
 
 interface StoreContextType {
+  products: Product[];
+  getProductById: (id: number | string) => Product | undefined;
+  refreshProducts: () => Promise<Product[]>;
+  cartError: string | null;
   cart: CartItem[];
   wish: number[];
   orders: Order[];
@@ -36,7 +41,34 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-export function StoreProvider({ children }: { children: ReactNode }) {
+export function StoreProvider({ children, initialProducts }: { children: ReactNode; initialProducts: Product[] }) {
+  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const catalogueRef = useRef(initialProducts);
+  const refreshing = useRef<Promise<Product[]> | null>(null);
+  const pathname = usePathname();
+  useEffect(() => { catalogueRef.current = initialProducts; setProducts(initialProducts); }, [initialProducts]);
+  const refreshProducts = useCallback(() => {
+    if (refreshing.current) return refreshing.current;
+    refreshing.current = fetch('/api/products', { cache: 'no-store' })
+      .then(async (response) => {
+        const data = await response.json();
+        if (response.ok && Array.isArray(data.products) && data.products.length) {
+          catalogueRef.current = data.products;
+          setProducts(data.products);
+        }
+        return catalogueRef.current;
+      }).catch(() => catalogueRef.current).finally(() => { refreshing.current = null; });
+    return refreshing.current;
+  }, []);
+  useEffect(() => {
+    const refresh = () => { if (document.visibilityState !== 'hidden') void refreshProducts(); };
+    refresh();
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    const timer = window.setInterval(refresh, 30000);
+    return () => { window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); clearInterval(timer); };
+  }, [pathname, refreshProducts]);
+  const getProductById = (id: number | string) => products.find((product) => product.id === Number(id));
   const [cart, setCart] = useState<CartItem[]>([]);
   const [wish, setWish] = useState<number[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -53,7 +85,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const items = JSON.parse(savedCart);
         if (Array.isArray(items) && items.length) {
           const validItems = parseOrderItems(items);
-          calculateOrderQuote(validItems);
           setCart(validItems);
         }
       }
@@ -100,37 +131,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const totalBagCount = cart.reduce((sum, item) => sum + item.qty, 0);
 
-  const cartQuote = useMemo(() => calculateOrderQuote(cart, couponCode), [cart, couponCode]);
+  const { quote: cartQuote, error: cartError } = useMemo(() => previewOrderQuote(cart, couponCode, products), [cart, couponCode, products]);
 
   const addToCart = (id: number, qty = 1, finish = 'Unstitched blouse · included') => {
-    setCart((prev) => {
-      const existing = prev.find((x) => x.id === id);
-      if (existing) {
-        return prev.map((x) => (x.id === id ? { ...x, qty: x.qty + qty, finish } : x));
-      }
-      return [...prev, { id, qty, finish }];
-    });
+    const current = cart.find((item) => item.id === id);
+    const next = current ? cart.map((item) => item.id === id ? { ...item, qty: item.qty + qty, finish } : item) : [...cart, { id, qty, finish }];
+    try { quoteFromCatalogue(next, couponCode, products); }
+    catch (error) { showToast(error instanceof Error ? error.message : 'This saree is unavailable.'); return; }
+    setCart(next);
     showToast('Added to your bag');
   };
 
   const adjustCardQuantity = (id: number, delta: number) => {
-    const p = getProductById(id);
-    setCart((prev) => {
-      const existing = prev.find((x) => x.id === id);
-      if (existing) {
-        const newQty = existing.qty + delta;
-        if (newQty <= 0) {
-          if (p) showToast(`${p.name} removed from your bag`);
-          return prev.filter((x) => x.id !== id);
-        }
-        if (p) showToast(`${p.name}: ${newQty} in your bag`);
-        return prev.map((x) => (x.id === id ? { ...x, qty: newQty } : x));
-      } else if (delta > 0) {
-        if (p) showToast(`${p.name}: 1 in your bag`);
-        return [...prev, { id, qty: 1, finish: 'Unstitched blouse · included' }];
-      }
-      return prev;
-    });
+    const current = cart.find((item) => item.id === id);
+    if (!current) { if (delta > 0) addToCart(id, delta); return; }
+    const qty = current.qty + delta;
+    if (qty <= 0) { setCart(cart.filter((item) => item.id !== id)); return; }
+    const next = cart.map((item) => item.id === id ? { ...item, qty } : item);
+    if (delta > 0) {
+      try { quoteFromCatalogue(next, couponCode, products); }
+      catch (error) { showToast(error instanceof Error ? error.message : 'Please review your bag.'); return; }
+    }
+    setCart(next);
   };
 
   const removeItem = (id: number) => {
@@ -166,7 +188,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const id = 'VRN-' + crypto.randomUUID();
     const orderItems = customItems || [...cart];
     // Validate locally, then let the API calculate and save the authoritative price.
-    calculateOrderQuote(parseOrderItems(orderItems), couponCode);
+    const displayedQuote = quoteFromCatalogue(parseOrderItems(orderItems), couponCode, products);
+    const latest = await refreshProducts();
+    const latestQuote = quoteFromCatalogue(orderItems, couponCode, latest);
+    if (displayedQuote.pricing.total !== latestQuote.pricing.total) throw new Error('Prices have changed. Please review the updated total and place your order again.');
     const response = await fetch('/api/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -181,11 +206,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         pincode: details.pin,
         items: orderItems,
         couponCode,
+        expectedTotal: latestQuote.pricing.total,
         uid: profile?.uid,
       }),
     });
     const data = await response.json().catch(() => null);
     if (!response.ok || !data?.order?.pricing || !Array.isArray(data.order.items)) {
+      await refreshProducts();
       throw new Error(data?.error || 'Your order could not be saved. Please try again.');
     }
     const date = new Date().toLocaleDateString('en-IN', {
@@ -239,12 +266,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const product = getProductById(id);
     if (!product) return;
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const { pricing } = calculateOrderQuote([{ id, qty, finish }], couponCode);
-    openWhatsAppMessage(createProductWhatsAppMessage(product, { quantity: qty, finish, origin, pricing }));
+    try {
+      const { pricing } = quoteFromCatalogue([{ id, qty, finish }], couponCode, products);
+      openWhatsAppMessage(createProductWhatsAppMessage(product, { quantity: qty, finish, origin, pricing }));
+    } catch (error) { showToast(error instanceof Error ? error.message : 'This saree is unavailable.'); }
   };
 
   const orderCartOnWhatsApp = () => {
     if (!cart.length) return;
+    if (cartError) { showToast(cartError); return; }
     const { pricing } = cartQuote;
     const lines = cartQuote.items.map((item) => `${item.name} × ${item.qty} — ${money(item.total)}`);
     if (pricing.couponCode) lines.push(`${pricing.couponCode}: saving ${money(pricing.discountAmount)} included above`);
@@ -259,6 +289,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   return (
     <StoreContext.Provider
       value={{
+        products, getProductById, refreshProducts, cartError,
         cart,
         wish,
         orders,

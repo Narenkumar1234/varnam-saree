@@ -3,14 +3,14 @@
 import React, { use } from 'react';
 import Link from 'next/link';
 import { useStore } from '@/context/store-context';
-import { getProductById, money } from '@/data/products';
+import { money } from '@/data/products';
 import { Icon } from '@/components/Icons';
 import { OrderTotals } from '@/components/OrderTotals';
 import { OrderLinePrice } from '@/components/OrderLinePrice';
 
 export default function ConfirmationPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
-  const { getOrderById } = useStore();
+  const { getOrderById, getProductById } = useStore();
   const order = getOrderById(resolvedParams.id);
 
   if (!order) {

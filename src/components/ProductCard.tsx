@@ -16,14 +16,16 @@ interface ProductCardProps {
 
 export function ProductCard({ product, priority = false }: ProductCardProps) {
   const router = useRouter();
-  const { cart, wish, toggleWish, adjustCardQuantity, addToCart } = useStore();
+  const { cart, wish, toggleWish, adjustCardQuantity } = useStore();
 
+  const soldOut = product.stock != null && product.stock <= 0;
   const isWish = wish.includes(product.id);
   const cartItem = cart.find((item) => item.id === product.id);
   const qty = cartItem?.qty || 0;
 
   const handleBuyNow = (e: React.MouseEvent) => {
     e.preventDefault();
+    if (soldOut) return;
     router.push(`/checkout?buyNow=${product.id}&qty=1`);
   };
 
@@ -43,9 +45,10 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
         </div>
         <h3>{product.name}</h3>
         <div className="meta">{product.type}</div>
-        <ProductPrice price={product.price} oldPrice={product.old} />
+        <ProductPrice price={product.price} oldPrice={product.oldPrice} />
       </Link>
 
+      <p className={`stock-state ${soldOut ? 'sold-out' : ''}`}>{soldOut ? 'Sold out' : product.stock != null ? `${product.stock} available` : ''}</p>
       <div className="product-actions">
         <div className="card-bag-control">
           {qty > 0 ? (
@@ -63,6 +66,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
                 type="button"
                 data-step="plus"
                 aria-label={`Add one ${product.name}`}
+                disabled={soldOut || (product.stock != null && qty >= product.stock)}
                 onClick={() => adjustCardQuantity(product.id, 1)}
               >
                 <Icon name="plus" />
@@ -73,13 +77,14 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
               className="product-action add-action"
               type="button"
               aria-label={`Add ${product.name} to bag`}
+              disabled={soldOut}
               onClick={() => adjustCardQuantity(product.id, 1)}
             >
-              Add to bag
+              {soldOut ? 'Sold out' : 'Add to bag'}
             </button>
           )}
         </div>
-        <button className="product-action buy-action" type="button" onClick={handleBuyNow}>
+        <button className="product-action buy-action" type="button" disabled={soldOut} onClick={handleBuyNow}>
           Buy now
         </button>
       </div>

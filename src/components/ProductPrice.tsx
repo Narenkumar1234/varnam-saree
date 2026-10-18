@@ -5,7 +5,7 @@ import { money } from '@/data/products';
 import { useStore } from '@/context/store-context';
 import { getCouponDiscount } from '@/lib/coupons';
 
-export function ProductPrice({ price, oldPrice }: { price: number; oldPrice?: number }) {
+export function ProductPrice({ price, oldPrice }: { price: number; oldPrice?: number | null }) {
   const { couponCode } = useStore();
   const discount = getCouponDiscount(price, couponCode);
   const original = discount ? price : oldPrice;

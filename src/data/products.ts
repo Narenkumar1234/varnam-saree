@@ -7,14 +7,14 @@ export const COLOUR_HEX_MAP: Record<string, string> = {
   Ivory: '#ded2ad',
 };
 
-export const products: Product[] = [
+export const fallbackProducts: Product[] = [
   {
     id: 1,
     name: 'Mayil emerald silk saree',
     type: 'Kanchipuram silk',
     collection: 'Silk',
     price: 8490,
-    old: 9990,
+    oldPrice: 9990,
     pos: '0% 0%',
     colour: 'Emerald',
     tag: 'Bestseller',
@@ -99,10 +99,6 @@ export const products: Product[] = [
   },
 ];
 
-export const getProductById = (id: number | string): Product | undefined => {
-  return products.find((p) => p.id === Number(id));
-};
-
 export const money = (n: number): string => '₹' + n.toLocaleString('en-IN');
 
 export const faqs = [
@@ -120,7 +116,7 @@ export const faqs = [
   ],
   [
     'Can I place a real order?',
-    'This website is a demo. Checkout creates a sample order on your browser. Inventory, payments, shipping and customer accounts need to be connected before selling.',
+    'Save an order at checkout or send a request on WhatsApp. Online payment availability depends on the store configuration. Contact Varnam to confirm fulfilment and delivery.',
   ],
   [
     'Will the colour look exactly like the photo?',

@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { products } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { requireAdminSession } from '@/lib/admin-session';
+import { productInteger } from '@/lib/product-input';
 
 export async function PATCH(
   req: NextRequest,
@@ -16,9 +17,13 @@ export async function PATCH(
     const body = await req.json();
 
     const updateData: any = {};
-    if (body.stock !== undefined) updateData.stock = parseInt(body.stock, 10);
-    if (body.price !== undefined) updateData.price = parseInt(body.price, 10);
-    if (body.oldPrice !== undefined) updateData.oldPrice = body.oldPrice ? parseInt(body.oldPrice, 10) : null;
+    try {
+      if (body.stock !== undefined) updateData.stock = productInteger(body.stock, 0);
+      if (body.price !== undefined) updateData.price = productInteger(body.price, 1);
+      if (body.oldPrice !== undefined) updateData.oldPrice = body.oldPrice == null || body.oldPrice === '' ? null : productInteger(body.oldPrice, 1);
+    } catch {
+      return NextResponse.json({ error: 'Price must be a positive whole rupee amount and stock a non-negative whole number.' }, { status: 400 });
+    }
     if (body.name !== undefined) updateData.name = body.name;
     if (body.type !== undefined) updateData.type = body.type;
     if (body.collection !== undefined) updateData.collection = body.collection;

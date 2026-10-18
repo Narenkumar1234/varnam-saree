@@ -2,13 +2,15 @@ export interface Product {
   id: number;
   name: string;
   type: string;
-  collection: 'Silk' | 'Cotton' | 'Festive';
+  collection: string;
   price: number;
-  old?: number;
-  pos: string;
-  colour: 'Emerald' | 'Rose' | 'Indigo' | 'Ivory';
+  oldPrice?: number | null;
+  pos?: string;
+  colour: string;
   tag: string;
   image: string;
+  stock?: number | null;
+  description?: string | null;
 }
 
 export interface CartItem {

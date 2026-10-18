@@ -3,7 +3,7 @@ import Razorpay from 'razorpay';
 import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { orders } from '@/db/schema';
-import { readOrderSnapshot } from '@/lib/order-pricing';
+import { readOrderSnapshot } from '@/lib/pricing';
 import type { OrderPayment } from '@/types';
 
 export class PaymentError extends Error {

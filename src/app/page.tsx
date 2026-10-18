@@ -1,11 +1,15 @@
+'use client';
+
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { products, collectionsData } from '@/data/products';
+import { collectionsData } from '@/data/products';
 import { ProductCard } from '@/components/ProductCard';
+import { useStore } from '@/context/store-context';
 import { Icon } from '@/components/Icons';
 
 export default function HomePage() {
+  const { products } = useStore();
   const featuredProducts = products.slice(0, 4);
 
   return (

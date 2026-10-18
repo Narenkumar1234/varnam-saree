@@ -6,12 +6,12 @@ Responsive luxury Indian saree storefront migrated to **Next.js 15 (App Router)*
 
 - **Screens**:
   - Home (`/`): Heritage campaign hero, curated collections, loved products, heritage courtyard story band, brand philosophy.
-  - Catalogue / Shop (`/shop`): Collection filtering (Silk, Cotton, Festive), color filters (Emerald, Rose, Indigo, Ivory), budget toggle (under ₹5,000), 4-way sorting (Featured, Price Low/High, Newest arrivals), progressive reveal with accessible "Load more".
+  - Catalogue / Shop (`/shop`): Database catalogue, collection and colour filters, min–max price slider, sold-out states, 4-way sorting (Featured, Price Low/High, Newest arrivals), progressive reveal with accessible "Load more".
   - Mobile Filter Bottom-Sheet: Native modal drawer with drag grip, live match count, draft selection, and reset/apply actions.
   - Product Details (`/product/[id]`): High-res optimized image, colour swatches, blouse finishing selection, quantity controls, WhatsApp order pre-filled generator, delivery pincode estimator, care guidelines, and recommended sarees.
   - Search (`/search`): Instant search across saree names, weaves, and colours.
   - Wishlist (`/wishlist`): Save favourites with persistent browser storage and one-click removal.
-  - Bag & Cart (`/cart`): Stepper controls, finishing notes, WELCOME10 coupon calculations, free delivery on orders above ₹2,999, direct WhatsApp bag ordering, and checkout flow.
+  - Bag & Cart (`/cart`): Stepper controls, finishing notes, WELCOME10 coupon calculations, free delivery on orders above ₹2,999, direct WhatsApp bag ordering, stock validation, and database-priced checkout flow.
   - Demo Checkout (`/checkout`): Contact and delivery form, Indian state and pincode validation, transparent demo order placement.
   - Confirmation (`/confirmation/[id]`): Verified demo order summary and order tracking link.
   - Tracking (`/track`): Order lookup with 3-stage visual progress timeline.
@@ -32,7 +32,30 @@ Responsive luxury Indian saree storefront migrated to **Next.js 15 (App Router)*
 - Start development: `npm run dev` (runs on `http://0.0.0.0:3000`)
 - Type check: `npm run lint`
 - Production build: `npm run build`
-- Ready for full-stack API routes or Server Actions in future phases without architectural changes.
+- Database, admin-session, order, and payment APIs are included.
+
+## Database setup and catalogue
+
+The shared server reader in `src/lib/catalogue-server.ts` is the source for both the root layout and `/api/products`. The layout passes that catalogue into the storefront provider, so home, shop/search, product details, wishlist, bag, and checkout start with the same server-rendered product data. Browser catalogue requests use `cache: no-store`; the provider refreshes on navigation, window focus, and every 30 seconds while visible. No product catalogue is permanently cached.
+
+A non-empty `products` table is authoritative, including sold-out rows: it is never merged with the sample list. Only an empty or unreachable database uses `fallbackProducts` from `src/data/products.ts`. Fallback stock is unknown. The same rule is used by server-side order pricing. A missing product ID in a non-empty database is unavailable, rather than silently restored from the sample catalogue. Fallback browsing works without a database, but saving an order still requires a working orders table.
+
+Fresh setup (Bun is used for database scripts and tests):
+
+1. Run `bun install --frozen-lockfile`.
+2. Copy `.env.example` to `.env.local` and configure `SQL_HOST`, `SQL_PORT` (default 5432), `SQL_DB_NAME`, `SQL_USER`, and `SQL_PASSWORD`. The password may be blank only if your PostgreSQL instance permits passwordless local authentication. Set `SQL_SSL=true` if your provider requires TLS with a trusted certificate; it defaults to false.
+3. Optionally configure `SQL_ADMIN_USER` and `SQL_ADMIN_PASSWORD` for migrations and seeding. Otherwise those scripts use the application SQL identity. The application identity must be able to read/write the store tables, and the setup identity must be able to create tables/sequences/constraints.
+4. Run `bun run db:setup` (or `bun run db:migrate` followed by `bun run db:seed`). The committed Drizzle migration creates `products`, `users`, `orders`, and `wishlists`. The baseline leaves existing matching tables/data intact; it does not repair an incompatible pre-existing schema. Check the schema and back up an existing database before adopting the baseline.
+5. The seed loads the eight current sample sarees with stable IDs 1–8 and an initial stock of 5 each. It skips existing IDs, preserves Studio edits on reruns, and advances the sequence so a new Studio product receives a fresh ID. Update stock to your actual inventory in Studio.
+6. Configure the admin and optional Razorpay variables described below, then run `bun run dev` or `bun run build` and `bun run start`.
+
+For future schema changes, edit `src/db/schema.ts`, run `bun run db:generate`, review and commit the generated SQL/metadata, then apply it with `bun run db:migrate`. SQL connection settings are shared by the application and setup scripts. `PORT`/`HOST` are documented for deployment tooling; the current npm scripts explicitly bind port 3000 and host 0.0.0.0. Next.js manages `NODE_ENV`. Browser Firebase settings remain in `firebase-applet-config.json`; `GOOGLE_APPLICATION_CREDENTIALS` is optional for server Firebase Admin SDK use.
+
+`src/lib/pricing.ts` contains the shared pure coupon/delivery calculations using an explicitly supplied catalogue. `src/lib/order-pricing.ts` reads a fresh server catalogue for every order. Stock zero, missing products, excessive quantities (including duplicate lines), and invalid prices are rejected. Client totals are never trusted; a stale displayed total returns 409 so the customer can review the refreshed price. Saved order snapshots retain their purchase prices, discounts and delivery charge, and Razorpay continues charging that saved order amount even after catalogue edits.
+
+Stock is checked against the current catalogue before ordering, and sold-out products cannot be added, bought directly, or sent as new WhatsApp orders. This change does not reserve/decrement stock automatically or implement inventory reservations across concurrent orders; Studio manages stock quantities. Existing saved-order confirmations remain available on WhatsApp.
+
+Run `bun test` (including `bun run test:catalogue`), `bun run lint`, and `bun run build`. Catalogue tests cover an authenticated Studio price edit reaching the public API and server quote, empty/unreachable fallback, sold-out/duplicate-line limits, coupons, and stale-total rejection.
 
 ## Studio admin access
 

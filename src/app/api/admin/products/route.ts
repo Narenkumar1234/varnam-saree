@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { products } from '@/db/schema';
 import { desc } from 'drizzle-orm';
 import { requireAdminSession } from '@/lib/admin-session';
+import { productInteger } from '@/lib/product-input';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +29,12 @@ export async function POST(req: NextRequest) {
     if (!name || !type || !collection || !price || !colour) {
       return NextResponse.json({ error: 'Missing required saree fields' }, { status: 400 });
     }
+    let numbers;
+    try {
+      numbers = { price: productInteger(price, 1), stock: stock !== undefined ? productInteger(stock, 0) : 5, oldPrice: oldPrice == null || oldPrice === '' ? null : productInteger(oldPrice, 1) };
+    } catch {
+      return NextResponse.json({ error: 'Price must be a positive whole rupee amount and stock a non-negative whole number.' }, { status: 400 });
+    }
 
     const created = await db
       .insert(products)
@@ -35,10 +42,10 @@ export async function POST(req: NextRequest) {
         name,
         type,
         collection,
-        price: parseInt(price, 10),
-        oldPrice: oldPrice ? parseInt(oldPrice, 10) : null,
+        price: numbers.price,
+        oldPrice: numbers.oldPrice,
         colour,
-        stock: stock !== undefined ? parseInt(stock, 10) : 5,
+        stock: numbers.stock,
         tag: tag || null,
         image: image || '/assets/saree-emerald.webp',
         description: description || '',

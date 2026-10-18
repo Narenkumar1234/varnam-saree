@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, use } from 'react';
+import React, { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { notFound, useRouter } from 'next/navigation';
-import { getProductById, products, COLOUR_HEX_MAP } from '@/data/products';
+import { useRouter } from 'next/navigation';
+import { COLOUR_HEX_MAP } from '@/data/products';
 import { useStore } from '@/context/store-context';
 import { ProductCard } from '@/components/ProductCard';
 import { Icon } from '@/components/Icons';
@@ -13,6 +13,7 @@ import { ProductPrice } from '@/components/ProductPrice';
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const resolvedParams = use(params);
+  const { products, getProductById, addToCart, wish, toggleWish, orderProductOnWhatsApp } = useStore();
   const product = getProductById(resolvedParams.id);
 
   const [qty, setQty] = useState(1);
@@ -20,7 +21,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const [pincode, setPincode] = useState('');
   const [pinMessage, setPinMessage] = useState('');
 
-  const { addToCart, wish, toggleWish, orderProductOnWhatsApp } = useStore();
+  useEffect(() => { setQty((current) => product?.stock != null ? Math.max(1, Math.min(current, product.stock)) : current); }, [product?.id, product?.stock]);
 
   if (!product) {
     return (
@@ -34,6 +35,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     );
   }
 
+  const soldOut = product.stock != null && product.stock <= 0;
   const isWish = wish.includes(product.id);
   const relatedProducts = products.filter((x) => x.id !== product.id).slice(0, 4);
 
@@ -80,13 +82,14 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               <Icon name="sparkle" />{' '}
               <span className="muted">Thoughtfully selected for the Varnam collection</span>
             </div>
-            <ProductPrice price={product.price} oldPrice={product.old} />
+            <ProductPrice price={product.price} oldPrice={product.oldPrice} />
             <small className="muted">Inclusive of all taxes</small>
 
             <p className="desc">
-              A luminous {product.colour.toLowerCase()} weave, finished with an intricate golden
-              border. A graceful companion for celebrations, cherished moments, and everything in
-              between.
+              {product.description || `A luminous ${product.colour.toLowerCase()} weave, finished with an intricate golden border. A graceful companion for celebrations, cherished moments, and everything in between.`}
+            </p>
+            <p className={`stock-state ${soldOut ? 'sold-out' : ''}`} role="status">
+              {soldOut ? 'Sold out' : product.stock != null ? `${product.stock} available` : 'Please confirm availability when ordering'}
             </p>
 
             <div>Colour: {product.colour}</div>
@@ -96,7 +99,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   key={x.id}
                   href={`/product/${x.id}`}
                   className={`swatch ${x.colour === product.colour ? 'selected' : ''}`}
-                  style={{ background: COLOUR_HEX_MAP[x.colour] }}
+                  style={{ background: COLOUR_HEX_MAP[x.colour] || '#d8d0c8' }}
                   aria-label={`View ${x.colour} saree`}
                 />
               ))}
@@ -115,12 +118,13 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 <button
                   type="button"
                   aria-label="Decrease quantity"
+                  disabled={soldOut || qty <= 1}
                   onClick={() => setQty(Math.max(1, qty - 1))}
                 >
                   <Icon name="minus" />
                 </button>
-                <span id="pqty">{qty}</span>
-                <button type="button" aria-label="Increase quantity" onClick={() => setQty(qty + 1)}>
+                <span id="pqty">{soldOut ? 0 : qty}</span>
+                <button type="button" aria-label="Increase quantity" disabled={soldOut || (product.stock != null && qty >= product.stock)} onClick={() => setQty(product.stock != null ? Math.min(qty + 1, product.stock) : qty + 1)}>
                   <Icon name="plus" />
                 </button>
               </div>
@@ -128,14 +132,16 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               <button
                 className="btn"
                 type="button"
+                disabled={soldOut}
                 onClick={() => addToCart(product.id, qty, finish)}
               >
-                Add to bag <Icon name="arrow-up-right" />
+                {soldOut ? 'Sold out' : 'Add to bag'} <Icon name="arrow-up-right" />
               </button>
 
               <button
                 className="btn outline"
                 type="button"
+                disabled={soldOut}
                 onClick={() =>
                   router.push(
                     `/checkout?buyNow=${product.id}&qty=${qty}&finish=${encodeURIComponent(finish)}`
@@ -159,6 +165,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             <button
               className="whatsapp-order product-whatsapp"
               type="button"
+              disabled={soldOut}
               onClick={() => orderProductOnWhatsApp(product.id, qty, finish)}
             >
               <Icon name="whatsapp" /> Order this saree on WhatsApp

@@ -1,10 +1,14 @@
+'use client';
+
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { articles, products } from '@/data/products';
+import { articles } from '@/data/products';
+import { useStore } from '@/context/store-context';
 import { Icon } from '@/components/Icons';
 
 export default function JournalPage() {
+  const { products } = useStore();
   return (
     <>
       <div className="page-title">

@@ -12,7 +12,10 @@ export async function POST(req: NextRequest) {
     if (couponCode != null && typeof couponCode !== 'string') {
       throw new OrderPricingError('Please enter a valid coupon code.');
     }
-    const quote = calculateOrderQuote(parseOrderItems(items), couponCode);
+    const quote = await calculateOrderQuote(parseOrderItems(items), couponCode);
+    if (body.expectedTotal != null && body.expectedTotal !== quote.pricing.total) {
+      return NextResponse.json({ error: 'Prices have changed. Please review the updated total and place your order again.' }, { status: 409 });
+    }
 
     let dbUserId: number | null = null;
     if (uid) {

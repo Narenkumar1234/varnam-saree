@@ -3,26 +3,15 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import type { Product } from '@/types';
 import { money } from '@/data/products';
 import { Icon } from '@/components/Icons';
-import { readOrderSnapshot } from '@/lib/order-pricing';
+import { readOrderSnapshot } from '@/lib/pricing';
 import { OrderSavings } from '@/components/OrderTotals';
 import { StudioPayment } from '@/components/StudioPayment';
 import { createProductWhatsAppMessage, createSavedOrderWhatsAppMessage, openWhatsAppOrder } from '@/lib/whatsapp';
 
-interface AdminProduct {
-  id: number;
-  name: string;
-  type: string;
-  collection: string;
-  price: number;
-  oldPrice?: number | null;
-  colour: string;
-  stock: number;
-  tag?: string | null;
-  image: string;
-  description?: string | null;
-}
+type AdminProduct = Omit<Product, 'stock' | 'tag'> & { stock: number; tag?: string | null };
 
 interface AdminOrder {
   id: string;
@@ -115,6 +104,7 @@ export default function StudioDeskPage() {
   };
 
   const orderProductOnWhatsApp = (product: AdminProduct) => {
+    if (product.stock <= 0) { showToast('This saree is sold out.'); return; }
     const message = createProductWhatsAppMessage(product, { includeProductLink: false });
     if (!openWhatsAppOrder(message)) showToast('WhatsApp ordering is currently unavailable.');
   };
@@ -517,7 +507,7 @@ export default function StudioDeskPage() {
           <div className="admin-panel-header">
             <div>
               <h2>Live Saree Catalog & Stock Control</h2>
-              <p className="muted">Adjust quantity, price, or tags. Updates sync to the live store immediately.</p>
+              <p className="muted">Adjust quantity, price, or tags. Saved changes appear on the next storefront refresh. Open storefronts refresh their catalogue every 30 seconds.</p>
             </div>
             <button type="button" onClick={loadData} className="btn outline" style={{ minHeight: '36px', padding: '6px 14px', fontSize: '12px' }}>
               Refresh
@@ -638,6 +628,7 @@ export default function StudioDeskPage() {
                             <button
                               type="button"
                               className="studio-whatsapp"
+                              disabled={isSoldOut}
                               aria-label={`Order ${p.name} on WhatsApp`}
                               onClick={() => orderProductOnWhatsApp(p)}
                             >
@@ -971,7 +962,7 @@ export default function StudioDeskPage() {
             <div className="admin-modal-header">
               <div>
                 <h2>Edit Saree Details</h2>
-                <span className="muted" style={{ fontSize: '12px' }}>ID #{editingProduct.id} · Cloud SQL Synchronized</span>
+                <span className="muted" style={{ fontSize: '12px' }}>ID #{editingProduct.id} · Saved in the store database</span>
               </div>
               <button
                 type="button"

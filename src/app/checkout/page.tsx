@@ -4,10 +4,9 @@ import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useStore } from '@/context/store-context';
-import { getProductById } from '@/data/products';
 import { Icon } from '@/components/Icons';
 import { CartItem } from '@/types';
-import { calculateOrderQuote } from '@/lib/order-pricing';
+import { previewOrderQuote } from '@/lib/pricing';
 import { CouponForm } from '@/components/CouponForm';
 import { OrderTotals } from '@/components/OrderTotals';
 import { OrderLinePrice } from '@/components/OrderLinePrice';
@@ -15,7 +14,7 @@ import { OrderLinePrice } from '@/components/OrderLinePrice';
 function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { cart, cartQuote, couponCode, placeOrder } = useStore();
+  const { cart, products, getProductById, couponCode, placeOrder } = useStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -30,11 +29,9 @@ function CheckoutContent() {
   // Single-item direct checkout if buyNow is provided, otherwise full cart
   const checkoutItems: CartItem[] = buyNowProduct
     ? [{ id: buyNowProduct.id, qty: buyNowQty, finish: buyNowFinish }]
-    : cart;
+    : buyNowId ? [] : cart;
 
-  const checkoutQuote = buyNowProduct
-    ? calculateOrderQuote(checkoutItems, couponCode)
-    : cartQuote;
+  const { quote: checkoutQuote, error: checkoutError } = previewOrderQuote(checkoutItems, couponCode, products);
 
   const [formData, setFormData] = useState({
     first: '',
@@ -56,7 +53,7 @@ function CheckoutContent() {
           <h1>Checkout</h1>
         </div>
         <div className="empty">
-          <h2>Your bag is empty</h2>
+          <h2>{buyNowId ? 'This saree is unavailable' : 'Your bag is empty'}</h2>
           <p className="muted">Add a saree to begin checkout.</p>
           <Link className="btn" href="/shop">
             Explore sarees
@@ -68,7 +65,7 @@ function CheckoutContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmitting) return;
+    if (isSubmitting || checkoutError) return;
     setIsSubmitting(true);
     setSubmitError(null);
     try {
@@ -213,8 +210,9 @@ function CheckoutContent() {
               days
             </label>
 
+            {checkoutError && <p className="coupon-feedback error" role="alert">{checkoutError}</p>}
             {submitError && <p className="coupon-feedback error" role="alert">{submitError}</p>}
-            <button className="btn" type="submit" disabled={isSubmitting} style={{ width: '100%', marginTop: '24px' }}>
+            <button className="btn" type="submit" disabled={isSubmitting || !!checkoutError} style={{ width: '100%', marginTop: '24px' }}>
               {isSubmitting ? 'Placing order…' : 'Place order'} <Icon name="arrow-up-right" />
             </button>
           </form>

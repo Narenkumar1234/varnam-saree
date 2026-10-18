@@ -2987,3 +2987,7 @@ footer {
 }
 
 
+
+.stock-state { min-height: 18px; margin: 5px 0 10px; color: var(--muted); font-size: 12px; }
+.stock-state.sold-out { color: #9a2940; font-weight: 600; }
+.btn[aria-disabled='true'] { opacity: .55; cursor: default; }

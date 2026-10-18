@@ -6,6 +6,9 @@ import { Footer } from '@/components/Footer';
 import { FloatingSocials } from '@/components/FloatingSocials';
 import { Toast } from '@/components/Toast';
 import { PageTransitionLoader } from '@/components/PageTransitionLoader';
+import { getCatalogue } from '@/lib/catalogue-server';
+
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Varnam | Sarees, woven with stories',
@@ -20,11 +23,12 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const catalogue = await getCatalogue();
   return (
     <html lang="en">
       <head>
@@ -36,7 +40,7 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <StoreProvider>
+        <StoreProvider initialProducts={catalogue.products}>
           <PageTransitionLoader />
           <Header />
           <main id="app">{children}</main>

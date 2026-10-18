@@ -4,7 +4,6 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useStore } from '@/context/store-context';
-import { getProductById } from '@/data/products';
 import { Icon } from '@/components/Icons';
 import { CouponForm } from '@/components/CouponForm';
 import { OrderTotals } from '@/components/OrderTotals';
@@ -13,6 +12,7 @@ import { OrderLinePrice } from '@/components/OrderLinePrice';
 export default function CartPage() {
   const {
     cart,
+    getProductById, cartError,
     cartQuote,
     adjustCardQuantity,
     removeItem,
@@ -38,9 +38,10 @@ export default function CartPage() {
         <section className="section" style={{ paddingTop: '10px' }}>
           <div className="cart-layout">
             <div>
-              {cartQuote.items.map((item) => {
+              {cart.map((item) => {
                 const p = getProductById(item.id);
-                if (!p) return null;
+                if (!p) return <div className="cart-item" key={item.id}><p>This saree is no longer available.</p><button type="button" onClick={() => removeItem(item.id)}>Remove</button></div>;
+                const pricedItem = cartQuote.items.find((line) => line.id === item.id);
 
                 return (
                   <div key={item.id} className="cart-item">
@@ -63,6 +64,7 @@ export default function CartPage() {
                         <br />
                         {item.finish || 'Unstitched blouse · included'}
                       </p>
+                      {p.stock === 0 && <p className="stock-state sold-out">Sold out</p>}
                       <div className="qty">
                         <button
                           type="button"
@@ -75,6 +77,7 @@ export default function CartPage() {
                         <button
                           type="button"
                           aria-label="Increase quantity"
+                          disabled={p.stock != null && item.qty >= p.stock}
                           onClick={() => adjustCardQuantity(item.id, 1)}
                         >
                           <Icon name="plus" />
@@ -89,7 +92,7 @@ export default function CartPage() {
                       </button>
                     </div>
 
-                    <OrderLinePrice item={item} />
+                    {pricedItem && <OrderLinePrice item={pricedItem} />}
                   </div>
                 );
               })}
@@ -105,13 +108,15 @@ export default function CartPage() {
               <h2>Your order</h2>
               <OrderTotals pricing={cartQuote.pricing} />
 
-              <Link className="btn" href="/checkout">
+              {cartError && <p className="coupon-feedback error" role="alert">{cartError}</p>}
+              <Link className="btn" href={cartError ? '/cart' : '/checkout'} aria-disabled={!!cartError} onClick={(event) => { if (cartError) event.preventDefault(); }}>
                 Continue to checkout <Icon name="arrow-up-right" />
               </Link>
 
               <button
                 className="whatsapp-order"
                 type="button"
+                disabled={!!cartError}
                 onClick={orderCartOnWhatsApp}
               >
                 <Icon name="whatsapp" /> Order on WhatsApp

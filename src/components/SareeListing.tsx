@@ -3,23 +3,22 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { products, collectionsData, COLOUR_HEX_MAP } from '@/data/products';
+import { collectionsData, COLOUR_HEX_MAP } from '@/data/products';
+import { useStore } from '@/context/store-context';
 import { ProductCard } from '@/components/ProductCard';
 import { Icon } from '@/components/Icons';
 import { PriceRangeFilter } from '@/components/PriceRangeFilter';
 import { createShopFilters, filterShopProducts, getShopFilterOptions } from '@/lib/shop-filters';
 import type { ShopFilterState } from '@/types';
 
-const { collections: collectionOptions, priceBounds } = getShopFilterOptions(
-  products,
-  collectionsData.map((collection) => collection.query)
-);
-
 interface SareeListingProps {
   initialSearchMode?: boolean;
 }
 
 export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
+  const { products } = useStore();
+  const { collections: collectionOptions, priceBounds } = useMemo(() => getShopFilterOptions(products, collectionsData.map((collection) => collection.query)), [products]);
+  const colourOptions = [...new Set(products.map((p) => p.colour))].map((colour) => [colour, COLOUR_HEX_MAP[colour] || '#d8d0c8']);
   const searchParams = useSearchParams();
   const initialCollection = searchParams.get('collection');
 
@@ -36,6 +35,19 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
   const [sortOption, setSortOption] = useState<'featured' | 'low' | 'high' | 'new'>('featured');
   const [visibleCount, setVisibleCount] = useState<number>(6);
 
+  // Refresh slider bounds when live prices change, preserving a user's selection.
+  const previousBounds = React.useRef(priceBounds);
+  useEffect(() => {
+    const previous = previousBounds.current;
+    const adjust = (state: ShopFilterState): ShopFilterState => {
+      const fullRange = state.priceRange.min === previous.min && state.priceRange.max === previous.max;
+      const min = Math.max(priceBounds.min, Math.min(state.priceRange.min, priceBounds.max));
+      const max = Math.max(min, Math.min(state.priceRange.max, priceBounds.max));
+      return { ...state, priceRange: fullRange ? { ...priceBounds } : { min, max } };
+    };
+    setFilters(adjust); setSheetDraft(adjust); previousBounds.current = priceBounds;
+  }, [priceBounds.min, priceBounds.max]);
+
   // Sync if URL search params change
   useEffect(() => {
     const c = searchParams.get('collection');
@@ -45,12 +57,12 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
       setFilters((prev) => ({ ...prev, collection: 'All' }));
     }
     setVisibleCount(6);
-  }, [searchParams, initialSearchMode]);
+  }, [searchParams, initialSearchMode, collectionOptions.join('\0')]);
 
   // Compute matching products combining query + filters
   const filteredProducts = useMemo(
     () => filterShopProducts(products, filters, searchQuery),
-    [searchQuery, filters]
+    [searchQuery, filters, products]
   );
 
   // Sort products
@@ -75,7 +87,7 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
   // Draft count for mobile bottom sheet
   const draftMatchingCount = useMemo(
     () => filterShopProducts(products, sheetDraft, searchQuery).length,
-    [searchQuery, sheetDraft]
+    [searchQuery, sheetDraft, products]
   );
 
   const resetFilters = () => {
@@ -167,7 +179,7 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
           <fieldset>
             <legend>Colour</legend>
             <div className="filter-options">
-              {Object.entries(COLOUR_HEX_MAP).map(([colName, hex]) => (
+              {colourOptions.map(([colName, hex]) => (
                 <label key={colName} htmlFor={`desktop-${colName}`}>
                   <input
                     id={`desktop-${colName}`}
@@ -350,7 +362,7 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
               <fieldset>
                 <legend>Colour</legend>
                 <div className="filter-options">
-                  {Object.entries(COLOUR_HEX_MAP).map(([colName, hex]) => (
+                  {colourOptions.map(([colName, hex]) => (
                     <label
                       key={colName}
                       htmlFor={`sheet-${colName}`}
@@ -408,3 +420,4 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
     </section>
   );
 }
+
