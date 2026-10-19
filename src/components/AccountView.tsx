@@ -12,7 +12,14 @@ interface AccountViewProps {
 }
 
 export function AccountView({ initialSignUp = false, ordersOnly = false }: AccountViewProps) {
-  const { profile, orders, loading, signingIn, error, ordersError, signIn, logOut, retry } = useCustomerAccount();
+  const { profile, orders, phase, loading, signingIn, canSignIn, error, errorCode, ordersError, canRetryVerification, signIn, logOut, retry } = useCustomerAccount();
+
+  if (!profile && (phase === 'restoring' || phase === 'verifying')) {
+    return <>
+      <div className="page-title"><h1>Your account</h1></div>
+      <div className="auth"><p role="status">{phase === 'restoring' ? 'Restoring your Google sign-in…' : 'Verifying your Google sign-in…'}</p></div>
+    </>;
+  }
 
   if (!profile) {
     return (
@@ -24,7 +31,7 @@ export function AccountView({ initialSignUp = false, ordersOnly = false }: Accou
         <div className="auth">
           {loading ? <p role="status">Verifying your Google sign-in…</p> : (
             <div className="google-signin">
-              <button className="google-setup" type="button" disabled={signingIn} onClick={signIn}>
+              <button className="google-setup" type="button" disabled={signingIn || !canSignIn} onClick={signIn}>
               <span className="google-mark" aria-hidden="true">
                 <svg viewBox="0 0 18 18" width="18" height="18" focusable="false">
                   <path
@@ -45,13 +52,14 @@ export function AccountView({ initialSignUp = false, ordersOnly = false }: Accou
                   />
                 </svg>
               </span>
-                <span>{signingIn ? 'Connecting…' : 'Continue with Google'}</span>
+                <span>{signingIn ? 'Connecting…' : canSignIn ? 'Continue with Google' : 'Google sign-in unavailable'}</span>
               </button>
               <small>Use the Google account email you used when ordering.</small>
             </div>
           )}
           {(error || ordersError) && <p role="alert">{error || ordersError}</p>}
-          {!loading && (error || ordersError) && <button className="text-link" type="button" onClick={retry}>Retry verification</button>}
+          {!loading && canRetryVerification && (error || ordersError) && <button className="text-link" type="button" onClick={retry}>Retry verification</button>}
+          {errorCode === 'CUSTOMER_AUTH_SIGN_OUT_FAILED' && <button className="text-link" type="button" onClick={logOut}>Retry sign out</button>}
           <p className="muted">You can browse, keep a bag and check out as a guest without signing in.</p>
           <Link className="text-link" href="/shop">Continue shopping</Link>
         </div>

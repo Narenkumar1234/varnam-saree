@@ -6,7 +6,7 @@ import { PgDialect } from 'drizzle-orm/pg-core';
 // SDK doubles never read a credential file or contact Google. Real ID-token
 // cryptography/revocation is delegated to firebase-admin, with checkRevoked=true.
 const originalEnv = { ...process.env };
-const envKeys = ['GOOGLE_APPLICATION_CREDENTIALS', 'FIREBASE_PROJECT_ID', 'FIREBASE_CLIENT_EMAIL', 'FIREBASE_PRIVATE_KEY', 'FIREBASE_AUTH_EMULATOR_HOST'];
+const envKeys = ['GOOGLE_APPLICATION_CREDENTIALS', 'FIREBASE_PROJECT_ID', 'FIREBASE_CLIENT_EMAIL', 'FIREBASE_PRIVATE_KEY', 'FIREBASE_AUTH_EMULATOR_HOST', 'NEXT_PUBLIC_FIREBASE_API_KEY', 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN', 'NEXT_PUBLIC_FIREBASE_PROJECT_ID', 'NEXT_PUBLIC_FIREBASE_APP_ID'];
 let claims, verificationFailure, initializationFailure, verified, initialized, credentialCalls, calls, tables, unavailable;
 mock.module('firebase-admin/app', () => ({
   getApps: () => [],
@@ -49,6 +49,7 @@ mock.module('../src/db/index.ts', () => ({ db: {
   } }),
 } }));
 
+const { normalizeFirebasePrivateKey } = await import('../src/lib/firebase-admin.ts');
 const { POST: sync } = await import('../src/app/api/auth/sync/route.ts');
 const { GET: history, POST: checkout } = await import('../src/app/api/orders/route.ts');
 const { fallbackProducts } = await import('../src/data/products.ts');
@@ -60,6 +61,11 @@ const item = () => [{ id: fallbackProducts[0].id, qty: 1, finish: 'Included' }];
 
 beforeEach(() => {
   for (const key of envKeys) delete process.env[key];
+  // Public client configuration fixtures, not real credentials.
+  process.env.NEXT_PUBLIC_FIREBASE_API_KEY = 'test-public-api-key';
+  process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = 'test-only-project.firebaseapp.com';
+  process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = 'test-only-project';
+  process.env.NEXT_PUBLIC_FIREBASE_APP_ID = 'test-public-app-id';
   claims = { uid: 'firebase-alice', email: 'alice@example.test', name: 'Alice', email_verified: true, firebase: { sign_in_provider: 'google.com' } };
   verified = []; initialized = []; credentialCalls = []; calls = []; verificationFailure = null; initializationFailure = false; unavailable = false;
   tables = { products: [], coupons: [], site_settings: [], users: [{ id: 1, uid: 'firebase-alice', email: 'alice@example.test', name: 'Alice' }], orders: [
@@ -164,4 +170,47 @@ test('an optional authenticated order association uses token UID, never a posted
   expect(calls.find((call) => call.table === 'users').filter).toBe('firebase-alice');
   calls = []; verificationFailure = 'auth/invalid-id-token';
   expect((await checkout(request('/api/orders', 'POST', { items: item() }, 'forged-token'))).status).toBe(401); expect(calls).toHaveLength(0);
+});
+
+test.each([
+  ['real LF', 'line-one\nline-two'],
+  ['literal backslash-n', String.raw`line-one\nline-two`],
+  ['double-escaped newline', String.raw`line-one\\nline-two`],
+  ['real CRLF', 'line-one\r\nline-two'],
+  ['escaped CRLF', String.raw`line-one\r\nline-two`],
+  ['JSON quoted', JSON.stringify('line-one\nline-two')],
+  ['single quoted', "'" + String.raw`line-one\nline-two` + "'"],
+])('private key parsing accepts %s without exposing key contents', (_label, raw) => {
+  expect(normalizeFirebasePrivateKey(raw)).toBe('line-one\nline-two');
+});
+
+test('browser/server project mismatch fails before SDK verification or database access', async () => {
+  configure(); process.env.FIREBASE_PROJECT_ID = 'another-test-project';
+  const response = await sync(request('/api/auth/sync', 'POST', {}, 'test-alice-token'));
+  expect(response.status).toBe(503);
+  expect((await response.json()).code).toBe('CUSTOMER_AUTH_PROJECT_MISMATCH');
+  expect(verified).toHaveLength(0); expect(calls).toHaveLength(0);
+});
+
+test.each([
+  ['auth/id-token-expired', 401, 'CUSTOMER_AUTH_TOKEN_REJECTED'],
+  ['auth/invalid-credential', 503, 'CUSTOMER_AUTH_INVALID_CREDENTIALS'],
+  ['auth/insufficient-permission', 503, 'CUSTOMER_AUTH_INVALID_CREDENTIALS'],
+  ['auth/internal-error', 503, 'CUSTOMER_AUTH_VERIFICATION_UNAVAILABLE'],
+])('SDK error %s has a distinct safe API code', async (sdkCode, status, code) => {
+  configure(); verificationFailure = sdkCode;
+  const response = await sync(request('/api/auth/sync', 'POST', {}, 'sensitive-test-token'));
+  const body = await response.json();
+  expect(response.status).toBe(status); expect(body.code).toBe(code);
+  expect(JSON.stringify(body)).not.toContain('sensitive-test-token');
+  expect(calls).toHaveLength(0);
+});
+
+test('missing browser configuration, invalid credentials and a database outage have distinct public codes', async () => {
+  configure(); delete process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  expect((await (await sync(request('/api/auth/sync', 'POST', {}, 'test-token'))).json()).code).toBe('CUSTOMER_AUTH_NOT_CONFIGURED');
+  process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = 'test-only-project'; initializationFailure = true;
+  expect((await (await sync(request('/api/auth/sync', 'POST', {}, 'test-token'))).json()).code).toBe('CUSTOMER_AUTH_INVALID_CREDENTIALS');
+  initializationFailure = false; unavailable = true;
+  expect((await (await sync(request('/api/auth/sync', 'POST', {}, 'test-token'))).json()).code).toBe('CUSTOMER_ACCOUNT_UNAVAILABLE');
 });

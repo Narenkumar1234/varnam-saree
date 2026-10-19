@@ -1,33 +1,39 @@
 import { NextResponse } from 'next/server';
-import { CustomerAuthError, getCustomerAdminAuth } from '@/lib/firebase-admin';
+import { getCustomerAdminAuth } from '@/lib/firebase-admin';
+import { CustomerAuthError, CUSTOMER_AUTH_MESSAGES, safeAuthReason, type CustomerAuthCode } from '@/lib/customer-auth-errors';
 import type { UserProfile } from '@/types';
 
 export { CustomerAuthError };
 export const customerPrivateHeaders = { 'Cache-Control': 'private, no-store', Vary: 'Authorization' };
 
 export async function requireCustomerIdentity(req: Request): Promise<UserProfile> {
+  const fail = (code: CustomerAuthCode, status: number, reason?: string): never => { throw new CustomerAuthError(CUSTOMER_AUTH_MESSAGES[code], status, code, reason); };
   const match = /^Bearer\s+(\S+)$/i.exec(req.headers.get('authorization') || '');
-  if (!match) throw new CustomerAuthError('Sign in with Google to access your account.', 401);
-  const auth = getCustomerAdminAuth();
+  if (!match) return fail('CUSTOMER_AUTH_REQUIRED', 401);
+  const auth = await getCustomerAdminAuth();
   let claims;
   try {
-    // Verify signature, audience, issuer, expiry AND revoked/disabled-user state.
+    // SDK verifies signature, project audience/issuer, expiry, revocation and
+    // disabled-user state. Never decode a token without verifying it.
     claims = await auth.verifyIdToken(match[1], true);
   } catch (error) {
-    const code = (error as { code?: string }).code;
-    if (['auth/argument-error', 'auth/invalid-id-token', 'auth/id-token-expired', 'auth/id-token-revoked', 'auth/user-disabled', 'auth/user-not-found'].includes(code || '')) {
-      throw new CustomerAuthError('Your sign-in could not be verified. Please sign in with Google again.', 401);
+    const code = (error as { code?: string }).code || '';
+    if (['auth/argument-error', 'auth/invalid-argument', 'auth/invalid-id-token', 'auth/id-token-expired', 'auth/id-token-revoked', 'auth/user-disabled', 'auth/user-not-found'].includes(code)) {
+      return fail('CUSTOMER_AUTH_TOKEN_REJECTED', 401, safeAuthReason(error));
     }
-    throw new CustomerAuthError('Customer sign-in could not be verified right now. Please retry or continue as a guest.', 503);
+    if (['app/invalid-credential', 'auth/invalid-credential', 'auth/insufficient-permission', 'auth/project-not-found'].includes(code)) {
+      return fail('CUSTOMER_AUTH_INVALID_CREDENTIALS', 503, safeAuthReason(error));
+    }
+    return fail('CUSTOMER_AUTH_VERIFICATION_UNAVAILABLE', 503, safeAuthReason(error));
   }
   if (!claims.uid || !claims.email || claims.email_verified !== true || claims.firebase?.sign_in_provider !== 'google.com') {
-    throw new CustomerAuthError('Sign in with a verified Google account to continue.', 401);
+    return fail('CUSTOMER_AUTH_IDENTITY_REQUIRED', 401);
   }
   return { uid: claims.uid, email: claims.email, name: typeof claims.name === 'string' && claims.name.trim() ? claims.name : claims.email.split('@')[0] };
 }
 
 export function customerAuthFailure(error: unknown) {
   return error instanceof CustomerAuthError
-    ? NextResponse.json({ error: error.message }, { status: error.status, headers: customerPrivateHeaders })
+    ? NextResponse.json({ error: error.message, code: error.code }, { status: error.status, headers: customerPrivateHeaders })
     : null;
 }
