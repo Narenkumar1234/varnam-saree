@@ -13,12 +13,16 @@ export async function POST(req: NextRequest) {
     const profile = await requireCustomerIdentity(req);
     stage = 'account-storage-import';
 
-    const [{ db }, { users }] = await Promise.all([import('@/db'), import('@/db/schema')]);
-    stage = 'account-storage';
-    await db.insert(users).values(profile).onConflictDoUpdate({
-      target: users.uid,
-      set: { email: profile.email, name: profile.name },
-    });
+    // In production without a database configured (e.g. initial Vercel setup), skip DB safely.
+    const isDbConfigured = Boolean(process.env.SQL_HOST || process.env.NODE_ENV === 'test');
+    if (isDbConfigured) {
+      const [{ db }, { users }] = await Promise.all([import('@/db'), import('@/db/schema')]);
+      stage = 'account-storage';
+      await db.insert(users).values(profile).onConflictDoUpdate({
+        target: users.uid,
+        set: { email: profile.email, name: profile.name },
+      });
+    }
 
     return NextResponse.json({ success: true, user: profile }, { headers });
   } catch (error) {
