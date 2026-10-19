@@ -73,11 +73,25 @@ export default function StudioDeskPage() {
     description: '',
   });
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const [uploadingTarget, setUploadingTarget] = useState<'new' | 'edit' | null>(null);
+
+  const handleFileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    target: 'new' | 'edit' = 'new'
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setUploadingImage(true);
+    // Show instant preview
+    const objectUrl = URL.createObjectURL(file);
+    if (target === 'new') {
+      setNewSaree((prev) => ({ ...prev, image: objectUrl }));
+      setUploadedPreview(objectUrl);
+    } else if (editingProduct) {
+      setEditingProduct((prev) => (prev ? { ...prev, image: objectUrl } : null));
+    }
+
+    setUploadingTarget(target);
     const formData = new FormData();
     formData.append('file', file);
 
@@ -86,18 +100,32 @@ export default function StudioDeskPage() {
         method: 'POST',
         body: formData,
       });
-      const data = await res.json();
+
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(text);
+      } catch (_) {
+        data = { error: `Server error (${res.status})` };
+      }
+
       if (res.ok && data.url) {
-        setNewSaree((prev) => ({ ...prev, image: data.url }));
-        setUploadedPreview(data.url);
+        if (target === 'new') {
+          setNewSaree((prev) => ({ ...prev, image: data.url }));
+          setUploadedPreview(data.url);
+        } else if (editingProduct) {
+          setEditingProduct((prev) => (prev ? { ...prev, image: data.url } : null));
+        }
         showToast('Saree photo uploaded and optimized!');
       } else {
-        showToast(data.error || 'Failed to upload photo');
+        showToast(data.error || 'Failed to process photo');
       }
-    } catch (err) {
-      showToast('Upload error');
+    } catch (err: any) {
+      console.error('Upload failed:', err);
+      showToast(err?.message || 'Upload error');
     } finally {
-      setUploadingImage(false);
+      setUploadingTarget(null);
+      e.target.value = '';
     }
   };
 
@@ -759,41 +787,62 @@ export default function StudioDeskPage() {
 
             {/* Saree Image Upload & Cloud Storage */}
             <div className="admin-form-row">
-              <label>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--ink)', marginBottom: '4px' }}>
                 Saree Photograph (Upload from Device or Cloud URL)
-                <div className="admin-upload-zone">
-                  <div className="admin-upload-controls">
-                    <input
-                      type="file"
-                      id="sareeFileInput"
-                      accept="image/png, image/jpeg, image/webp, image/heic"
-                      style={{ display: 'none' }}
-                      onChange={handleFileUpload}
-                      disabled={uploadingImage}
-                    />
-                    <label htmlFor="sareeFileInput" className="btn outline" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', minHeight: '40px' }}>
-                      <Icon name="plus" size={14} />
-                      {uploadingImage ? 'Processing & Optimizing Image…' : 'Upload Image from Phone / Computer'}
-                    </label>
-                    <span className="muted" style={{ fontSize: '11px', display: 'block', marginTop: '6px' }}>
-                      Automatically resizes & optimizes to lightweight WebP for fast mobile browsing.
-                    </span>
-                  </div>
-
-                  {/* Active Preview */}
-                  {newSaree.image && (
-                    <div className="admin-upload-preview">
-                      <div className="preview-thumb">
-                        <Image src={newSaree.image} alt="Preview" fill sizes="80px" style={{ objectFit: 'cover' }} />
-                      </div>
-                      <div className="preview-info">
-                        <strong>Active Photo URL:</strong>
-                        <span className="muted" style={{ fontSize: '11px', wordBreak: 'break-all' }}>{newSaree.image}</span>
-                      </div>
-                    </div>
-                  )}
+              </span>
+              <div className="admin-upload-zone">
+                <div className="admin-upload-controls">
+                  <input
+                    type="file"
+                    id="sareeFileInput"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => handleFileUpload(e, 'new')}
+                    disabled={uploadingTarget === 'new'}
+                  />
+                  <label
+                    htmlFor="sareeFileInput"
+                    className="btn outline"
+                    style={{
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      minHeight: '40px',
+                    }}
+                  >
+                    <Icon name="plus" size={14} />
+                    {uploadingTarget === 'new'
+                      ? 'Processing & Optimizing Image…'
+                      : 'Upload Image from Phone / Computer'}
+                  </label>
+                  <span className="muted" style={{ fontSize: '11px', display: 'block', marginTop: '6px' }}>
+                    Accepts PNG, JPG, JPEG, WEBP, or camera photos. Automatically converted to WebP.
+                  </span>
                 </div>
-              </label>
+
+                {/* Active Preview */}
+                {newSaree.image && (
+                  <div className="admin-upload-preview">
+                    <div className="preview-thumb">
+                      <Image
+                        src={newSaree.image}
+                        alt="Preview"
+                        fill
+                        sizes="80px"
+                        style={{ objectFit: 'cover' }}
+                        unoptimized={newSaree.image.startsWith('blob:')}
+                      />
+                    </div>
+                    <div className="preview-info">
+                      <strong>Active Photo URL:</strong>
+                      <span className="muted" style={{ fontSize: '11px', wordBreak: 'break-all' }}>
+                        {newSaree.image}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="admin-form-row two-col">
@@ -1072,14 +1121,54 @@ export default function StudioDeskPage() {
               </div>
 
               <div className="admin-form-row">
-                <label>
-                  Photo URL / CDN Path
+                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--ink)', marginBottom: '4px' }}>
+                  Photo (Upload New from Device or Edit URL)
+                </span>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
                   <input
-                    type="text"
-                    value={editingProduct.image}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, image: e.target.value })}
+                    type="file"
+                    id="editSareeFileInput"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => handleFileUpload(e, 'edit')}
+                    disabled={uploadingTarget === 'edit'}
                   />
-                </label>
+                  <label
+                    htmlFor="editSareeFileInput"
+                    className="btn outline"
+                    style={{ cursor: 'pointer', padding: '6px 14px', fontSize: '12px' }}
+                  >
+                    <Icon name="plus" size={12} />{' '}
+                    {uploadingTarget === 'edit' ? 'Optimizing…' : 'Change Photo from Device'}
+                  </label>
+                  {editingProduct.image && (
+                    <div
+                      style={{
+                        position: 'relative',
+                        width: '38px',
+                        height: '48px',
+                        borderRadius: '2px',
+                        overflow: 'hidden',
+                        background: '#eee',
+                      }}
+                    >
+                      <Image
+                        src={editingProduct.image}
+                        alt="Preview"
+                        fill
+                        sizes="40px"
+                        style={{ objectFit: 'cover' }}
+                        unoptimized={editingProduct.image.startsWith('blob:')}
+                      />
+                    </div>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  placeholder="Or paste image URL"
+                  value={editingProduct.image}
+                  onChange={(e) => setEditingProduct({ ...editingProduct, image: e.target.value })}
+                />
               </div>
 
               <div className="admin-form-row">

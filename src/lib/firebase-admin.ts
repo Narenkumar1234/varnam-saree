@@ -5,8 +5,19 @@ export { CustomerAuthError };
 
 // Accept PEM with real newlines, Vercel literal \\n / \\\\n, CRLF and optional
 // surrounding quotes. The Admin SDK still validates the resulting private key.
+const cleanScalarEnv = (value?: string) =>
+  value?.trim().replace(/,+$/, '').trim().replace(/^["']|["']$/g, '').trim();
+
 export function normalizeFirebasePrivateKey(value: string): string {
-  let key = value.trim();
+  let key = value.trim().replace(/,+$/, '').trim();
+  if (key.startsWith('{') && key.endsWith('}')) {
+    try {
+      const obj = JSON.parse(key) as { private_key?: string };
+      if (typeof obj.private_key === 'string') key = obj.private_key.trim();
+    } catch {}
+  } else if (/^["']?private_key["']?\s*:/.test(key)) {
+    key = key.replace(/^["']?private_key["']?\s*:\s*/, '').replace(/,+$/, '').trim();
+  }
   if (key.startsWith('"') && key.endsWith('"')) {
     try { const parsed: unknown = JSON.parse(key); if (typeof parsed === 'string') key = parsed; }
     catch { key = key.slice(1, -1); }
@@ -18,9 +29,9 @@ export async function getCustomerAdminAuth() {
   const fail = (code: 'CUSTOMER_AUTH_NOT_CONFIGURED' | 'CUSTOMER_AUTH_PROJECT_MISMATCH' | 'CUSTOMER_AUTH_INVALID_CREDENTIALS', reason?: string): never => {
     throw new CustomerAuthError(CUSTOMER_AUTH_MESSAGES[code], 503, code, reason);
   };
-  const file = process.env.GOOGLE_APPLICATION_CREDENTIALS?.trim();
-  const projectId = process.env.FIREBASE_PROJECT_ID?.trim();
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL?.trim();
+  const file = cleanScalarEnv(process.env.GOOGLE_APPLICATION_CREDENTIALS);
+  const projectId = cleanScalarEnv(process.env.FIREBASE_PROJECT_ID);
+  const clientEmail = cleanScalarEnv(process.env.FIREBASE_CLIENT_EMAIL);
   const privateKey = process.env.FIREBASE_PRIVATE_KEY?.trim();
   if ((!file && !(projectId && clientEmail && privateKey)) || process.env.FIREBASE_AUTH_EMULATOR_HOST) fail('CUSTOMER_AUTH_NOT_CONFIGURED');
   let expectedProject: string;

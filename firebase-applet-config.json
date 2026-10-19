@@ -1,11 +1,9 @@
 {
-  "projectId": "",
-  "appId": "",
-  "apiKey": "",
-  "authDomain": "",
-  "storageBucket": "",
-  "messagingSenderId": "",
-  "measurementId": "",
-  "oAuthClientId": "",
-  "recaptchaSiteKey": ""
+  "projectId": "varnam-sarees",
+  "appId": "1:585230746585:web:1b9ab36f5c5fcaff57cfc8",
+  "apiKey": "AIzaSyBcl9pJiumr4Bk9934hDc6MRgTtzd60AGc",
+  "authDomain": "varnam-sarees.firebaseapp.com",
+  "storageBucket": "varnam-sarees.firebasestorage.app",
+  "messagingSenderId": "585230746585",
+  "measurementId": "G-4RV6CB7B0P"
 }
