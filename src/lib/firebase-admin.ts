@@ -25,6 +25,34 @@ export function normalizeFirebasePrivateKey(value: string): string {
   return key.replace(/\\+r\\+n/g, '\n').replace(/\\+n/g, '\n').replace(/\r\n?/g, '\n').trim();
 }
 
+import { createRequire } from 'module';
+
+async function loadFirebaseAdminSdk() {
+  try {
+    const [{ applicationDefault, cert, getApps, initializeApp }, { getAuth }] = await Promise.all([
+      import('firebase-admin/app'),
+      import('firebase-admin/auth'),
+    ]);
+    return { applicationDefault, cert, getApps, initializeApp, getAuth };
+  } catch (err: unknown) {
+    const code = (err as { code?: string })?.code;
+    const msg = (err as { message?: string })?.message;
+    if (code === 'ERR_REQUIRE_ESM' || (typeof msg === 'string' && msg.includes('ERR_REQUIRE_ESM'))) {
+      const require = createRequire(import.meta.url);
+      const app = require('firebase-admin/app');
+      const auth = require('firebase-admin/auth');
+      return {
+        applicationDefault: app.applicationDefault,
+        cert: app.cert,
+        getApps: app.getApps,
+        initializeApp: app.initializeApp,
+        getAuth: auth.getAuth,
+      };
+    }
+    throw err;
+  }
+}
+
 export async function getCustomerAdminAuth() {
   const fail = (code: 'CUSTOMER_AUTH_NOT_CONFIGURED' | 'CUSTOMER_AUTH_PROJECT_MISMATCH' | 'CUSTOMER_AUTH_INVALID_CREDENTIALS', reason?: string): never => {
     throw new CustomerAuthError(CUSTOMER_AUTH_MESSAGES[code], 503, code, reason);
@@ -40,11 +68,9 @@ export async function getCustomerAdminAuth() {
   if (projectId && projectId !== expectedProject) fail('CUSTOMER_AUTH_PROJECT_MISMATCH');
   try {
     // Load SDK code inside the request's guarded boundary, not at module load.
-    const [{ applicationDefault, cert, getApps, initializeApp }, { getAuth }] = await Promise.all([
-      import('firebase-admin/app'), import('firebase-admin/auth'),
-    ]);
+    const { applicationDefault, cert, getApps, initializeApp, getAuth } = await loadFirebaseAdminSdk();
     const name = 'varnam-customer-auth';
-    const existing = getApps().find((app) => app.name === name);
+    const existing = getApps().find((app: { name: string; options: { projectId?: string } }) => app.name === name);
     if (existing && existing.options.projectId !== expectedProject) fail('CUSTOMER_AUTH_PROJECT_MISMATCH');
     const app = existing || initializeApp({
       // Always verify the same audience/issuer as the browser's Firebase app.
