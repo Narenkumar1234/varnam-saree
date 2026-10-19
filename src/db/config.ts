@@ -6,7 +6,7 @@ export function databaseOptions(admin = false) {
     user: adminUser || process.env.SQL_USER,
     password: adminUser ? process.env.SQL_ADMIN_PASSWORD : process.env.SQL_PASSWORD,
     database: process.env.SQL_DB_NAME,
-    ssl: process.env.SQL_SSL === 'true' ? { rejectUnauthorized: true } : false as const,
+    ssl: process.env.SQL_SSL === 'true' ? { rejectUnauthorized: false } : false as const,
   };
 }
 
