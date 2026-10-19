@@ -89,11 +89,21 @@ export function Header() {
             <span>{renderMarquee(commerce.settings.marqueeMessage1, commerce.settings)}</span>
             <span className="site-marquee-star" aria-hidden="true">✦</span>
             <span>{renderMarquee(commerce.settings.marqueeMessage2, commerce.settings)}</span>
+            <span className="site-marquee-star" aria-hidden="true">✦</span>
+            <span>{renderMarquee(commerce.settings.marqueeMessage1, commerce.settings)}</span>
+            <span className="site-marquee-star" aria-hidden="true">✦</span>
+            <span>{renderMarquee(commerce.settings.marqueeMessage2, commerce.settings)}</span>
+            <span className="site-marquee-star" aria-hidden="true">✦</span>
           </p>
           <p className="site-marquee-group" aria-hidden="true">
             <span>{renderMarquee(commerce.settings.marqueeMessage1, commerce.settings)}</span>
             <span className="site-marquee-star">✦</span>
             <span>{renderMarquee(commerce.settings.marqueeMessage2, commerce.settings)}</span>
+            <span className="site-marquee-star">✦</span>
+            <span>{renderMarquee(commerce.settings.marqueeMessage1, commerce.settings)}</span>
+            <span className="site-marquee-star">✦</span>
+            <span>{renderMarquee(commerce.settings.marqueeMessage2, commerce.settings)}</span>
+            <span className="site-marquee-star">✦</span>
           </p>
         </div>
       </div>

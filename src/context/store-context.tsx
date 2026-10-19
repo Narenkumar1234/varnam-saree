@@ -5,7 +5,6 @@ import { CartItem, Order, OrderQuote, Product } from '@/types';
 import { money } from '@/data/products';
 import { validateCoupon, type CouponValidation } from '@/lib/coupons';
 import { quoteFromCatalogue, previewOrderQuote, parseOrderItems } from '@/lib/pricing';
-import { usePathname } from 'next/navigation';
 import { DEFAULT_COMMERCE, type CommerceConfig } from '@/lib/commerce';
 import { createProductWhatsAppMessage, createWhatsAppOrderUrl, formatWhatsAppOrderMessage, openWhatsAppOrder } from '@/lib/whatsapp';
 
@@ -16,7 +15,7 @@ interface StoreContextType {
   commerce: CommerceConfig;
   products: Product[];
   getProductById: (id: number | string) => Product | undefined;
-  refreshProducts: () => Promise<Product[]>;
+  refreshProducts: (force?: boolean) => Promise<Product[]>;
   cartError: string | null;
   cart: CartItem[];
   wish: number[];
@@ -53,14 +52,28 @@ export function StoreProvider({ children, initialProducts, initialCommerce = DEF
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const catalogueRef = useRef(initialProducts);
   const refreshing = useRef<Promise<Product[]> | null>(null);
-  const pathname = usePathname();
+  const lastCommerceFetch = useRef<number>(0);
+  const COMMERCE_TTL_MS = 60_000;
+
   useEffect(() => { catalogueRef.current = initialProducts; setProducts(initialProducts); }, [initialProducts]);
-  const refreshProducts = useCallback(() => {
+  const refreshProducts = useCallback((force = false) => {
     if (refreshing.current) return refreshing.current;
-    const commercialRefresh = fetch('/api/commerce', { cache: 'no-store' }).then(async (response) => {
-      const data = await response.json();
-      if (response.ok && Array.isArray(data.coupons) && data.settings) { commerceRef.current = data; setCommerce(data); }
-    }).catch(() => {});
+    const now = Date.now();
+    const shouldFetchCommerce = force || now - lastCommerceFetch.current > COMMERCE_TTL_MS;
+
+    const commercialRefresh = shouldFetchCommerce
+      ? fetch('/api/commerce', { cache: 'no-store' })
+          .then(async (response) => {
+            const data = await response.json();
+            if (response.ok && Array.isArray(data.coupons) && data.settings) {
+              lastCommerceFetch.current = Date.now();
+              commerceRef.current = data;
+              setCommerce(data);
+            }
+          })
+          .catch(() => {})
+      : Promise.resolve();
+
     refreshing.current = fetch('/api/products', { cache: 'no-store' })
       .then(async (response) => {
         const data = await response.json();
@@ -73,13 +86,13 @@ export function StoreProvider({ children, initialProducts, initialCommerce = DEF
     return refreshing.current;
   }, []);
   useEffect(() => {
-    const refresh = () => { if (document.visibilityState !== 'hidden') void refreshProducts(); };
-    refresh();
-    window.addEventListener('focus', refresh);
-    document.addEventListener('visibilitychange', refresh);
-    const timer = window.setInterval(refresh, 30000);
-    return () => { window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); clearInterval(timer); };
-  }, [pathname, refreshProducts]);
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== 'hidden') void refreshProducts();
+    }, 60000);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [refreshProducts]);
   const getProductById = (id: number | string) => products.find((product) => product.id === Number(id));
   const [cart, setCart] = useState<CartItem[]>([]);
   const [wish, setWish] = useState<number[]>([]);

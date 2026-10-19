@@ -50,7 +50,7 @@ export function StudioCommerce({ section, adminFetch }: { section: 'coupons' | '
         setCoupon(emptyCoupon());
       } else setSettings(data.settings);
       setNotice('Saved. Storefronts receive changes on their next refresh.');
-      void refreshProducts();
+      void refreshProducts(true);
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'Unable to save.'); }
     finally { setBusy(false); }
   }
@@ -64,7 +64,7 @@ export function StudioCommerce({ section, adminFetch }: { section: 'coupons' | '
       if (!response.ok) throw new Error(data.error || 'Unable to delete coupon.');
       setCoupons((current) => current.filter((entry) => entry.id !== row.id));
       if (coupon.id === row.id) setCoupon(emptyCoupon());
-      setNotice('Coupon deleted.'); void refreshProducts();
+      setNotice('Coupon deleted.'); void refreshProducts(true);
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'Unable to delete coupon.'); }
     finally { setBusy(false); }
   }

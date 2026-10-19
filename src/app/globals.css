@@ -74,13 +74,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   display: flex;
   flex: none;
   align-items: center;
-  justify-content: space-around;
-  gap: clamp(1.25rem, 4vw, 3.5rem);
+  justify-content: flex-start;
+  gap: 28px;
   width: max-content;
-  min-width: 100vw;
+  min-width: 0;
   height: 38px;
   margin: 0;
-  padding: 0 clamp(1.25rem, 4vw, 3.5rem);
+  padding: 0 14px;
   white-space: nowrap;
 }
 
