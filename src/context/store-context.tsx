@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useMemo, useRef, useCallback, ReactNode } from 'react';
-import { CartItem, Order, OrderQuote, Product } from '@/types';
+import { CartItem, Order, OrderPayment, OrderQuote, Product } from '@/types';
 import { money } from '@/data/products';
 import { validateCoupon, type CouponValidation } from '@/lib/coupons';
 import { quoteFromCatalogue, previewOrderQuote, parseOrderItems } from '@/lib/pricing';
@@ -34,6 +34,7 @@ interface StoreContextType {
     details: { first: string; last: string; email: string; phone: string; address: string; city: string; state: string; pin: string },
     customItems?: CartItem[]
   ) => Promise<string>;
+  updateOrderPayment: (orderId: string, payment: OrderPayment) => void;
   clearDemo: () => void;
   showToast: (msg: string) => void;
   orderProductOnWhatsApp: (id: number, qty?: number, finish?: string) => void;
@@ -257,6 +258,10 @@ export function StoreProvider({ children, initialProducts, initialCommerce = DEF
     return id;
   };
 
+  const updateOrderPayment = (orderId: string, payment: OrderPayment) => {
+    setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, payment } : o));
+  };
+
   const clearDemo = () => {
     clearWhatsAppFallback();
     setCart([]);
@@ -325,6 +330,7 @@ export function StoreProvider({ children, initialProducts, initialCommerce = DEF
         applyCoupon,
         removeCoupon,
         placeOrder,
+        updateOrderPayment,
         clearDemo,
         showToast,
         orderProductOnWhatsApp,

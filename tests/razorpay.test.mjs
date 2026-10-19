@@ -281,3 +281,51 @@ test('WhatsApp confirmation includes saved payment status and reference', async 
   expect(message).toContain('pay_reference');
   expect(message).toContain('Order total:');
 });
+
+test('CustomerPayment renders pay action with order total and WhatsApp alternative for unpaid order', async () => {
+  const { createElement } = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { CustomerPayment } = await import('../src/components/CustomerPayment.tsx');
+  const props = {
+    orderId: row.id,
+    total: row.total,
+    customerName: 'Ananya',
+    email: 'ananya@example.test',
+    whatsAppUrl: 'https://wa.me/919876543210?text=Order',
+  };
+  const html = renderToStaticMarkup(createElement(CustomerPayment, props));
+  expect(html).toContain('Pay ₹2,650 online');
+  expect(html).toContain('Complete on WhatsApp instead');
+  expect(html).toContain('https://wa.me/919876543210?text=Order');
+  expect(html).toContain('customer-payment');
+});
+
+test('CustomerPayment renders confirmed status and payment ID when order is paid', async () => {
+  const { createElement } = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { CustomerPayment } = await import('../src/components/CustomerPayment.tsx');
+  const props = {
+    orderId: row.id,
+    total: row.total,
+    customerName: 'Ananya',
+    payment: { provider: 'razorpay', status: 'paid', razorpayOrderId: 'order_gw', paymentId: 'pay_cust_999' },
+  };
+  const html = renderToStaticMarkup(createElement(CustomerPayment, props));
+  expect(html).toContain('Payment confirmed');
+  expect(html).toContain('pay_cust_999');
+  expect(html).not.toContain('<button');
+});
+
+test('CustomerPayment renders processing status for authorized payments awaiting webhook capture', async () => {
+  const { createElement } = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { CustomerPayment } = await import('../src/components/CustomerPayment.tsx');
+  const props = {
+    orderId: row.id,
+    total: row.total,
+    customerName: 'Ananya',
+    payment: { provider: 'razorpay', status: 'authorized', razorpayOrderId: 'order_gw' },
+  };
+  const html = renderToStaticMarkup(createElement(CustomerPayment, props));
+  expect(html).toContain('Check payment status');
+});
