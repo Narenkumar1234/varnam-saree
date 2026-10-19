@@ -12,6 +12,7 @@ import { OrderLinePrice } from '@/components/OrderLinePrice';
 import { getProductQuantityLimit } from '@/lib/product-quantity';
 
 export default function CartPage() {
+  const [busyId, setBusyId] = React.useState<number | null>(null);
   const {
     cart,
     getProductById, cartError,
@@ -20,6 +21,20 @@ export default function CartPage() {
     removeItem,
     orderCartOnWhatsApp,
   } = useStore();
+
+  const handleAdjust = (id: number, delta: number) => {
+    if (busyId === id) return;
+    setBusyId(id);
+    adjustCardQuantity(id, delta);
+    setTimeout(() => setBusyId(null), 250);
+  };
+
+  const handleRemove = (id: number) => {
+    if (busyId === id) return;
+    setBusyId(id);
+    removeItem(id);
+    setTimeout(() => setBusyId(null), 250);
+  };
 
   return (
     <>
@@ -42,7 +57,7 @@ export default function CartPage() {
             <div>
               {cart.map((item) => {
                 const p = getProductById(item.id);
-                if (!p) return <div className="cart-item" key={item.id}><p>This saree is no longer available.</p><button type="button" onClick={() => removeItem(item.id)}>Remove</button></div>;
+                if (!p) return <div className="cart-item" key={item.id}><p>This saree is no longer available.</p><button type="button" onClick={() => handleRemove(item.id)}>Remove</button></div>;
                 const pricedItem = cartQuote.items.find((line) => line.id === item.id);
 
                 return (
@@ -71,7 +86,8 @@ export default function CartPage() {
                         <button
                           type="button"
                           aria-label="Decrease quantity"
-                          onClick={() => adjustCardQuantity(item.id, -1)}
+                          disabled={busyId === item.id}
+                          onClick={() => handleAdjust(item.id, -1)}
                         >
                           <Icon name="minus" />
                         </button>
@@ -79,8 +95,8 @@ export default function CartPage() {
                         <button
                           type="button"
                           aria-label="Increase quantity"
-                          disabled={item.qty >= getProductQuantityLimit(p)}
-                          onClick={() => adjustCardQuantity(item.id, 1)}
+                          disabled={busyId === item.id || item.qty >= getProductQuantityLimit(p)}
+                          onClick={() => handleAdjust(item.id, 1)}
                         >
                           <Icon name="plus" />
                         </button>
@@ -88,7 +104,8 @@ export default function CartPage() {
                       <button
                         className="remove"
                         type="button"
-                        onClick={() => removeItem(item.id)}
+                        disabled={busyId === item.id}
+                        onClick={() => handleRemove(item.id)}
                       >
                         Remove
                       </button>

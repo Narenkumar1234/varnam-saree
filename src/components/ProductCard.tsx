@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -24,6 +24,15 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
   const isWish = wish.includes(product.id);
   const cartItem = cart.find((item) => item.id === product.id);
   const qty = cartItem?.qty || 0;
+
+  const [isDebouncing, setIsDebouncing] = useState(false);
+
+  const handleAdjust = (delta: number) => {
+    if (isDebouncing) return;
+    setIsDebouncing(true);
+    adjustCardQuantity(product.id, delta);
+    setTimeout(() => setIsDebouncing(false), 250);
+  };
 
   const handleBuyNow = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -59,7 +68,8 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
                 type="button"
                 data-step="minus"
                 aria-label={`Remove one ${product.name}`}
-                onClick={() => adjustCardQuantity(product.id, -1)}
+                disabled={isDebouncing}
+                onClick={() => handleAdjust(-1)}
               >
                 <Icon name="minus" />
               </button>
@@ -68,8 +78,8 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
                 type="button"
                 data-step="plus"
                 aria-label={`Add one ${product.name}`}
-                disabled={soldOut || qty >= getProductQuantityLimit(product)}
-                onClick={() => adjustCardQuantity(product.id, 1)}
+                disabled={isDebouncing || soldOut || qty >= getProductQuantityLimit(product)}
+                onClick={() => handleAdjust(1)}
               >
                 <Icon name="plus" />
               </button>
@@ -79,8 +89,8 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
               className="product-action add-action"
               type="button"
               aria-label={`Add ${product.name} to bag`}
-              disabled={soldOut}
-              onClick={() => adjustCardQuantity(product.id, 1)}
+              disabled={soldOut || isDebouncing}
+              onClick={() => handleAdjust(1)}
             >
               {soldOut ? 'Sold out' : 'Add to bag'}
             </button>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Product } from '@/types';
@@ -58,6 +58,9 @@ export default function StudioDeskPage() {
   const [uploadedPreview, setUploadedPreview] = useState<string | null>(null);
   const [editingProduct, setEditingProduct] = useState<AdminProduct | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [isAddingProduct, setIsAddingProduct] = useState(false);
+  const stockDebounceTimers = useRef<Map<number, NodeJS.Timeout>>(new Map());
 
   // New Saree Form State
   const [newSaree, setNewSaree] = useState({
@@ -254,26 +257,37 @@ export default function StudioDeskPage() {
   };
 
   // Inline Stock Update
-  const updateStock = async (id: number, newStock: number) => {
+  // Inline Stock Update (Debounced by 400ms to batch rapid + / - clicks)
+  const updateStock = (id: number, newStock: number) => {
     const validStock = Math.max(0, newStock);
+    // Optimistic UI update immediately
     setProducts((prev) =>
       prev.map((p) => (p.id === id ? { ...p, stock: validStock } : p))
     );
 
-    try {
-      const res = await adminFetch(`/api/admin/products/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stock: validStock }),
-      });
-      if (res.ok) {
-        showToast(`Stock updated to ${validStock} pieces`);
-      } else {
-        showToast('Failed to update stock in database');
+    const existingTimer = stockDebounceTimers.current.get(id);
+    if (existingTimer) clearTimeout(existingTimer);
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await adminFetch(`/api/admin/products/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stock: validStock }),
+        });
+        if (res.ok) {
+          showToast(`Stock saved: ${validStock} pieces`);
+        } else {
+          showToast('Failed to update stock in database');
+        }
+      } catch {
+        showToast('Failed to save stock change');
+      } finally {
+        stockDebounceTimers.current.delete(id);
       }
-    } catch (err) {
-      showToast('Failed to save stock change');
-    }
+    }, 400);
+
+    stockDebounceTimers.current.set(id, timer);
   };
 
   // Inline Price Update
@@ -324,26 +338,32 @@ export default function StudioDeskPage() {
     }
   };
 
-  // Delete Product
+  // Delete Product with in-flight guard
   const deleteProduct = async (id: number, name: string) => {
+    if (deletingId !== null) return;
     if (!confirm(`Are you sure you want to remove "${name}" from the store catalog?`)) {
       return;
     }
 
+    setDeletingId(id);
     try {
       const res = await adminFetch(`/api/admin/products/${id}`, { method: 'DELETE' });
       if (res.ok) {
         setProducts((prev) => prev.filter((p) => p.id !== id));
         showToast(`Removed "${name}" from store`);
       }
-    } catch (err) {
+    } catch {
       showToast('Could not remove product');
+    } finally {
+      setDeletingId(null);
     }
   };
 
-  // Add Product Submit
+  // Add Product Submit with in-flight guard
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isAddingProduct) return;
+    setIsAddingProduct(true);
     try {
       const res = await adminFetch('/api/admin/products', {
         method: 'POST',
@@ -371,8 +391,10 @@ export default function StudioDeskPage() {
       } else {
         showToast(data.error || 'Failed to add saree');
       }
-    } catch (err) {
+    } catch {
       showToast('Failed to connect to database');
+    } finally {
+      setIsAddingProduct(false);
     }
   };
 

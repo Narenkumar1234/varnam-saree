@@ -41,6 +41,15 @@ export default function ProductDetail({ id }: { id: string }) {
   const isWish = wish.includes(product.id);
   const relatedProducts = products.filter((x) => x.id !== product.id).slice(0, 4);
 
+  const [isAdding, setIsAdding] = useState(false);
+
+  const handleAddToCart = () => {
+    if (soldOut || isAdding) return;
+    setIsAdding(true);
+    addToCart(product.id, qty, finish);
+    setTimeout(() => setIsAdding(false), 300);
+  };
+
   const handleCheckPin = (e: React.FormEvent) => {
     e.preventDefault();
     if (pincode.length === 6) {
@@ -134,10 +143,10 @@ export default function ProductDetail({ id }: { id: string }) {
               <button
                 className="btn add-bag-btn"
                 type="button"
-                disabled={soldOut}
-                onClick={() => addToCart(product.id, qty, finish)}
+                disabled={soldOut || isAdding}
+                onClick={handleAddToCart}
               >
-                {soldOut ? 'Sold out' : 'Add to bag'} <Icon name="arrow-up-right" />
+                {soldOut ? 'Sold out' : isAdding ? 'Adding…' : 'Add to bag'} <Icon name="arrow-up-right" />
               </button>
 
               <button
