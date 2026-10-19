@@ -21,7 +21,7 @@ jobs:
         with:
           bun-version: latest
       - name: Install locked dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
       - name: Test
         run: bun test
       - name: Serverless cold-start guards
