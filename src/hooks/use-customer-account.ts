@@ -1,40 +1,65 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { onIdTokenChanged, signInWithPopup, signOut } from 'firebase/auth';
 import { getCustomerFirebase } from '@/lib/firebase';
-import { createCustomerAccount, initialCustomerAccountState } from '@/lib/customer-account';
+import { createCustomerAccount, initialCustomerAccountState, type CustomerAccountState } from '@/lib/customer-account';
 import { mapCustomerAuthError } from '@/lib/customer-auth-errors';
 
+let sharedAccount: ReturnType<typeof createCustomerAccount> | null = null;
+let sharedState: CustomerAccountState = initialCustomerAccountState();
+const listeners = new Set<(state: CustomerAccountState) => void>();
+
+function getSharedAccount() {
+  if (sharedAccount) return sharedAccount;
+  if (typeof window === 'undefined') return null;
+  try {
+    const { auth, googleAuthProvider } = getCustomerFirebase();
+    sharedAccount = createCustomerAccount({
+      observe: (next, error) => onIdTokenChanged(auth, next, error),
+      currentUser: () => auth.currentUser,
+      popup: () => signInWithPopup(auth, googleAuthProvider),
+      signOut: () => signOut(auth),
+      fetch: (...args) => fetch(...args),
+    }, (nextState) => {
+      sharedState = nextState;
+      listeners.forEach((listener) => listener(nextState));
+    });
+    sharedAccount.start();
+    return sharedAccount;
+  } catch (error) {
+    sharedState = { ...initialCustomerAccountState(), phase: 'signed-out', error: mapCustomerAuthError(error) };
+    return null;
+  }
+}
+
 export function useCustomerAccount() {
-  const [state, setState] = useState(initialCustomerAccountState);
-  const controller = useRef<ReturnType<typeof createCustomerAccount> | null>(null);
+  const [state, setState] = useState<CustomerAccountState>(() => sharedState);
+
   useEffect(() => {
-    try {
-      const { auth, googleAuthProvider } = getCustomerFirebase();
-      const account = createCustomerAccount({
-        observe: (next, error) => onIdTokenChanged(auth, next, error),
-        currentUser: () => auth.currentUser,
-        popup: () => signInWithPopup(auth, googleAuthProvider),
-        signOut: () => signOut(auth),
-        fetch: (...args) => fetch(...args),
-      }, setState);
-      controller.current = account;
-      const stop = account.start();
-      return () => { controller.current = null; stop(); };
-    } catch (error) {
-      setState({ ...initialCustomerAccountState(), phase: 'signed-out', error: mapCustomerAuthError(error) });
+    const account = getSharedAccount();
+    if (!account) {
+      setState(sharedState);
+      return;
     }
+    setState(account.getState());
+    listeners.add(setState);
+    return () => {
+      listeners.delete(setState);
+    };
   }, []);
+
+  const account = sharedAccount;
+
   return {
     ...state,
-    canSignIn: Boolean(controller.current),
+    canSignIn: Boolean(account),
     loading: state.phase === 'restoring' || state.phase === 'verifying' || state.ordersLoading,
     errorCode: state.error?.code || null,
     error: state.error?.message || null,
     ordersError: state.ordersError?.message || null,
-    signIn: () => controller.current?.signIn(),
-    logOut: () => controller.current?.logOut(),
-    retry: () => controller.current?.retry(),
+    signIn: () => getSharedAccount()?.signIn(),
+    logOut: () => getSharedAccount()?.logOut(),
+    retry: () => getSharedAccount()?.retry(),
   };
 }

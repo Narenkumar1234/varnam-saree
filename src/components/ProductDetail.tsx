@@ -132,7 +132,7 @@ export default function ProductDetail({ id }: { id: string }) {
               </div>
 
               <button
-                className="btn"
+                className="btn add-bag-btn"
                 type="button"
                 disabled={soldOut}
                 onClick={() => addToCart(product.id, qty, finish)}
@@ -141,7 +141,7 @@ export default function ProductDetail({ id }: { id: string }) {
               </button>
 
               <button
-                className="btn outline"
+                className="btn outline buy-now-btn"
                 type="button"
                 disabled={soldOut}
                 onClick={() =>
@@ -200,25 +200,6 @@ export default function ProductDetail({ id }: { id: string }) {
             </form>
 
             <details open>
-              <summary>Details & dimensions</summary>
-              <p>
-                Length: 5.5 metres + 0.8 metre unstitched blouse piece. Width: approximately 1.1 metres.
-                Illustrative catalogue: final material and stock details should be confirmed before
-                launch.
-              </p>
-            </details>
-
-            <details>
-              <summary>Care for your saree</summary>
-              <p>
-                {product.collection === 'Cotton'
-                  ? 'Gentle cold hand wash. Dry in shade.'
-                  : 'Dry clean recommended. Store folded in a breathable cotton cover.'}{' '}
-                Keep away from direct sunlight for long periods.
-              </p>
-            </details>
-
-            <details>
               <summary>Shipping & returns</summary>
               <p>
                 View our sample{' '}

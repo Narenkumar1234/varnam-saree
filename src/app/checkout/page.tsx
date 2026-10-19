@@ -13,12 +13,13 @@ import { OrderTotals } from '@/components/OrderTotals';
 import { OrderLinePrice } from '@/components/OrderLinePrice';
 import { AddressFields } from '@/components/AddressFields';
 import { ADDRESS_FIELDS, readSavedAddress } from '@/lib/address-storage';
+import { formatWhatsAppOrderMessage } from '@/lib/whatsapp';
 import type { DeliveryAddress } from '@/types';
 
 function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { cart, products, commerce, getProductById, couponCode, placeOrder } = useStore();
+  const { cart, products, commerce, getProductById, couponCode, placeOrder, openWhatsAppMessage } = useStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -100,6 +101,36 @@ function CheckoutContent() {
     }
   };
 
+  const handleWhatsAppCheckout = () => {
+    if (checkoutError) return;
+    const customerName = `${formData.first} ${formData.last}`.trim();
+    const fullAddress = [
+      formData.address,
+      formData.apartment,
+      formData.city,
+      formData.state,
+      formData.pin,
+    ].filter(Boolean).join(', ');
+
+    const lines = [
+      buyNowProduct ? `Direct purchase for: ${buyNowProduct.name}` : `Bag Order (${checkoutQuote.items.length} sarees):`,
+      '',
+      ...checkoutQuote.items.map((x) => `• ${x.name} × ${x.qty} — ₹${x.total || x.unitPrice * x.qty}`),
+      '',
+      `Subtotal: ₹${checkoutQuote.pricing.subtotal}`,
+      ...(checkoutQuote.pricing.discountAmount > 0 && checkoutQuote.pricing.couponCode ? [`Coupon (${checkoutQuote.pricing.couponCode}): −₹${checkoutQuote.pricing.discountAmount}`] : []),
+      `Delivery: ${checkoutQuote.pricing.shipping ? `₹${checkoutQuote.pricing.shipping}` : 'Free delivery'}`,
+      `Total: ₹${checkoutQuote.pricing.total}`,
+      '',
+      ...(customerName ? [`Customer: ${customerName}`] : []),
+      ...(formData.phone ? [`Phone: ${formData.phone}`] : []),
+      ...(formData.email ? [`Email: ${formData.email}`] : []),
+      ...(fullAddress ? [`Delivery address: ${fullAddress}`] : []),
+    ];
+
+    openWhatsAppMessage(formatWhatsAppOrderMessage(lines, 'Hello Varnam, I would like to place this order on WhatsApp:', 'Please confirm my order and share delivery / payment details.'));
+  };
+
   return (
     <>
       <div className="page-title">
@@ -162,6 +193,18 @@ function CheckoutContent() {
             {submitError && <p className="coupon-feedback error" role="alert">{submitError}</p>}
             <button className="btn" type="submit" disabled={isSubmitting || !!checkoutError} style={{ width: '100%', marginTop: '24px' }}>
               {isSubmitting ? 'Placing order…' : 'Place order'} <Icon name="arrow-up-right" />
+            </button>
+            <div className="checkout-or-divider" aria-hidden="true">
+              <span>or</span>
+            </div>
+            <button
+              type="button"
+              className="whatsapp-order"
+              style={{ width: '100%', minHeight: '48px', justifyContent: 'center' }}
+              disabled={isSubmitting || !!checkoutError}
+              onClick={handleWhatsAppCheckout}
+            >
+              <Icon name="whatsapp" /> Order on WhatsApp
             </button>
           </form>
 

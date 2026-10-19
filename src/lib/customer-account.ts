@@ -59,6 +59,9 @@ export function createCustomerAccount(deps: CustomerAccountDependencies, notify:
 
   function verify(user: CustomerAuthUser | null, forceRefresh = false): Promise<void> {
     if (!active) return Promise.resolve();
+    if (!forceRefresh && user && state.phase === 'signed-in' && state.profile?.uid === user.uid) {
+      return Promise.resolve();
+    }
     if (user && inFlight?.uid === user.uid) return inFlight.promise;
     const current = ++revision;
     pending?.abort(); pending = new AbortController();
