@@ -35,21 +35,16 @@ async function loadFirebaseAdminSdk() {
     ]);
     return { applicationDefault, cert, getApps, initializeApp, getAuth };
   } catch (err: unknown) {
-    const code = (err as { code?: string })?.code;
-    const msg = (err as { message?: string })?.message;
-    if (code === 'ERR_REQUIRE_ESM' || (typeof msg === 'string' && msg.includes('ERR_REQUIRE_ESM'))) {
-      const require = createRequire(import.meta.url);
-      const app = require('firebase-admin/app');
-      const auth = require('firebase-admin/auth');
-      return {
-        applicationDefault: app.applicationDefault,
-        cert: app.cert,
-        getApps: app.getApps,
-        initializeApp: app.initializeApp,
-        getAuth: auth.getAuth,
-      };
-    }
-    throw err;
+    const require = createRequire(import.meta.url);
+    const app = require('firebase-admin/app');
+    const auth = require('firebase-admin/auth');
+    return {
+      applicationDefault: app.applicationDefault,
+      cert: app.cert,
+      getApps: app.getApps,
+      initializeApp: app.initializeApp,
+      getAuth: auth.getAuth,
+    };
   }
 }
 
