@@ -1,10 +1,9 @@
 import { getFirebasePublicConfig } from '@/lib/firebase-config';
 import { CustomerAuthError, CUSTOMER_AUTH_MESSAGES, safeAuthReason } from '@/lib/customer-auth-errors';
+import { createRequire } from 'module';
 
 export { CustomerAuthError };
 
-// Accept PEM with real newlines, Vercel literal \\n / \\\\n, CRLF and optional
-// surrounding quotes. The Admin SDK still validates the resulting private key.
 const cleanScalarEnv = (value?: string) =>
   value?.trim().replace(/,+$/, '').trim().replace(/^["']|["']$/g, '').trim();
 
@@ -24,8 +23,6 @@ export function normalizeFirebasePrivateKey(value: string): string {
   } else if (key.startsWith("'") && key.endsWith("'")) key = key.slice(1, -1);
   return key.replace(/\\+r\\+n/g, '\n').replace(/\\+n/g, '\n').replace(/\r\n?/g, '\n').trim();
 }
-
-import { createRequire } from 'module';
 
 async function loadFirebaseAdminSdk() {
   try {
@@ -62,13 +59,11 @@ export async function getCustomerAdminAuth() {
   catch { return fail('CUSTOMER_AUTH_NOT_CONFIGURED'); }
   if (projectId && projectId !== expectedProject) fail('CUSTOMER_AUTH_PROJECT_MISMATCH');
   try {
-    // Load SDK code inside the request's guarded boundary, not at module load.
     const { applicationDefault, cert, getApps, initializeApp, getAuth } = await loadFirebaseAdminSdk();
     const name = 'varnam-customer-auth';
     const existing = getApps().find((app: { name: string; options: { projectId?: string } }) => app.name === name);
     if (existing && existing.options.projectId !== expectedProject) fail('CUSTOMER_AUTH_PROJECT_MISMATCH');
     const app = existing || initializeApp({
-      // Always verify the same audience/issuer as the browser's Firebase app.
       projectId: expectedProject,
       credential: file ? applicationDefault() : cert({
         projectId: expectedProject, clientEmail, privateKey: normalizeFirebasePrivateKey(privateKey!),
