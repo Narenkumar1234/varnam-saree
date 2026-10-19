@@ -21,15 +21,94 @@ export async function PATCH(
       if (body.stock !== undefined) updateData.stock = productInteger(body.stock, 0);
       if (body.price !== undefined) updateData.price = productInteger(body.price, 1);
       if (body.oldPrice !== undefined) updateData.oldPrice = body.oldPrice == null || body.oldPrice === '' ? null : productInteger(body.oldPrice, 1);
+
+      if (body.discountPercentage !== undefined && body.discountPercentage !== null && body.discountPercentage !== '') {
+        const disc = typeof body.discountPercentage === 'number' ? body.discountPercentage : parseInt(body.discountPercentage, 10);
+        if (!isNaN(disc) && disc > 0 && disc < 100) {
+          if (updateData.oldPrice) {
+            updateData.price = Math.max(1, Math.round(updateData.oldPrice * (1 - disc / 100)));
+          } else if (updateData.price) {
+            updateData.oldPrice = Math.round(updateData.price / (1 - disc / 100));
+          } else {
+            const existingRows = await db.select().from(products).where(eq(products.id, numId));
+            if (existingRows.length > 0) {
+              const currentOld = existingRows[0].oldPrice;
+              const currentPrice = existingRows[0].price;
+              if (currentOld) {
+                updateData.price = Math.max(1, Math.round(currentOld * (1 - disc / 100)));
+              } else {
+                updateData.oldPrice = Math.round(currentPrice / (1 - disc / 100));
+              }
+            }
+          }
+        } else if (disc === 0 && body.oldPrice === undefined) {
+          updateData.oldPrice = null;
+        }
+      }
     } catch {
       return NextResponse.json({ error: 'Price must be a positive whole rupee amount and stock a non-negative whole number.' }, { status: 400 });
+    }
+    if (body.images !== undefined) {
+      let cleanImages: string[] = [];
+      if (Array.isArray(body.images)) {
+        cleanImages = body.images.filter((img: any) => typeof img === 'string' && img.trim().length > 0 && !img.trim().startsWith('blob:')).slice(0, 3);
+      } else if (typeof body.images === 'string' && body.images.trim().length > 0) {
+        try {
+          if (body.images.trim().startsWith('[')) {
+            const parsed = JSON.parse(body.images);
+            if (Array.isArray(parsed)) {
+              cleanImages = parsed.filter((img: any) => typeof img === 'string' && img.trim().length > 0 && !img.trim().startsWith('blob:')).slice(0, 3);
+            }
+          } else {
+            cleanImages = body.images.split(',').map((s: string) => s.trim()).filter((s: string) => Boolean(s) && !s.startsWith('blob:')).slice(0, 3);
+          }
+        } catch {
+          cleanImages = [];
+        }
+      }
+      updateData.images = cleanImages.length > 0 ? JSON.stringify(cleanImages) : null;
+      if (body.image === undefined && cleanImages.length > 0) {
+        updateData.image = cleanImages[0];
+      }
+    }
+    if (body.variants !== undefined) {
+      let cleanVariants: { name: string; colour?: string; images: string[] }[] = [];
+      if (Array.isArray(body.variants)) {
+        cleanVariants = body.variants
+          .filter((v: any) => v && typeof v === 'object' && (v.name || v.colour))
+          .map((v: any) => ({
+            name: String(v.name || v.colour || '').trim(),
+            colour: String(v.colour || v.name || '').trim(),
+            images: Array.isArray(v.images)
+              ? v.images.filter((img: any) => typeof img === 'string' && img.trim().length > 0 && !img.trim().startsWith('blob:')).slice(0, 3)
+              : [],
+          }));
+      } else if (typeof body.variants === 'string' && body.variants.trim().length > 0) {
+        try {
+          const parsed = JSON.parse(body.variants);
+          if (Array.isArray(parsed)) {
+            cleanVariants = parsed
+              .filter((v: any) => v && typeof v === 'object' && (v.name || v.colour))
+              .map((v: any) => ({
+                name: String(v.name || v.colour || '').trim(),
+                colour: String(v.colour || v.name || '').trim(),
+                images: Array.isArray(v.images)
+                  ? v.images.filter((img: any) => typeof img === 'string' && img.trim().length > 0 && !img.trim().startsWith('blob:')).slice(0, 3)
+                  : [],
+              }));
+          }
+        } catch {
+          cleanVariants = [];
+        }
+      }
+      updateData.variants = cleanVariants.length > 0 ? JSON.stringify(cleanVariants) : null;
     }
     if (body.name !== undefined) updateData.name = body.name;
     if (body.type !== undefined) updateData.type = body.type;
     if (body.collection !== undefined) updateData.collection = body.collection;
-    if (body.colour !== undefined) updateData.colour = body.colour;
+    if (body.colour !== undefined) updateData.colour = typeof body.colour === 'string' ? body.colour.trim() : body.colour;
     if (body.tag !== undefined) updateData.tag = body.tag;
-    if (body.image !== undefined) updateData.image = body.image;
+    if (body.image !== undefined && typeof body.image === 'string' && !body.image.trim().startsWith('blob:')) updateData.image = body.image.trim();
     if (body.description !== undefined) updateData.description = body.description;
 
     const updated = await db

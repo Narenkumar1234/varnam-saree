@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { COLOUR_HEX_MAP } from '@/data/products';
+import { COLOUR_HEX_MAP, capitalizeColour } from '@/data/products';
 import { useStore } from '@/context/store-context';
 import { ProductCard } from '@/components/ProductCard';
 import { Icon } from '@/components/Icons';
@@ -24,6 +24,32 @@ export default function ProductDetail({ id }: { id: string }) {
   const [pinMessage, setPinMessage] = useState('');
 
   useEffect(() => { setQty((current) => Math.max(1, Math.min(current, quantityLimit))); }, [product?.id, quantityLimit]);
+
+  const hasVariants = Boolean(product?.variants && product.variants.length > 0);
+  const [selectedVariantIndex, setSelectedVariantIndex] = useState<number>(0);
+
+  useEffect(() => {
+    setSelectedVariantIndex(0);
+  }, [product?.id]);
+
+  const activeVariant = hasVariants && product?.variants ? (product.variants[selectedVariantIndex] || product.variants[0]) : null;
+
+  const galleryImages = (activeVariant && activeVariant.images && activeVariant.images.length > 0)
+    ? activeVariant.images
+    : (product?.images && product.images.length > 0
+      ? product.images
+      : (product?.image ? [product.image] : []));
+
+  const [selectedImage, setSelectedImage] = useState<string>(product?.image || '');
+
+  useEffect(() => {
+    if (activeVariant && activeVariant.images && activeVariant.images.length > 0) {
+      setSelectedImage(activeVariant.images[0]);
+    } else if (product) {
+      const first = (product.images && product.images.length > 0) ? product.images[0] : product.image;
+      setSelectedImage(first);
+    }
+  }, [product?.id, product?.image, product?.images, selectedVariantIndex]);
 
   if (!product) {
     return (
@@ -67,23 +93,73 @@ export default function ProductDetail({ id }: { id: string }) {
         </div>
 
         <div className="detail">
-          <div
-            style={{
-              position: 'relative',
-              width: '100%',
-              aspectRatio: '4/5',
-              overflow: 'hidden',
-              backgroundColor: '#e5dfd4',
-            }}
-          >
-            <Image
-              src={product.image}
-              alt={product.name}
-              fill
-              priority
-              sizes="(max-width: 700px) 100vw, 50vw"
-              style={{ objectFit: 'cover' }}
-            />
+          <div className="product-gallery">
+            <div
+              style={{
+                position: 'relative',
+                width: '100%',
+                aspectRatio: '4/5',
+                overflow: 'hidden',
+                backgroundColor: '#e5dfd4',
+              }}
+            >
+              <Image
+                src={selectedImage || product.image}
+                alt={product.name}
+                fill
+                priority
+                sizes="(max-width: 700px) 100vw, 50vw"
+                style={{ objectFit: 'cover' }}
+              />
+            </div>
+
+            {galleryImages.length > 1 && (
+              <div
+                className="gallery-thumbnails"
+                role="tablist"
+                aria-label={`${product.name} image gallery`}
+                style={{
+                  display: 'flex',
+                  gap: '12px',
+                  marginTop: '14px',
+                }}
+              >
+                {galleryImages.map((img, idx) => {
+                  const isCurrent = (selectedImage || product.image) === img;
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      role="tab"
+                      aria-selected={isCurrent}
+                      aria-label={`View photo ${idx + 1} of ${product.name}`}
+                      onClick={() => setSelectedImage(img)}
+                      style={{
+                        position: 'relative',
+                        width: '74px',
+                        aspectRatio: '4/5',
+                        overflow: 'hidden',
+                        borderRadius: '2px',
+                        border: isCurrent ? '2px solid var(--ink, #1f1d1d)' : '1px solid rgba(0,0,0,0.15)',
+                        backgroundColor: '#e5dfd4',
+                        cursor: 'pointer',
+                        padding: 0,
+                        opacity: isCurrent ? 1 : 0.65,
+                        transition: 'opacity 0.2s, border-color 0.2s',
+                      }}
+                    >
+                      <Image
+                        src={img}
+                        alt={`${product.name} thumbnail ${idx + 1}`}
+                        fill
+                        sizes="74px"
+                        style={{ objectFit: 'cover' }}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div>
@@ -97,24 +173,54 @@ export default function ProductDetail({ id }: { id: string }) {
             <small className="muted">Inclusive of all taxes</small>
 
             <p className="desc">
-              {product.description || `A luminous ${product.colour.toLowerCase()} weave, finished with an intricate golden border. A graceful companion for celebrations, cherished moments, and everything in between.`}
+              {product.description || `A luminous ${capitalizeColour(product.colour).toLowerCase()} weave, finished with an intricate golden border. A graceful companion for celebrations, cherished moments, and everything in between.`}
             </p>
             <p className={`stock-state ${soldOut ? 'sold-out' : ''}`} role="status">
               {soldOut ? 'Sold out' : product.stock != null ? `${product.stock} available` : 'Please confirm availability when ordering'}
             </p>
 
-            <div>Colour: {product.colour}</div>
-            <div className="swatches">
-              {products.slice(0, 4).map((x) => (
-                <Link
-                  key={x.id}
-                  href={`/product/${x.id}`}
-                  className={`swatch ${x.colour === product.colour ? 'selected' : ''}`}
-                  style={{ background: COLOUR_HEX_MAP[x.colour] || '#d8d0c8' }}
-                  aria-label={`View ${x.colour} saree`}
-                />
-              ))}
-            </div>
+            <div>Colour: {capitalizeColour(activeVariant ? (activeVariant.colour || activeVariant.name) : product.colour)}</div>
+            {hasVariants && product.variants && product.variants.length > 0 ? (
+              <div className="swatches colour-variant-switcher" role="radiogroup" aria-label="Colour variants">
+                {product.variants.map((v, idx) => {
+                  const varName = v.colour || v.name;
+                  const isCurrent = idx === selectedVariantIndex;
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      role="radio"
+                      aria-checked={isCurrent}
+                      aria-label={`Select ${capitalizeColour(varName)} variant`}
+                      className={`swatch ${isCurrent ? 'selected' : ''}`}
+                      style={{
+                        background: COLOUR_HEX_MAP[capitalizeColour(varName)] || COLOUR_HEX_MAP[varName] || '#d8d0c8',
+                        cursor: 'pointer',
+                        border: isCurrent ? '2px solid var(--ink, #1f1d1d)' : '1px solid rgba(0,0,0,0.2)',
+                      }}
+                      onClick={() => {
+                        setSelectedVariantIndex(idx);
+                        if (v.images && v.images.length > 0) {
+                          setSelectedImage(v.images[0]);
+                        }
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="swatches">
+                {products.slice(0, 4).map((x) => (
+                  <Link
+                    key={x.id}
+                    href={`/product/${x.id}`}
+                    className={`swatch ${x.colour === product.colour ? 'selected' : ''}`}
+                    style={{ background: COLOUR_HEX_MAP[capitalizeColour(x.colour)] || COLOUR_HEX_MAP[x.colour] || '#d8d0c8' }}
+                    aria-label={`View ${capitalizeColour(x.colour)} saree`}
+                  />
+                ))}
+              </div>
+            )}
 
             <label>
               Choose finishing

@@ -8,6 +8,7 @@ import { useStore } from '@/context/store-context';
 import { Icon } from './Icons';
 import { renderMarquee } from '@/lib/commerce';
 import { validateCoupon } from '@/lib/coupons';
+import { getProductDiscountPercentage } from '@/lib/shop-filters';
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -17,7 +18,13 @@ export function Header() {
   const dialogOpen = menuOpen && isMobile;
   const { totalBagCount, commerce, products } = useStore();
   const collectionLinks = [...new Set(products.map((product) => product.collection))].filter(Boolean).slice(0, 3);
-  const offer = commerce.coupons.filter((coupon) => validateCoupon(coupon.code, commerce.coupons, Number.MAX_SAFE_INTEGER).valid).sort((a, b) => b.percentage - a.percentage)[0];
+  const couponOffer = commerce.coupons.filter((coupon) => validateCoupon(coupon.code, commerce.coupons, Number.MAX_SAFE_INTEGER).valid).sort((a, b) => b.percentage - a.percentage)[0];
+  const couponDiscount = couponOffer?.percentage || 0;
+  const productDiscounts = (products || []).map(getProductDiscountPercentage).filter((pct) => pct > 0);
+  const maxProductDiscount = productDiscounts.length > 0 ? Math.max(...productDiscounts) : 0;
+  const bestDiscount = Math.max(couponDiscount, maxProductDiscount);
+  const hasOffer = bestDiscount > 0;
+  const offersHref = bestDiscount >= 50 ? '/shop?offers=50' : (bestDiscount > 0 ? `/shop?offers=${bestDiscount}` : '/shop?offers=50');
   const pathname = usePathname();
 
   // Close menu on navigation
@@ -85,26 +92,35 @@ export function Header() {
     <>
       <div className="site-marquee" role="region" aria-label="Store updates">
         <div className="site-marquee-track">
-          <p className="site-marquee-group">
-            <span>{renderMarquee(commerce.settings.marqueeMessage1, commerce.settings)}</span>
-            <span className="site-marquee-star" aria-hidden="true">✦</span>
-            <span>{renderMarquee(commerce.settings.marqueeMessage2, commerce.settings)}</span>
-            <span className="site-marquee-star" aria-hidden="true">✦</span>
-            <span>{renderMarquee(commerce.settings.marqueeMessage1, commerce.settings)}</span>
-            <span className="site-marquee-star" aria-hidden="true">✦</span>
-            <span>{renderMarquee(commerce.settings.marqueeMessage2, commerce.settings)}</span>
-            <span className="site-marquee-star" aria-hidden="true">✦</span>
-          </p>
-          <p className="site-marquee-group" aria-hidden="true">
-            <span>{renderMarquee(commerce.settings.marqueeMessage1, commerce.settings)}</span>
-            <span className="site-marquee-star">✦</span>
-            <span>{renderMarquee(commerce.settings.marqueeMessage2, commerce.settings)}</span>
-            <span className="site-marquee-star">✦</span>
-            <span>{renderMarquee(commerce.settings.marqueeMessage1, commerce.settings)}</span>
-            <span className="site-marquee-star">✦</span>
-            <span>{renderMarquee(commerce.settings.marqueeMessage2, commerce.settings)}</span>
-            <span className="site-marquee-star">✦</span>
-          </p>
+          {(() => {
+            const rawMessages = [
+              commerce.settings.marqueeMessage1,
+              commerce.settings.marqueeMessage2,
+              commerce.settings.marqueeMessage3,
+            ].filter((m): m is string => Boolean(m && m.trim()));
+            const messages = rawMessages.length > 0 ? rawMessages : [commerce.settings.marqueeMessage1, commerce.settings.marqueeMessage2];
+            const repeated = [...messages, ...messages];
+            return (
+              <>
+                <p className="site-marquee-group">
+                  {repeated.map((msg, idx) => (
+                    <React.Fragment key={`p1-${idx}`}>
+                      <span>{renderMarquee(msg, commerce.settings)}</span>
+                      <span className="site-marquee-star" aria-hidden="true">✦</span>
+                    </React.Fragment>
+                  ))}
+                </p>
+                <p className="site-marquee-group" aria-hidden="true">
+                  {repeated.map((msg, idx) => (
+                    <React.Fragment key={`p2-${idx}`}>
+                      <span>{renderMarquee(msg, commerce.settings)}</span>
+                      <span className="site-marquee-star">✦</span>
+                    </React.Fragment>
+                  ))}
+                </p>
+              </>
+            );
+          })()}
         </div>
       </div>
 
@@ -124,9 +140,13 @@ export function Header() {
           <Link href="/">Home</Link>
           <Link href="/shop">All sarees</Link>
           {collectionLinks.map((collection) => <Link key={collection} href={`/shop?collection=${encodeURIComponent(collection)}`}>{collection}</Link>)}
-          <Link className="offers-nav-link" href="/shop" aria-label={offer ? `Offers: up to ${offer.percentage}% off` : 'Offers'}>
+          <Link
+            className="offers-nav-link"
+            href={offersHref}
+            aria-label={hasOffer ? `Offers: up to ${bestDiscount}% off` : 'Offers'}
+          >
             <span>Offers</span>
-            {offer && <span className="offers-nav-badge" aria-hidden="true">{offer.percentage}% OFF</span>}
+            {hasOffer && <span className="offers-nav-badge" aria-hidden="true">{bestDiscount}% OFF</span>}
           </Link>
           <Link href="/story">Our story</Link>
           <Link className="mobile-nav-link" href="/account">

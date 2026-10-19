@@ -11,6 +11,7 @@ export interface CouponDefinition {
 export interface SiteSettings {
   marqueeMessage1: string;
   marqueeMessage2: string;
+  marqueeMessage3?: string;
   freeDeliveryThreshold: number;
   standardShippingFee: number;
 }
@@ -25,6 +26,7 @@ export const DEFAULT_COUPONS: CouponDefinition[] = [
 export const DEFAULT_SETTINGS: SiteSettings = {
   marqueeMessage1: 'Dispatch time 2 to 5 business days',
   marqueeMessage2: 'Free delivery on orders above {freeDeliveryThreshold}',
+  marqueeMessage3: '',
   freeDeliveryThreshold: 2999,
   standardShippingFee: 150,
 };
@@ -32,8 +34,10 @@ export const DEFAULT_COMMERCE: CommerceConfig = { coupons: DEFAULT_COUPONS, sett
 export const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS) as (keyof SiteSettings)[];
 export const COUPONS_INITIALIZED = 'couponsInitialized';
 
-export function renderMarquee(message: string, settings: SiteSettings): string {
-  return message.replaceAll('{freeDeliveryThreshold}', `₹${settings.freeDeliveryThreshold.toLocaleString('en-IN')}`);
+export function renderMarquee(message?: string | null, settings?: SiteSettings): string {
+  if (!message) return '';
+  const threshold = settings?.freeDeliveryThreshold ?? 2999;
+  return message.replaceAll('{freeDeliveryThreshold}', `₹${threshold.toLocaleString('en-IN')}`);
 }
 export function freeDeliveryCopy(settings: SiteSettings): string {
   return settings.standardShippingFee === 0 || settings.freeDeliveryThreshold === 0
@@ -51,6 +55,8 @@ export function settingsFromRows(rows: { key: string; value: string }[]): SiteSe
       if (value.trim() && Number.isSafeInteger(number) && number >= 0 && number <= 100_000_000) settings[key] = number;
     } else if ((key === 'marqueeMessage1' || key === 'marqueeMessage2') && value.trim() && value.length <= 240) {
       if (key !== 'marqueeMessage2' || value.includes('{freeDeliveryThreshold}')) settings[key] = value;
+    } else if (key === 'marqueeMessage3') {
+      settings[key] = value ? (value.length <= 240 ? value : value.slice(0, 240)) : '';
     }
   }
   return settings;
