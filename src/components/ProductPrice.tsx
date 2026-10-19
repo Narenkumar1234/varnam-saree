@@ -8,7 +8,7 @@ import { getCouponDiscount } from '@/lib/coupons';
 export function ProductPrice({ price, oldPrice }: { price: number; oldPrice?: number | null }) {
   const { couponCode, commerce } = useStore();
   const discount = getCouponDiscount(price, couponCode, commerce.coupons);
-  const original = discount ? price : oldPrice;
+  const original = oldPrice || (discount > 0 ? price : null);
   return (
     <>
       <div className="price">

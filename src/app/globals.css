@@ -556,6 +556,36 @@ nav a:hover {
   color: #b82e44;
 }
 
+.product-badges {
+  position: absolute;
+  left: 12px;
+  top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.product-badges .tag {
+  position: static;
+  max-width: calc(100% - 74px);
+}
+
+.product-discount-badge {
+  background: #ba1a1a;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border-radius: 2px;
+  text-transform: uppercase;
+  display: inline-block;
+  line-height: 1.4;
+}
+
 .tag {
   position: absolute;
   left: 12px;
@@ -3024,6 +3054,12 @@ footer {
   gap: 16px;
 }
 
+.admin-form-row.four-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 16px;
+}
+
 .admin-status-select {
   padding: 6px 10px;
   font-size: 12px;
@@ -3182,7 +3218,8 @@ footer {
     align-items: flex-start;
   }
   .admin-form-row.two-col,
-  .admin-form-row.three-col {
+  .admin-form-row.three-col,
+  .admin-form-row.four-col {
     grid-template-columns: 1fr;
   }
   .admin-metrics-grid {

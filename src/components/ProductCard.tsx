@@ -9,6 +9,8 @@ import { useStore } from '@/context/store-context';
 import { Icon } from './Icons';
 import { ProductPrice } from './ProductPrice';
 import { getProductQuantityLimit } from '@/lib/product-quantity';
+import { getProductDiscountPercentage } from '@/lib/shop-filters';
+import { capitalizeColour } from '@/lib/colour';
 
 interface ProductCardProps {
   product: Product;
@@ -24,6 +26,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
   const isWish = wish.includes(product.id);
   const cartItem = cart.find((item) => item.id === product.id);
   const qty = cartItem?.qty || 0;
+  const discountPct = getProductDiscountPercentage(product);
 
   const [isDebouncing, setIsDebouncing] = useState(false);
 
@@ -46,7 +49,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
         <div className="fabric-container" style={{ position: 'relative', width: '100%', aspectRatio: '4/5', overflow: 'hidden', backgroundColor: '#e5dfd4' }}>
           <Image
             src={product.image}
-            alt={`${product.colour} saree — ${product.name}`}
+            alt={`${capitalizeColour(product.colour)} saree — ${product.name}`}
             fill
             sizes="(max-width: 700px) 50vw, (max-width: 1000px) 33vw, 25vw"
             priority={priority}
@@ -101,7 +104,10 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
         </button>
       </div>
 
-      {product.tag && <span className="tag">{product.tag}</span>}
+      <div className="product-badges">
+        {discountPct > 0 && <span className="product-discount-badge">{discountPct}% OFF</span>}
+        {product.tag && <span className="tag">{product.tag}</span>}
+      </div>
 
       <button
         className={`heart ${isWish ? 'active' : ''}`}

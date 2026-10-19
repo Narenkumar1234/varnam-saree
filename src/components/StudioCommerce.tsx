@@ -8,6 +8,20 @@ import { useStore } from '@/context/store-context';
 type AdminFetch = (url: string, options?: RequestInit) => Promise<Response>;
 const emptyCoupon = (): CouponDefinition => ({ code: '', percentage: 10, enabled: true, minSubtotal: 0, expiresOn: null });
 
+const studioCommerceCache: {
+  coupons?: CouponDefinition[];
+  settings?: SiteSettings;
+} = {};
+
+export function clearStudioCommerceCache(section?: 'coupons' | 'settings') {
+  if (section) {
+    delete studioCommerceCache[section];
+  } else {
+    delete studioCommerceCache.coupons;
+    delete studioCommerceCache.settings;
+  }
+}
+
 export function StudioCommerce({ section, adminFetch }: { section: 'coupons' | 'settings'; adminFetch: AdminFetch }) {
   const { refreshProducts } = useStore();
   const [coupons, setCoupons] = useState<CouponDefinition[]>([]);
@@ -20,18 +34,35 @@ export function StudioCommerce({ section, adminFetch }: { section: 'coupons' | '
   const [notice, setNotice] = useState('');
   const endpoint = section === 'coupons' ? '/api/admin/coupons' : '/api/admin/settings';
 
-  async function load() {
+  async function load(forceRefresh = false) {
+    if (!forceRefresh && studioCommerceCache[section]) {
+      if (section === 'coupons') {
+        setCoupons(studioCommerceCache.coupons!);
+      } else {
+        setSettings(studioCommerceCache.settings!);
+      }
+      setLoaded(true);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true); setLoaded(false); setError('');
     try {
       const response = await adminFetch(endpoint);
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Unable to load commercial settings.');
-      if (section === 'coupons') setCoupons(data.coupons); else setSettings(data.settings);
+      if (section === 'coupons') {
+        setCoupons(data.coupons);
+        studioCommerceCache.coupons = data.coupons;
+      } else {
+        setSettings(data.settings);
+        studioCommerceCache.settings = data.settings;
+      }
       setLoaded(true);
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'Unable to load commercial settings.'); }
     finally { setLoading(false); }
   }
-  useEffect(() => { void load(); }, [section]);
+  useEffect(() => { void load(false); }, [section]);
 
   async function save(event: React.FormEvent) {
     event.preventDefault(); if (busy) return;
@@ -46,9 +77,14 @@ export function StudioCommerce({ section, adminFetch }: { section: 'coupons' | '
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Unable to save.');
       if (section === 'coupons') {
-        setCoupons((current) => editing ? current.map((row) => row.id === data.coupon.id ? data.coupon : row) : [...current, data.coupon]);
+        const updated = editing ? coupons.map((row) => row.id === data.coupon.id ? data.coupon : row) : [...coupons, data.coupon];
+        setCoupons(updated);
+        studioCommerceCache.coupons = updated;
         setCoupon(emptyCoupon());
-      } else setSettings(data.settings);
+      } else {
+        setSettings(data.settings);
+        studioCommerceCache.settings = data.settings;
+      }
       setNotice('Saved. Storefronts receive changes on their next refresh.');
       void refreshProducts(true);
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'Unable to save.'); }
@@ -62,7 +98,9 @@ export function StudioCommerce({ section, adminFetch }: { section: 'coupons' | '
       const response = await adminFetch(`/api/admin/coupons/${row.id}`, { method: 'DELETE' });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Unable to delete coupon.');
-      setCoupons((current) => current.filter((entry) => entry.id !== row.id));
+      const updated = coupons.filter((entry) => entry.id !== row.id);
+      setCoupons(updated);
+      studioCommerceCache.coupons = updated;
       if (coupon.id === row.id) setCoupon(emptyCoupon());
       setNotice('Coupon deleted.'); void refreshProducts(true);
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'Unable to delete coupon.'); }
@@ -72,7 +110,7 @@ export function StudioCommerce({ section, adminFetch }: { section: 'coupons' | '
   return <section className="admin-panel-card studio-commerce">
     <div className="admin-panel-header">
       <div><h2>{section === 'coupons' ? 'Coupons' : 'Site settings'}</h2><p className="muted">{section === 'coupons' ? 'Manage one-code-per-order offers. Minimum spend uses the saree subtotal before discounts and delivery.' : 'Manage store updates and delivery charges. Saved order and payment totals stay unchanged.'}</p></div>
-      <button type="button" className="btn outline" disabled={busy || loading} onClick={load}>Refresh</button>
+      <button type="button" className="btn outline" disabled={busy || loading} onClick={() => load(true)}>Refresh</button>
     </div>
     {error && <p className="admin-error-badge" role="alert">{error}</p>}
     {notice && <p role="status" className="coupon-feedback">{notice}</p>}
@@ -89,10 +127,11 @@ export function StudioCommerce({ section, adminFetch }: { section: 'coupons' | '
             <label className="studio-commerce-checkbox"><input type="checkbox" checked={coupon.enabled} onChange={(event) => setCoupon({ ...coupon, enabled: event.target.checked })} />Active</label>
           </> : <>
             <div className="admin-form-row"><label>Marquee message 1<input required maxLength={240} value={settings.marqueeMessage1} onChange={(event) => setSettings({ ...settings, marqueeMessage1: event.target.value })} /></label><label>Marquee message 2<input required maxLength={240} value={settings.marqueeMessage2} onChange={(event) => setSettings({ ...settings, marqueeMessage2: event.target.value })} /></label></div>
+            <div className="admin-form-row"><label>Marquee message 3 (optional)<input maxLength={240} placeholder="e.g. Handloom showcase this weekend" value={settings.marqueeMessage3 || ''} onChange={(event) => setSettings({ ...settings, marqueeMessage3: event.target.value })} /></label></div>
             <p className="muted">Keep {'{freeDeliveryThreshold}'} in message 2. It inserts the current amount with ₹ automatically.</p>
             <div className="admin-form-row two-col"><label>Free delivery above (₹)<input required type="number" min={0} max={100000000} step={1} value={settings.freeDeliveryThreshold} onChange={(event) => setSettings({ ...settings, freeDeliveryThreshold: Number(event.target.value) })} /></label><label>Standard delivery fee (₹)<input required type="number" min={0} max={100000000} step={1} value={settings.standardShippingFee} onChange={(event) => setSettings({ ...settings, standardShippingFee: Number(event.target.value) })} /></label></div>
             <p className="muted">Free delivery applies when the subtotal before discounts is above the threshold. Set either amount to 0 for free delivery on all orders.</p>
-            <div className="studio-commerce-preview" aria-label="Marquee preview"><span>{renderMarquee(settings.marqueeMessage1, settings)}</span><span>✦ {renderMarquee(settings.marqueeMessage2, settings)}</span></div>
+            <div className="studio-commerce-preview" aria-label="Marquee preview"><span>{renderMarquee(settings.marqueeMessage1, settings)}</span><span>✦ {renderMarquee(settings.marqueeMessage2, settings)}</span>{Boolean(settings.marqueeMessage3?.trim()) && <span>✦ {renderMarquee(settings.marqueeMessage3, settings)}</span>}</div>
           </>}
           <div className="studio-commerce-actions"><button className="btn" type="submit" disabled={busy}>{busy ? 'Saving…' : section === 'settings' ? 'Save site settings' : coupon.id != null ? 'Save coupon' : 'Create coupon'}</button>{section === 'coupons' && coupon.id != null && <button type="button" className="btn outline" onClick={() => { setCoupon(emptyCoupon()); setError(''); }}>Cancel edit</button>}</div>
         </fieldset>

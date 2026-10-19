@@ -4,16 +4,70 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Product } from '@/types';
-import { money } from '@/data/products';
+import { money, capitalizeColour } from '@/data/products';
 import { Icon } from '@/components/Icons';
 import { readOrderSnapshot } from '@/lib/pricing';
 import { OrderSavings } from '@/components/OrderTotals';
 import { StudioPayment } from '@/components/StudioPayment';
 import { StudioCommerce } from '@/components/StudioCommerce';
-import { createProductWhatsAppMessage, createSavedOrderWhatsAppMessage } from '@/lib/whatsapp';
+import { createSavedOrderWhatsAppMessage } from '@/lib/whatsapp';
 import { useStore } from '@/context/store-context';
 
-type AdminProduct = Omit<Product, 'stock' | 'tag'> & { stock: number; tag?: string | null };
+type AdminProductVariant = { name: string; colour?: string; images: string[] };
+type AdminProduct = Omit<Product, 'stock' | 'tag'> & {
+  stock: number;
+  tag?: string | null;
+  images?: string[];
+  variants?: AdminProductVariant[];
+  discountPercentage?: number | string;
+};
+
+function parseProductImages(images: any, fallbackImage?: string): string[] {
+  if (Array.isArray(images)) {
+    const list = images.filter((img) => typeof img === 'string' && img.trim().length > 0 && !img.trim().startsWith('blob:'));
+    if (list.length > 0) return list.slice(0, 3);
+  } else if (typeof images === 'string' && images.trim().length > 0) {
+    try {
+      if (images.trim().startsWith('[')) {
+        const parsed = JSON.parse(images);
+        if (Array.isArray(parsed)) {
+          const list = parsed.filter((img) => typeof img === 'string' && img.trim().length > 0 && !img.trim().startsWith('blob:'));
+          if (list.length > 0) return list.slice(0, 3);
+        }
+      } else {
+        const list = images.split(',').map((s: string) => s.trim()).filter((s: string) => Boolean(s) && !s.startsWith('blob:'));
+        if (list.length > 0) return list.slice(0, 3);
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return fallbackImage && !fallbackImage.startsWith('blob:') ? [fallbackImage] : [];
+}
+
+function parseProductVariants(variants: any): AdminProductVariant[] {
+  if (Array.isArray(variants)) {
+    return variants
+      .filter((v) => v && typeof v === 'object' && (v.name || v.colour))
+      .map((v) => ({
+        name: String(v.name || v.colour || '').trim(),
+        colour: String(v.colour || v.name || '').trim(),
+        images: Array.isArray(v.images)
+          ? v.images.filter((img: any) => typeof img === 'string' && img.trim().length > 0 && !img.trim().startsWith('blob:')).slice(0, 3)
+          : [],
+      }));
+  } else if (typeof variants === 'string' && variants.trim().length > 0) {
+    try {
+      const parsed = JSON.parse(variants);
+      if (Array.isArray(parsed)) {
+        return parseProductVariants(parsed);
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return [];
+}
 
 interface AdminOrder {
   id: string;
@@ -38,6 +92,134 @@ const IMAGE_PRESETS = [
   { label: 'Timeless Plum Portrait', value: '/assets/timeless-plum.webp' },
   { label: 'Heritage Weaves Collection', value: '/assets/sarees.webp' },
 ];
+
+function VariantImageManager({
+  variant,
+  variantIndex,
+  onUpdateVariant,
+  onRemoveVariant,
+  onUploadPhoto,
+  uploadingTarget,
+  targetPrefix,
+}: {
+  variant: AdminProductVariant;
+  variantIndex: number;
+  onUpdateVariant: (updated: AdminProductVariant) => void;
+  onRemoveVariant: () => void;
+  onUploadPhoto: (e: React.ChangeEvent<HTMLInputElement>, imgIndex: number, varIndex: number) => void;
+  uploadingTarget: any;
+  targetPrefix: 'new-variant' | 'edit-variant';
+}) {
+  const images = (variant.images && variant.images.length > 0) ? variant.images.slice(0, 3) : ['/assets/saree-emerald.webp'];
+
+  return (
+    <div style={{ padding: '12px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '4px', background: '#fff', marginBottom: '10px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '8px' }}>
+        <input
+          type="text"
+          placeholder="Colour variant name (e.g. Ruby Red, Mustard Yellow)"
+          value={variant.name}
+          onChange={(e) => onUpdateVariant({ ...variant, name: e.target.value, colour: e.target.value })}
+          style={{ fontWeight: 600, fontSize: '13px', padding: '6px 10px', flex: 1 }}
+        />
+        <button
+          type="button"
+          className="btn outline"
+          style={{ fontSize: '11px', padding: '5px 8px', color: '#b91c1c', borderColor: '#fca5a5' }}
+          onClick={onRemoveVariant}
+        >
+          Remove Variant
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {images.map((imgUrl, idx) => {
+          const isUploadingThis = uploadingTarget?.target === targetPrefix && uploadingTarget?.variantIndex === variantIndex && uploadingTarget?.index === idx;
+          return (
+            <div key={idx} style={{ display: 'flex', gap: '10px', alignItems: 'center', background: '#faf8f5', padding: '8px', borderRadius: '4px' }}>
+              <div style={{ width: '40px', height: '50px', position: 'relative', overflow: 'hidden', borderRadius: '2px', backgroundColor: '#e5dfd4', flexShrink: 0 }}>
+                <img src={imgUrl} alt={`Variant photo ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <input
+                    type="file"
+                    id={`${targetPrefix}-${variantIndex}-photo-${idx}`}
+                    style={{ display: 'none' }}
+                    accept="image/*"
+                    onChange={(e) => onUploadPhoto(e, idx, variantIndex)}
+                    disabled={isUploadingThis}
+                  />
+                  <label
+                    htmlFor={`${targetPrefix}-${variantIndex}-photo-${idx}`}
+                    className="btn outline"
+                    style={{ cursor: 'pointer', padding: '3px 8px', fontSize: '11px' }}
+                  >
+                    {isUploadingThis ? 'Optimizing…' : 'Upload Photo'}
+                  </label>
+                  <select
+                    value={IMAGE_PRESETS.some((p) => p.value === imgUrl) ? imgUrl : ''}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        const updated = [...images];
+                        updated[idx] = e.target.value;
+                        onUpdateVariant({ ...variant, images: updated });
+                      }
+                    }}
+                    style={{ fontSize: '11px', padding: '3px 6px' }}
+                  >
+                    <option value="">Preset sample…</option>
+                    {IMAGE_PRESETS.map((preset) => (
+                      <option key={preset.value} value={preset.value}>{preset.label}</option>
+                    ))}
+                  </select>
+                  {images.length > 1 && (
+                    <button
+                      type="button"
+                      className="btn outline"
+                      style={{ fontSize: '11px', padding: '3px 6px' }}
+                      onClick={() => {
+                        const updated = images.filter((_, i) => i !== idx);
+                        onUpdateVariant({ ...variant, images: updated });
+                      }}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  placeholder="Or paste image URL"
+                  value={imgUrl}
+                  onChange={(e) => {
+                    const updated = [...images];
+                    updated[idx] = e.target.value;
+                    onUpdateVariant({ ...variant, images: updated });
+                  }}
+                  style={{ fontSize: '11px', padding: '4px 8px' }}
+                />
+              </div>
+            </div>
+          );
+        })}
+
+        {images.length < 3 && (
+          <button
+            type="button"
+            className="btn outline"
+            onClick={() => {
+              const nextPreset = IMAGE_PRESETS[images.length]?.value || '/assets/saree-rose.webp';
+              onUpdateVariant({ ...variant, images: [...images, nextPreset] });
+            }}
+            style={{ alignSelf: 'flex-start', fontSize: '11px', padding: '4px 10px', marginTop: '2px' }}
+          >
+            <Icon name="plus" size={11} /> Add Variant Photo ({images.length}/3)
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function StudioDeskPage() {
   const { openWhatsAppMessage, clearWhatsAppFallback } = useStore();
@@ -69,32 +251,39 @@ export default function StudioDeskPage() {
     collection: 'Silk',
     price: 7500,
     oldPrice: '',
+    discountPercentage: '',
     colour: 'Emerald',
     stock: 5,
     tag: 'Handloom certified',
     image: '/assets/saree-emerald.webp',
+    images: ['/assets/saree-emerald.webp'] as string[],
+    variants: [] as AdminProductVariant[],
     description: '',
   });
 
-  const [uploadingTarget, setUploadingTarget] = useState<'new' | 'edit' | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadingTarget, setUploadingTarget] = useState<
+    | { target: 'new' | 'edit'; index?: number }
+    | { target: 'new-variant' | 'edit-variant'; variantIndex: number; index?: number }
+    | null
+  >(null);
 
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
-    target: 'new' | 'edit' = 'new'
+    target: 'new' | 'edit' | 'new-variant' | 'edit-variant' = 'new',
+    index?: number,
+    variantIndex?: number
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Show instant preview
-    const objectUrl = URL.createObjectURL(file);
-    if (target === 'new') {
-      setNewSaree((prev) => ({ ...prev, image: objectUrl }));
-      setUploadedPreview(objectUrl);
-    } else if (editingProduct) {
-      setEditingProduct((prev) => (prev ? { ...prev, image: objectUrl } : null));
+    setUploadError(null);
+    if (target === 'new-variant' || target === 'edit-variant') {
+      setUploadingTarget({ target, variantIndex: variantIndex ?? 0, index });
+    } else {
+      setUploadingTarget({ target, index });
     }
 
-    setUploadingTarget(target);
     const formData = new FormData();
     formData.append('file', file);
 
@@ -114,18 +303,68 @@ export default function StudioDeskPage() {
 
       if (res.ok && data.url) {
         if (target === 'new') {
-          setNewSaree((prev) => ({ ...prev, image: data.url }));
+          setNewSaree((prev) => {
+            const list = [...(prev.images || [prev.image])];
+            if (index !== undefined && index < list.length) {
+              list[index] = data.url;
+            } else if (list.length < 3) {
+              list.push(data.url);
+            }
+            return { ...prev, images: list, image: list[0] };
+          });
           setUploadedPreview(data.url);
-        } else if (editingProduct) {
-          setEditingProduct((prev) => (prev ? { ...prev, image: data.url } : null));
+        } else if (target === 'edit') {
+          setEditingProduct((prev) => {
+            if (!prev) return null;
+            const list = [...(prev.images || [prev.image])];
+            if (index !== undefined && index < list.length) {
+              list[index] = data.url;
+            } else if (list.length < 3) {
+              list.push(data.url);
+            }
+            return { ...prev, images: list, image: list[0] };
+          });
+        } else if (target === 'new-variant' && variantIndex !== undefined) {
+          setNewSaree((prev) => {
+            const vars = [...(prev.variants || [])];
+            if (vars[variantIndex]) {
+              const list = [...(vars[variantIndex].images || [])];
+              if (index !== undefined && index < list.length) {
+                list[index] = data.url;
+              } else if (list.length < 3) {
+                list.push(data.url);
+              }
+              vars[variantIndex] = { ...vars[variantIndex], images: list };
+            }
+            return { ...prev, variants: vars };
+          });
+        } else if (target === 'edit-variant' && variantIndex !== undefined) {
+          setEditingProduct((prev) => {
+            if (!prev) return null;
+            const vars = [...(prev.variants || [])];
+            if (vars[variantIndex]) {
+              const list = [...(vars[variantIndex].images || [])];
+              if (index !== undefined && index < list.length) {
+                list[index] = data.url;
+              } else if (list.length < 3) {
+                list.push(data.url);
+              }
+              vars[variantIndex] = { ...vars[variantIndex], images: list };
+            }
+            return { ...prev, variants: vars };
+          });
         }
         showToast('Saree photo uploaded and optimized!');
       } else {
-        showToast(data.error || 'Failed to process photo');
+        const err = data.error || 'Failed to process photo';
+        setUploadError(err);
+        showToast(err);
       }
     } catch (err: any) {
       console.error('Upload failed:', err);
-      showToast(err?.message || 'Upload error');
+      const msg = err?.message || 'Upload error';
+      setUploadError(msg);
+      showToast(msg);
     } finally {
       setUploadingTarget(null);
       e.target.value = '';
@@ -135,12 +374,6 @@ export default function StudioDeskPage() {
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
-  };
-
-  const orderProductOnWhatsApp = (product: AdminProduct) => {
-    if (product.stock <= 0) { showToast('This saree is sold out.'); return; }
-    const message = createProductWhatsAppMessage(product, { includeProductLink: false });
-    openWhatsAppMessage(message);
   };
 
   const confirmOrderOnWhatsApp = (order: AdminOrder) => {
@@ -198,7 +431,15 @@ export default function StudioDeskPage() {
       const prodData = await prodRes.json();
       const orderData = await orderRes.json();
 
-      if (prodData.products) setProducts(prodData.products);
+      if (prodData.products) {
+        setProducts(
+          prodData.products.map((p: any) => ({
+            ...p,
+            images: parseProductImages(p.images, p.image),
+            variants: parseProductVariants(p.variants),
+          }))
+        );
+      }
       if (orderData.orders) setOrders(orderData.orders);
     } catch (err) {
       console.error('Failed to load admin data:', err);
@@ -313,18 +554,50 @@ export default function StudioDeskPage() {
   const handleEditSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProduct) return;
+    if (uploadingTarget !== null) {
+      showToast('Please wait for photo upload to finish.');
+      return;
+    }
+    const hasBlob = (editingProduct.images || []).some((img) => img.startsWith('blob:'))
+      || (editingProduct.variants || []).some((v) => (v.images || []).some((img) => img.startsWith('blob:')));
+    if (hasBlob) {
+      showToast('Photo upload contains an invalid preview. Please re-upload before saving.');
+      return;
+    }
 
     setIsSavingEdit(true);
     try {
+      const cleanImages = (editingProduct.images && editingProduct.images.length > 0)
+        ? editingProduct.images.filter((img) => !img.startsWith('blob:')).slice(0, 3)
+        : (editingProduct.image && !editingProduct.image.startsWith('blob:') ? [editingProduct.image] : []);
+      const cleanVariants = (editingProduct.variants || []).map((v) => ({
+        name: v.name.trim(),
+        colour: (v.colour || v.name).trim(),
+        images: (v.images || []).filter((img) => !img.startsWith('blob:')).slice(0, 3),
+      })).filter((v) => v.name.length > 0);
+      const payload = {
+        ...editingProduct,
+        images: cleanImages,
+        image: cleanImages[0] || (editingProduct.image && !editingProduct.image.startsWith('blob:') ? editingProduct.image : '/assets/saree-emerald.webp'),
+        variants: cleanVariants,
+        discountPercentage: editingProduct.discountPercentage !== undefined && editingProduct.discountPercentage !== ''
+          ? parseInt(String(editingProduct.discountPercentage), 10)
+          : (editingProduct.discountPercentage === '' ? 0 : undefined),
+      };
       const res = await adminFetch(`/api/admin/products/${editingProduct.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingProduct),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (res.ok && data.product) {
+        const parsedProduct = {
+          ...data.product,
+          images: parseProductImages(data.product.images, data.product.image),
+          variants: parseProductVariants(data.product.variants),
+        };
         setProducts((prev) =>
-          prev.map((p) => (p.id === editingProduct.id ? data.product : p))
+          prev.map((p) => (p.id === editingProduct.id ? parsedProduct : p))
         );
         showToast(`Saved updates for "${editingProduct.name}"`);
         setEditingProduct(null);
@@ -359,21 +632,52 @@ export default function StudioDeskPage() {
     }
   };
 
-  // Add Product Submit with in-flight guard
+  // Add Product Submit with in-flight guard and blob URL check
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isAddingProduct) return;
+    if (uploadingTarget !== null) {
+      showToast('Please wait for photo upload to finish.');
+      return;
+    }
+    const hasBlob = (newSaree.images || []).some((img) => img.startsWith('blob:'))
+      || (newSaree.variants || []).some((v) => (v.images || []).some((img) => img.startsWith('blob:')));
+    if (hasBlob) {
+      showToast('Photo upload contains an invalid preview. Please re-upload before saving.');
+      return;
+    }
+
     setIsAddingProduct(true);
     try {
+      const cleanImages = (newSaree.images && newSaree.images.length > 0)
+        ? newSaree.images.filter((img) => !img.startsWith('blob:')).slice(0, 3)
+        : (newSaree.image && !newSaree.image.startsWith('blob:') ? [newSaree.image] : []);
+      const cleanVariants = (newSaree.variants || []).map((v) => ({
+        name: v.name.trim(),
+        colour: (v.colour || v.name).trim(),
+        images: (v.images || []).filter((img) => !img.startsWith('blob:')).slice(0, 3),
+      })).filter((v) => v.name.length > 0);
+      const payload = {
+        ...newSaree,
+        images: cleanImages,
+        image: cleanImages[0] || (newSaree.image && !newSaree.image.startsWith('blob:') ? newSaree.image : '/assets/saree-emerald.webp'),
+        variants: cleanVariants,
+        discountPercentage: newSaree.discountPercentage !== '' ? parseInt(String(newSaree.discountPercentage), 10) : undefined,
+      };
       const res = await adminFetch('/api/admin/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newSaree),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
 
       if (res.ok && data.product) {
-        setProducts((prev) => [data.product, ...prev]);
+        const parsedProduct = {
+          ...data.product,
+          images: parseProductImages(data.product.images, data.product.image),
+          variants: parseProductVariants(data.product.variants),
+        };
+        setProducts((prev) => [parsedProduct, ...prev]);
         showToast(`"${newSaree.name}" published to storefront`);
         setActiveTab('inventory');
         setNewSaree({
@@ -382,10 +686,13 @@ export default function StudioDeskPage() {
           collection: 'Silk',
           price: 7500,
           oldPrice: '',
+          discountPercentage: '',
           colour: 'Emerald',
           stock: 5,
           tag: 'Handloom certified',
           image: '/assets/saree-emerald.webp',
+          images: ['/assets/saree-emerald.webp'],
+          variants: [],
           description: '',
         });
       } else {
@@ -611,7 +918,7 @@ export default function StudioDeskPage() {
                             </div>
                             <div>
                               <strong>{p.name}</strong>
-                              <div className="muted" style={{ fontSize: '11px' }}>ID: #{p.id} · {p.colour}</div>
+                              <div className="muted" style={{ fontSize: '11px' }}>ID: #{p.id} · {capitalizeColour(p.colour)}</div>
                             </div>
                           </div>
                         </td>
@@ -673,7 +980,20 @@ export default function StudioDeskPage() {
                             <button
                               type="button"
                               className="btn-edit"
-                              onClick={() => setEditingProduct(p)}
+                              onClick={() => {
+                                const images = parseProductImages(p.images, p.image);
+                                const variants = parseProductVariants(p.variants);
+                                const initialDisc = p.oldPrice && p.oldPrice > p.price
+                                  ? Math.round(((p.oldPrice - p.price) / p.oldPrice) * 100)
+                                  : '';
+                                setEditingProduct({
+                                  ...p,
+                                  images,
+                                  variants,
+                                  image: images[0] || p.image,
+                                  discountPercentage: initialDisc,
+                                });
+                              }}
                             >
                               Edit
                             </button>
@@ -684,15 +1004,6 @@ export default function StudioDeskPage() {
                               onClick={() => deleteProduct(p.id, p.name)}
                             >
                               Remove
-                            </button>
-                            <button
-                              type="button"
-                              className="studio-whatsapp"
-                              disabled={isSoldOut}
-                              aria-label={`Order ${p.name} on WhatsApp`}
-                              onClick={() => orderProductOnWhatsApp(p)}
-                            >
-                              <Icon name="whatsapp" size={16} /> Order on WhatsApp
                             </button>
                           </div>
                         </td>
@@ -748,15 +1059,22 @@ export default function StudioDeskPage() {
               </label>
             </div>
 
-            <div className="admin-form-row three-col">
+            <div className="admin-form-row four-col">
               <label>
                 Price (₹)
                 <input
                   type="number"
                   required
-                  min="500"
+                  min="100"
                   value={newSaree.price}
-                  onChange={(e) => setNewSaree({ ...newSaree, price: parseInt(e.target.value, 10) || 0 })}
+                  onChange={(e) => {
+                    const price = parseInt(e.target.value, 10) || 0;
+                    const oldPriceNum = parseInt(newSaree.oldPrice, 10);
+                    const disc = oldPriceNum && oldPriceNum > price
+                      ? Math.round(((oldPriceNum - price) / oldPriceNum) * 100)
+                      : (newSaree.discountPercentage || '');
+                    setNewSaree({ ...newSaree, price, discountPercentage: String(disc || '') });
+                  }}
                 />
               </label>
 
@@ -766,7 +1084,43 @@ export default function StudioDeskPage() {
                   type="number"
                   placeholder="Optional"
                   value={newSaree.oldPrice}
-                  onChange={(e) => setNewSaree({ ...newSaree, oldPrice: e.target.value })}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const oldPriceNum = parseInt(val, 10);
+                    const disc = oldPriceNum && oldPriceNum > newSaree.price
+                      ? Math.round(((oldPriceNum - newSaree.price) / oldPriceNum) * 100)
+                      : '';
+                    setNewSaree({ ...newSaree, oldPrice: val, discountPercentage: String(disc || '') });
+                  }}
+                />
+              </label>
+
+              <label>
+                Discount (% off, optional)
+                <input
+                  type="number"
+                  min="0"
+                  max="99"
+                  placeholder="e.g. 50"
+                  value={newSaree.discountPercentage}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const disc = parseInt(val, 10);
+                    if (!isNaN(disc) && disc > 0 && disc < 100) {
+                      const oldPriceNum = parseInt(newSaree.oldPrice, 10);
+                      if (oldPriceNum) {
+                        const newPrice = Math.max(1, Math.round(oldPriceNum * (1 - disc / 100)));
+                        setNewSaree({ ...newSaree, discountPercentage: val, price: newPrice });
+                      } else if (newSaree.price) {
+                        const calculatedOldPrice = Math.round(newSaree.price / (1 - disc / 100));
+                        setNewSaree({ ...newSaree, discountPercentage: val, oldPrice: String(calculatedOldPrice) });
+                      } else {
+                        setNewSaree({ ...newSaree, discountPercentage: val });
+                      }
+                    } else {
+                      setNewSaree({ ...newSaree, discountPercentage: val });
+                    }
+                  }}
                 />
               </label>
 
@@ -785,15 +1139,13 @@ export default function StudioDeskPage() {
             <div className="admin-form-row two-col">
               <label>
                 Primary Colour
-                <select
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Emerald, Crimson, Indigo"
                   value={newSaree.colour}
                   onChange={(e) => setNewSaree({ ...newSaree, colour: e.target.value })}
-                >
-                  <option value="Emerald">Emerald</option>
-                  <option value="Rose">Rose</option>
-                  <option value="Indigo">Indigo</option>
-                  <option value="Ivory">Ivory</option>
-                </select>
+                />
               </label>
 
               <label>
@@ -807,90 +1159,213 @@ export default function StudioDeskPage() {
               </label>
             </div>
 
-            {/* Saree Image Upload & Cloud Storage */}
+            {/* Saree Images Manager (Up to 3) */}
             <div className="admin-form-row">
-              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--ink)', marginBottom: '4px' }}>
-                Saree Photograph (Upload from Device or Cloud URL)
-              </span>
-              <div className="admin-upload-zone">
-                <div className="admin-upload-controls">
-                  <input
-                    type="file"
-                    id="sareeFileInput"
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    onChange={(e) => handleFileUpload(e, 'new')}
-                    disabled={uploadingTarget === 'new'}
-                  />
-                  <label
-                    htmlFor="sareeFileInput"
-                    className="btn outline"
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--ink)' }}>
+                  Saree Photographs ({newSaree.images.length} of 3)
+                </span>
+                <span className="muted" style={{ fontSize: '11px' }}>
+                  Photo 1 is the primary cover image. You can add up to 3 photos.
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {newSaree.images.map((imgUrl, idx) => (
+                  <div
+                    key={idx}
                     style={{
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      minHeight: '40px',
+                      border: '1px solid var(--border, rgba(0,0,0,0.12))',
+                      borderRadius: '4px',
+                      padding: '12px',
+                      background: 'var(--card-bg, #faf8f5)',
                     }}
                   >
-                    <Icon name="plus" size={14} />
-                    {uploadingTarget === 'new'
-                      ? 'Processing & Optimizing Image…'
-                      : 'Upload Image from Phone / Computer'}
-                  </label>
-                  <span className="muted" style={{ fontSize: '11px', display: 'block', marginTop: '6px' }}>
-                    Accepts PNG, JPG, JPEG, WEBP, or camera photos. Automatically converted to WebP.
-                  </span>
-                </div>
-
-                {/* Active Preview */}
-                {newSaree.image && (
-                  <div className="admin-upload-preview">
-                    <div className="preview-thumb">
-                      <Image
-                        src={newSaree.image}
-                        alt="Preview"
-                        fill
-                        sizes="80px"
-                        style={{ objectFit: 'cover' }}
-                        unoptimized={newSaree.image.startsWith('blob:')}
-                      />
-                    </div>
-                    <div className="preview-info">
-                      <strong>Active Photo URL:</strong>
-                      <span className="muted" style={{ fontSize: '11px', wordBreak: 'break-all' }}>
-                        {newSaree.image}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 600 }}>
+                        {idx === 0 ? 'Cover Photo (Primary)' : `Additional Photo ${idx + 1}`}
                       </span>
+                      {newSaree.images.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = newSaree.images.filter((_, i) => i !== idx);
+                            setNewSaree({ ...newSaree, images: updated, image: updated[0] || '' });
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#a03232',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Remove Photo
+                        </button>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+                      <div
+                        style={{
+                          position: 'relative',
+                          width: '64px',
+                          height: '80px',
+                          borderRadius: '2px',
+                          overflow: 'hidden',
+                          backgroundColor: '#e5dfd4',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Image
+                          src={imgUrl || '/assets/saree-emerald.webp'}
+                          alt={`Saree Photo ${idx + 1}`}
+                          fill
+                          sizes="64px"
+                          style={{ objectFit: 'cover' }}
+                          unoptimized={imgUrl.startsWith('blob:')}
+                        />
+                      </div>
+
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                          <input
+                            type="file"
+                            id={`add-photo-file-${idx}`}
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                            onChange={(e) => handleFileUpload(e, 'new', idx)}
+                            disabled={uploadingTarget?.target === 'new' && uploadingTarget?.index === idx}
+                          />
+                          <label
+                            htmlFor={`add-photo-file-${idx}`}
+                            className="btn outline"
+                            style={{
+                              cursor: 'pointer',
+                              padding: '5px 12px',
+                              fontSize: '12px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                            }}
+                          >
+                            <Icon name="upload" size={12} />
+                            {uploadingTarget?.target === 'new' && uploadingTarget?.index === idx
+                              ? 'Optimizing…'
+                              : 'Upload Photo'}
+                          </label>
+
+                          <select
+                            value={IMAGE_PRESETS.some((p) => p.value === imgUrl) ? imgUrl : ''}
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                const updated = [...newSaree.images];
+                                updated[idx] = e.target.value;
+                                setNewSaree({ ...newSaree, images: updated, image: updated[0] });
+                              }
+                            }}
+                            style={{ fontSize: '12px', padding: '5px 8px', maxWidth: '200px' }}
+                          >
+                            <option value="">Choose preset sample…</option>
+                            {IMAGE_PRESETS.map((preset) => (
+                              <option key={preset.value} value={preset.value}>
+                                {preset.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <input
+                          type="text"
+                          placeholder="Or paste image URL"
+                          value={imgUrl}
+                          onChange={(e) => {
+                            const updated = [...newSaree.images];
+                            updated[idx] = e.target.value;
+                            setNewSaree({ ...newSaree, images: updated, image: updated[0] });
+                          }}
+                          style={{ fontSize: '12px', padding: '6px 10px' }}
+                        />
+                      </div>
                     </div>
                   </div>
+                ))}
+
+                {newSaree.images.length < 3 && (
+                  <button
+                    type="button"
+                    className="btn outline"
+                    onClick={() => {
+                      if (newSaree.images.length < 3) {
+                        const nextPreset = IMAGE_PRESETS[newSaree.images.length]?.value || '/assets/saree-rose.webp';
+                        const updated = [...newSaree.images, nextPreset];
+                        setNewSaree({ ...newSaree, images: updated, image: updated[0] });
+                      }
+                    }}
+                    style={{
+                      alignSelf: 'flex-start',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontSize: '12px',
+                      padding: '7px 14px',
+                      marginTop: '4px',
+                    }}
+                  >
+                    <Icon name="plus" size={13} /> Add Photo ({newSaree.images.length}/3)
+                  </button>
                 )}
               </div>
             </div>
 
-            <div className="admin-form-row two-col">
-              <label>
-                Or Paste Cloud Storage / CDN Image URL
-                <input
-                  type="text"
-                  placeholder="https://storage.googleapis.com/... or /uploads/..."
-                  value={newSaree.image}
-                  onChange={(e) => setNewSaree({ ...newSaree, image: e.target.value })}
-                />
-              </label>
-
-              <label>
-                Or Pick Preset Sample
-                <select
-                  value={newSaree.image}
-                  onChange={(e) => setNewSaree({ ...newSaree, image: e.target.value })}
+            {/* Colour Variants Manager */}
+            <div style={{ marginTop: '16px', marginBottom: '16px', padding: '14px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '4px', background: '#faf8f5' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 600 }}>Colour Variants (Optional)</h4>
+                  <p className="muted" style={{ margin: '2px 0 0', fontSize: '12px' }}>
+                    Each variant has its own colour name and up to 3 photos.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn outline"
+                  style={{ fontSize: '12px', padding: '5px 12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                  onClick={() => {
+                    const current = newSaree.variants || [];
+                    setNewSaree({
+                      ...newSaree,
+                      variants: [...current, { name: '', colour: '', images: ['/assets/saree-rose.webp'] }],
+                    });
+                  }}
                 >
-                  {IMAGE_PRESETS.map((preset) => (
-                    <option key={preset.value} value={preset.value}>
-                      {preset.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  <Icon name="plus" size={12} /> Add Colour Variant
+                </button>
+              </div>
+
+              {(newSaree.variants || []).map((variant, vIdx) => (
+                <VariantImageManager
+                  key={vIdx}
+                  variant={variant}
+                  variantIndex={vIdx}
+                  targetPrefix="new-variant"
+                  uploadingTarget={uploadingTarget}
+                  onUpdateVariant={(updated) => {
+                    const vars = [...(newSaree.variants || [])];
+                    vars[vIdx] = updated;
+                    setNewSaree({ ...newSaree, variants: vars });
+                  }}
+                  onRemoveVariant={() => {
+                    const vars = (newSaree.variants || []).filter((_, i) => i !== vIdx);
+                    setNewSaree({ ...newSaree, variants: vars });
+                  }}
+                  onUploadPhoto={(e, imgIdx, varIdx) => handleFileUpload(e, 'new-variant', imgIdx, varIdx)}
+                />
+              ))}
+              {(!newSaree.variants || newSaree.variants.length === 0) && (
+                <p className="muted" style={{ fontSize: '12px', margin: 0 }}>No variants added. This saree will be published as a single colour ({newSaree.colour}).</p>
+              )}
             </div>
 
             <div className="admin-form-row">
@@ -905,9 +1380,12 @@ export default function StudioDeskPage() {
               </label>
             </div>
 
+            {uploadError && <p className="admin-error-badge" role="alert" style={{ marginBottom: '12px' }}>{uploadError}</p>}
+            {uploadingTarget !== null && <p className="muted" style={{ fontSize: '12px', marginBottom: '8px' }}>Photo upload in flight… please wait.</p>}
+
             <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-              <button type="submit" className="btn" style={{ flex: 1 }}>
-                Publish Saree to Live Store <Icon name="arrow-up-right" />
+              <button type="submit" className="btn" disabled={isAddingProduct || uploadingTarget !== null} style={{ flex: 1 }}>
+                {uploadingTarget !== null ? 'Uploading Photo…' : isAddingProduct ? 'Publishing…' : 'Publish Saree to Live Store'} <Icon name="arrow-up-right" />
               </button>
               <button type="button" className="btn outline" onClick={() => setActiveTab('inventory')}>
                 Cancel
@@ -1078,7 +1556,7 @@ export default function StudioDeskPage() {
                 </label>
               </div>
 
-              <div className="admin-form-row three-col">
+              <div className="admin-form-row four-col">
                 <label>
                   Price (₹)
                   <input
@@ -1086,7 +1564,14 @@ export default function StudioDeskPage() {
                     required
                     min="100"
                     value={editingProduct.price}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, price: parseInt(e.target.value, 10) || 0 })}
+                    onChange={(e) => {
+                      const price = parseInt(e.target.value, 10) || 0;
+                      const oldPriceNum = editingProduct.oldPrice || 0;
+                      const disc = oldPriceNum && oldPriceNum > price
+                        ? Math.round(((oldPriceNum - price) / oldPriceNum) * 100)
+                        : (editingProduct.discountPercentage || '');
+                      setEditingProduct({ ...editingProduct, price, discountPercentage: disc });
+                    }}
                   />
                 </label>
 
@@ -1096,12 +1581,42 @@ export default function StudioDeskPage() {
                     type="number"
                     placeholder="Optional"
                     value={editingProduct.oldPrice || ''}
-                    onChange={(e) =>
-                      setEditingProduct({
-                        ...editingProduct,
-                        oldPrice: e.target.value ? parseInt(e.target.value, 10) : null,
-                      })
-                    }
+                    onChange={(e) => {
+                      const val = e.target.value ? parseInt(e.target.value, 10) : null;
+                      const disc = val && val > editingProduct.price
+                        ? Math.round(((val - editingProduct.price) / val) * 100)
+                        : '';
+                      setEditingProduct({ ...editingProduct, oldPrice: val, discountPercentage: disc });
+                    }}
+                  />
+                </label>
+
+                <label>
+                  Discount (% off, optional)
+                  <input
+                    type="number"
+                    min="0"
+                    max="99"
+                    placeholder="e.g. 50"
+                    value={editingProduct.discountPercentage ?? ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const disc = parseInt(val, 10);
+                      if (!isNaN(disc) && disc > 0 && disc < 100) {
+                        const oldPriceNum = editingProduct.oldPrice;
+                        if (oldPriceNum) {
+                          const newPrice = Math.max(1, Math.round(oldPriceNum * (1 - disc / 100)));
+                          setEditingProduct({ ...editingProduct, discountPercentage: disc, price: newPrice });
+                        } else if (editingProduct.price) {
+                          const calculatedOldPrice = Math.round(editingProduct.price / (1 - disc / 100));
+                          setEditingProduct({ ...editingProduct, discountPercentage: disc, oldPrice: calculatedOldPrice });
+                        } else {
+                          setEditingProduct({ ...editingProduct, discountPercentage: disc });
+                        }
+                      } else {
+                        setEditingProduct({ ...editingProduct, discountPercentage: val === '' ? '' : 0 });
+                      }
+                    }}
                   />
                 </label>
 
@@ -1120,15 +1635,13 @@ export default function StudioDeskPage() {
               <div className="admin-form-row two-col">
                 <label>
                   Primary Colour
-                  <select
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Emerald, Crimson, Indigo"
                     value={editingProduct.colour}
                     onChange={(e) => setEditingProduct({ ...editingProduct, colour: e.target.value })}
-                  >
-                    <option value="Emerald">Emerald</option>
-                    <option value="Rose">Rose</option>
-                    <option value="Indigo">Indigo</option>
-                    <option value="Ivory">Ivory</option>
-                  </select>
+                  />
                 </label>
 
                 <label>
@@ -1142,55 +1655,231 @@ export default function StudioDeskPage() {
                 </label>
               </div>
 
+              {/* Saree Images Manager (Up to 3) */}
               <div className="admin-form-row">
-                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--ink)', marginBottom: '4px' }}>
-                  Photo (Upload New from Device or Edit URL)
-                </span>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
-                  <input
-                    type="file"
-                    id="editSareeFileInput"
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    onChange={(e) => handleFileUpload(e, 'edit')}
-                    disabled={uploadingTarget === 'edit'}
-                  />
-                  <label
-                    htmlFor="editSareeFileInput"
-                    className="btn outline"
-                    style={{ cursor: 'pointer', padding: '6px 14px', fontSize: '12px' }}
-                  >
-                    <Icon name="plus" size={12} />{' '}
-                    {uploadingTarget === 'edit' ? 'Optimizing…' : 'Change Photo from Device'}
-                  </label>
-                  {editingProduct.image && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--ink)' }}>
+                    Saree Photographs ({(editingProduct.images || [editingProduct.image]).length} of 3)
+                  </span>
+                  <span className="muted" style={{ fontSize: '11px' }}>
+                    Photo 1 is the primary cover image. You can add up to 3 photos.
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {(editingProduct.images || [editingProduct.image]).map((imgUrl, idx) => (
                     <div
+                      key={idx}
                       style={{
-                        position: 'relative',
-                        width: '38px',
-                        height: '48px',
-                        borderRadius: '2px',
-                        overflow: 'hidden',
-                        background: '#eee',
+                        border: '1px solid var(--border, rgba(0,0,0,0.12))',
+                        borderRadius: '4px',
+                        padding: '10px',
+                        background: 'var(--card-bg, #faf8f5)',
                       }}
                     >
-                      <Image
-                        src={editingProduct.image}
-                        alt="Preview"
-                        fill
-                        sizes="40px"
-                        style={{ objectFit: 'cover' }}
-                        unoptimized={editingProduct.image.startsWith('blob:')}
-                      />
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 600 }}>
+                          {idx === 0 ? 'Cover Photo (Primary)' : `Additional Photo ${idx + 1}`}
+                        </span>
+                        {(editingProduct.images || [editingProduct.image]).length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentList = editingProduct.images || [editingProduct.image];
+                              const updated = currentList.filter((_, i) => i !== idx);
+                              setEditingProduct({
+                                ...editingProduct,
+                                images: updated,
+                                image: updated[0] || '',
+                              });
+                            }}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#a03232',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Remove Photo
+                          </button>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                        <div
+                          style={{
+                            position: 'relative',
+                            width: '56px',
+                            height: '70px',
+                            borderRadius: '2px',
+                            overflow: 'hidden',
+                            backgroundColor: '#e5dfd4',
+                            flexShrink: 0,
+                          }}
+                        >
+                          <Image
+                            src={imgUrl || '/assets/saree-emerald.webp'}
+                            alt={`Edit Saree Photo ${idx + 1}`}
+                            fill
+                            sizes="56px"
+                            style={{ objectFit: 'cover' }}
+                            unoptimized={imgUrl.startsWith('blob:')}
+                          />
+                        </div>
+
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <input
+                              type="file"
+                              id={`edit-photo-file-${idx}`}
+                              accept="image/*"
+                              style={{ display: 'none' }}
+                              onChange={(e) => handleFileUpload(e, 'edit', idx)}
+                              disabled={uploadingTarget?.target === 'edit' && uploadingTarget?.index === idx}
+                            />
+                            <label
+                              htmlFor={`edit-photo-file-${idx}`}
+                              className="btn outline"
+                              style={{
+                                cursor: 'pointer',
+                                padding: '4px 10px',
+                                fontSize: '11px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                              }}
+                            >
+                              <Icon name="upload" size={12} />
+                              {uploadingTarget?.target === 'edit' && uploadingTarget?.index === idx
+                                ? 'Optimizing…'
+                                : 'Upload Photo'}
+                            </label>
+
+                            <select
+                              value={IMAGE_PRESETS.some((p) => p.value === imgUrl) ? imgUrl : ''}
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  const currentList = [...(editingProduct.images || [editingProduct.image])];
+                                  currentList[idx] = e.target.value;
+                                  setEditingProduct({
+                                    ...editingProduct,
+                                    images: currentList,
+                                    image: currentList[0],
+                                  });
+                                }
+                              }}
+                              style={{ fontSize: '11px', padding: '4px 6px', maxWidth: '180px' }}
+                            >
+                              <option value="">Preset sample…</option>
+                              {IMAGE_PRESETS.map((preset) => (
+                                <option key={preset.value} value={preset.value}>
+                                  {preset.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <input
+                            type="text"
+                            placeholder="Or paste image URL"
+                            value={imgUrl}
+                            onChange={(e) => {
+                              const currentList = [...(editingProduct.images || [editingProduct.image])];
+                              currentList[idx] = e.target.value;
+                              setEditingProduct({
+                                ...editingProduct,
+                                images: currentList,
+                                image: currentList[0],
+                              });
+                            }}
+                            style={{ fontSize: '11px', padding: '5px 8px' }}
+                          />
+                        </div>
+                      </div>
                     </div>
+                  ))}
+
+                  {(editingProduct.images || [editingProduct.image]).length < 3 && (
+                    <button
+                      type="button"
+                      className="btn outline"
+                      onClick={() => {
+                        const currentList = [...(editingProduct.images || [editingProduct.image])];
+                        if (currentList.length < 3) {
+                          const nextPreset = IMAGE_PRESETS[currentList.length]?.value || '/assets/saree-rose.webp';
+                          const updated = [...currentList, nextPreset];
+                          setEditingProduct({
+                            ...editingProduct,
+                            images: updated,
+                            image: updated[0],
+                          });
+                        }
+                      }}
+                      style={{
+                        alignSelf: 'flex-start',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '12px',
+                        padding: '6px 12px',
+                        marginTop: '2px',
+                      }}
+                    >
+                      <Icon name="plus" size={12} /> Add Photo ({(editingProduct.images || [editingProduct.image]).length}/3)
+                    </button>
                   )}
                 </div>
-                <input
-                  type="text"
-                  placeholder="Or paste image URL"
-                  value={editingProduct.image}
-                  onChange={(e) => setEditingProduct({ ...editingProduct, image: e.target.value })}
-                />
+              </div>
+
+              {/* Colour Variants Manager */}
+              <div style={{ marginTop: '16px', marginBottom: '16px', padding: '14px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '4px', background: '#faf8f5' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <div>
+                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 600 }}>Colour Variants (Optional)</h4>
+                    <p className="muted" style={{ margin: '2px 0 0', fontSize: '12px' }}>
+                      Each variant has its own colour name and up to 3 photos.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn outline"
+                    style={{ fontSize: '12px', padding: '5px 12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                    onClick={() => {
+                      const current = editingProduct.variants || [];
+                      setEditingProduct({
+                        ...editingProduct,
+                        variants: [...current, { name: '', colour: '', images: ['/assets/saree-rose.webp'] }],
+                      });
+                    }}
+                  >
+                    <Icon name="plus" size={12} /> Add Colour Variant
+                  </button>
+                </div>
+
+                {(editingProduct.variants || []).map((variant, vIdx) => (
+                  <VariantImageManager
+                    key={vIdx}
+                    variant={variant}
+                    variantIndex={vIdx}
+                    targetPrefix="edit-variant"
+                    uploadingTarget={uploadingTarget}
+                    onUpdateVariant={(updated) => {
+                      const vars = [...(editingProduct.variants || [])];
+                      vars[vIdx] = updated;
+                      setEditingProduct({ ...editingProduct, variants: vars });
+                    }}
+                    onRemoveVariant={() => {
+                      const vars = (editingProduct.variants || []).filter((_, i) => i !== vIdx);
+                      setEditingProduct({ ...editingProduct, variants: vars });
+                    }}
+                    onUploadPhoto={(e, imgIdx, varIdx) => handleFileUpload(e, 'edit-variant', imgIdx, varIdx)}
+                  />
+                ))}
+                {(!editingProduct.variants || editingProduct.variants.length === 0) && (
+                  <p className="muted" style={{ fontSize: '12px', margin: 0 }}>No variants added. This saree is a single colour ({editingProduct.colour}).</p>
+                )}
               </div>
 
               <div className="admin-form-row">
@@ -1204,9 +1893,12 @@ export default function StudioDeskPage() {
                 </label>
               </div>
 
+              {uploadError && <p className="admin-error-badge" role="alert" style={{ marginBottom: '10px' }}>{uploadError}</p>}
+              {uploadingTarget !== null && <p className="muted" style={{ fontSize: '12px', marginBottom: '8px' }}>Photo upload in flight… please wait.</p>}
+
               <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
-                <button type="submit" className="btn" disabled={isSavingEdit} style={{ flex: 1 }}>
-                  {isSavingEdit ? 'Saving Changes…' : 'Save Changes'}
+                <button type="submit" className="btn" disabled={isSavingEdit || uploadingTarget !== null} style={{ flex: 1 }}>
+                  {uploadingTarget !== null ? 'Uploading Photo…' : isSavingEdit ? 'Saving Changes…' : 'Save Changes'}
                 </button>
                 <button type="button" className="btn outline" onClick={() => setEditingProduct(null)}>
                   Cancel

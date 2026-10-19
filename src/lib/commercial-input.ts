@@ -24,6 +24,12 @@ export function settingsInput(body: unknown): SiteSettings {
     if (typeof value[key] !== 'string' || !value[key].trim() || value[key].length > 240) throw new CommercialInputError('Each marquee message needs 1–240 characters.');
     settings[key] = value[key].trim();
   }
+  if (value.marqueeMessage3 !== undefined && value.marqueeMessage3 !== null) {
+    if (typeof value.marqueeMessage3 !== 'string' || value.marqueeMessage3.length > 240) {
+      throw new CommercialInputError('Marquee message 3 must be 240 characters or less.');
+    }
+    settings.marqueeMessage3 = value.marqueeMessage3.trim();
+  }
   if (!settings.marqueeMessage2.includes('{freeDeliveryThreshold}')) throw new CommercialInputError('The second message must include {freeDeliveryThreshold} so delivery copy stays accurate.');
   settings.freeDeliveryThreshold = commercialInteger(value.freeDeliveryThreshold, 'Free-delivery threshold');
   settings.standardShippingFee = commercialInteger(value.standardShippingFee, 'Standard delivery fee');

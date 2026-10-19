@@ -10,6 +10,7 @@ import { CouponForm } from '@/components/CouponForm';
 import { OrderTotals } from '@/components/OrderTotals';
 import { OrderLinePrice } from '@/components/OrderLinePrice';
 import { getProductQuantityLimit } from '@/lib/product-quantity';
+import { capitalizeColour } from '@/lib/colour';
 
 export default function CartPage() {
   const [busyId, setBusyId] = React.useState<number | null>(null);
@@ -77,7 +78,7 @@ export default function CartPage() {
                         <Link href={`/product/${p.id}`}>{p.name}</Link>
                       </h3>
                       <p className="meta muted">
-                        {p.type} · {p.colour}
+                        {p.type} · {capitalizeColour(p.colour)}
                         <br />
                         {item.finish || 'Unstitched blouse · included'}
                       </p>

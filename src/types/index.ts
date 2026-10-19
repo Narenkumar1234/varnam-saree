@@ -1,3 +1,9 @@
+export interface ProductVariant {
+  name: string;
+  colour?: string;
+  images: string[];
+}
+
 export interface Product {
   id: number;
   name: string;
@@ -9,6 +15,8 @@ export interface Product {
   colour: string;
   tag: string;
   image: string;
+  images?: string[] | null;
+  variants?: ProductVariant[] | null;
   stock?: number | null;
   description?: string | null;
 }
@@ -101,4 +109,5 @@ export interface ShopFilterState {
   collection: string;
   colours: string[];
   priceRange: PriceRange;
+  minDiscount?: number;
 }

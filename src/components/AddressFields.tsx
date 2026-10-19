@@ -12,7 +12,7 @@ interface Props {
 const inputs = {
   first: { label: 'First name', autoComplete: 'given-name' },
   last: { label: 'Last name', autoComplete: 'family-name' },
-  phone: { label: 'Phone number', autoComplete: 'tel', type: 'tel', pattern: '[0-9+ ()-]{10,16}', placeholder: '+91 98765 43210', wide: true },
+  phone: { label: 'Phone number', autoComplete: 'tel', type: 'tel', pattern: '[0-9+ ()\\-]{10,16}', placeholder: '+91 98765 43210', wide: true },
   address: { label: 'Street address', autoComplete: 'address-line1', wide: true },
   city: { label: 'City', autoComplete: 'address-level2' },
   pin: { label: 'Pincode', autoComplete: 'postal-code', inputMode: 'numeric' as const, pattern: '[0-9]{6}', maxLength: 6 },

@@ -12,12 +12,17 @@ mock.module('../src/db/index.ts', () => ({ db: {
       if (unavailable) throw new Error('Database unavailable');
       return table === productTable ? structuredClone(rows) : [];
     };
-    return { orderBy: read, then: (resolve, reject) => read().then(resolve, reject) };
+    return { where: () => ({ then: (resolve, reject) => read().then(resolve, reject) }), orderBy: read, then: (resolve, reject) => read().then(resolve, reject) };
   } }),
   update: () => ({ set: (values) => ({ where: () => ({ returning: async () => {
     rows[0] = { ...rows[0], ...values }; updates++; return [rows[0]];
   } }) }) }),
-  insert: () => ({ values: (value) => ({ returning: async () => {
+  insert: (table) => ({ values: (value) => ({ returning: async () => {
+    if (table === productTable) {
+      const created = { id: rows.length + 101, ...value };
+      rows.push(created);
+      return [created];
+    }
     savedOrders.push(value); return [value];
   } }) }),
 } }));
@@ -28,6 +33,7 @@ const { quoteFromCatalogue, previewOrderQuote, readOrderSnapshot } = await impor
 const { fallbackProducts } = await import('../src/data/products.ts');
 const { GET } = await import('../src/app/api/products/route.ts');
 const { POST: submitOrder } = await import('../src/app/api/orders/route.ts');
+const { POST: createProduct } = await import('../src/app/api/admin/products/route.ts');
 const { PATCH: editProduct } = await import('../src/app/api/admin/products/[id]/route.ts');
 const { createAdminSession, ADMIN_SESSION_COOKIE } = await import('../src/lib/admin-session.ts');
 const { filterShopProducts, getShopFilterOptions, createShopFilters } = await import('../src/lib/shop-filters.ts');
@@ -147,3 +153,224 @@ test('the order API rejects an excessive unknown-stock fallback quantity with a 
   expect((await response.json()).error).toContain('no more than 10');
   expect(savedOrders).toHaveLength(0);
 });
+
+test('Studio allows creating and editing products with up to 3 images and caps at 3', async () => {
+  const adminCookie = `${ADMIN_SESSION_COOKIE}=${createAdminSession()}`;
+  const images = ['/assets/saree-emerald.webp', '/assets/saree-rose.webp', '/assets/saree-indigo.webp', '/assets/saree-ivory.webp'];
+
+  // Create product with >3 images, should cap at 3
+  const createReq = new NextRequest('http://localhost/api/admin/products', {
+    method: 'POST',
+    headers: { cookie: adminCookie, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      name: 'Triple image silk',
+      type: 'Kanchipuram pure silk',
+      collection: 'Silk',
+      price: 8500,
+      colour: 'Emerald',
+      images,
+    }),
+  });
+  const createRes = await createProduct(createReq);
+  expect(createRes.status).toBe(200);
+  const createdBody = await createRes.json();
+  expect(createdBody.success).toBe(true);
+  const parsedCreatedImages = JSON.parse(createdBody.product.images);
+  expect(parsedCreatedImages).toHaveLength(3);
+  expect(parsedCreatedImages).toEqual(images.slice(0, 3));
+  expect(createdBody.product.image).toBe(images[0]);
+
+  // Edit product with 2 images
+  const patchReq = new NextRequest('http://localhost/api/admin/products/101', {
+    method: 'PATCH',
+    headers: { cookie: adminCookie, 'content-type': 'application/json' },
+    body: JSON.stringify({ images: ['/assets/saree-rose.webp', '/assets/saree-ivory.webp'] }),
+  });
+  const patchRes = await editProduct(patchReq, { params: Promise.resolve({ id: '101' }) });
+  expect(patchRes.status).toBe(200);
+  const catalogue = await getCatalogue();
+  const edited = catalogue.products.find((p) => p.id === 101);
+  expect(edited?.images).toEqual(['/assets/saree-rose.webp', '/assets/saree-ivory.webp']);
+  expect(edited?.image).toBe('/assets/saree-rose.webp');
+});
+
+test('existing single-image products work in catalogue without requiring images array', async () => {
+  rows = [sample()];
+  const catalogue = await getCatalogue();
+  expect(catalogue.products[0].image).toBe('/assets/saree-rose.webp');
+  expect(catalogue.products[0].images).toBeUndefined();
+});
+
+test('% of offers filter correctly filters products by discount range (10%+, 25%+, 50%+)', () => {
+  const products = [
+    { ...sample(), id: 1, price: 9000, oldPrice: 10000 }, // 10% discount
+    { ...sample(), id: 2, price: 7000, oldPrice: 10000 }, // 30% discount
+    { ...sample(), id: 3, price: 4000, oldPrice: 10000 }, // 60% discount
+    { ...sample(), id: 4, price: 5000, oldPrice: null },  // no discount
+  ];
+  const bounds = { min: 4000, max: 9000 };
+
+  expect(filterShopProducts(products, { ...createShopFilters(bounds), minDiscount: 0 })).toHaveLength(4);
+
+  const tenPlus = filterShopProducts(products, { ...createShopFilters(bounds), minDiscount: 10 });
+  expect(tenPlus.map((p) => p.id)).toEqual([1, 2, 3]);
+
+  const twentyFivePlus = filterShopProducts(products, { ...createShopFilters(bounds), minDiscount: 25 });
+  expect(twentyFivePlus.map((p) => p.id)).toEqual([2, 3]);
+
+  const fiftyPlus = filterShopProducts(products, { ...createShopFilters(bounds), minDiscount: 50 });
+  expect(fiftyPlus.map((p) => p.id)).toEqual([3]);
+});
+
+test('Studio PATCH allows setting 50% discount and puts product in 50%+ offers zone', async () => {
+  rows = [{ ...sample(), id: 101, price: 10000, oldPrice: null }];
+  const adminCookie = `${ADMIN_SESSION_COOKIE}=${createAdminSession()}`;
+
+  const patchReq = new NextRequest('http://localhost/api/admin/products/101', {
+    method: 'PATCH',
+    headers: { cookie: adminCookie, 'content-type': 'application/json' },
+    body: JSON.stringify({ price: 10000, discountPercentage: 50 }),
+  });
+  const patchRes = await editProduct(patchReq, { params: Promise.resolve({ id: '101' }) });
+  expect(patchRes.status).toBe(200);
+
+  const catalogue = await getCatalogue();
+  const product = catalogue.products.find((p) => p.id === 101);
+  expect(product).toBeDefined();
+  expect(product.oldPrice).toBe(20000);
+  expect(product.price).toBe(10000);
+
+  // Offers 50%+ filter matches
+  const matching = filterShopProducts(catalogue.products, {
+    ...createShopFilters({ min: 1000, max: 20000 }),
+    minDiscount: 50,
+  });
+  expect(matching.map((p) => p.id)).toContain(101);
+});
+
+test('6 mock products with 10/20/30/40/50/60% discounts exist and are clearly identifiable as demo set', () => {
+  const demoSet = fallbackProducts.filter((p) => p.name.includes('Demo') || p.tag === 'Demo Offer');
+  expect(demoSet.length).toBeGreaterThanOrEqual(6);
+
+  const discounts = [10, 20, 30, 40, 50, 60];
+  for (const pct of discounts) {
+    const found = demoSet.find((p) => {
+      const discount = Math.round(((p.oldPrice - p.price) / p.oldPrice) * 100);
+      return discount === pct;
+    });
+    expect(found).toBeDefined();
+  }
+});
+
+test('capitalizeColour helper capitalizes first letter of colour', async () => {
+  const { capitalizeColour } = await import('../src/lib/colour.ts');
+  expect(capitalizeColour('emerald')).toBe('Emerald');
+  expect(capitalizeColour('rose pink')).toBe('Rose pink');
+  expect(capitalizeColour('indigo')).toBe('Indigo');
+  expect(capitalizeColour('')).toBe('');
+});
+
+test('AddressFields phone pattern regex compiles without error', () => {
+  const pattern = '[0-9+ ()\\-]{10,16}';
+  expect(() => new RegExp(pattern)).not.toThrow();
+  const regex = new RegExp(`^${pattern}$`);
+  expect(regex.test('+91 98765 43210')).toBe(true);
+  expect(regex.test('9876543210')).toBe(true);
+  expect(regex.test('abc')).toBe(false);
+});
+
+test('admin products API guards against blob URLs and never persists them (B4)', async () => {
+  const adminCookie = `${ADMIN_SESSION_COOKIE}=${createAdminSession()}`;
+  const postReq = new NextRequest('http://localhost/api/admin/products', {
+    method: 'POST',
+    headers: { cookie: adminCookie, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      name: 'Blob Guard Test Saree',
+      type: 'Silk',
+      collection: 'Wedding',
+      price: 5500,
+      colour: 'Ruby',
+      image: 'blob:http://localhost/temp-uuid',
+      images: ['blob:http://localhost/temp-uuid-1', '/assets/saree-emerald.webp', 'blob:http://localhost/temp-uuid-2'],
+      variants: [
+        { name: 'Ruby Red', colour: 'Ruby', images: ['blob:http://localhost/temp-uuid-3', '/assets/saree-rose.webp'] },
+      ],
+    }),
+  });
+  const res = await createProduct(postReq);
+  expect(res.status).toBe(200);
+  const data = await res.json();
+  expect(data.product.image.startsWith('blob:')).toBe(false);
+  const parsedImages = JSON.parse(data.product.images);
+  expect(parsedImages.some((img) => img.startsWith('blob:'))).toBe(false);
+  expect(parsedImages).toContain('/assets/saree-emerald.webp');
+  const parsedVariants = JSON.parse(data.product.variants);
+  expect(parsedVariants[0].images.some((img) => img.startsWith('blob:'))).toBe(false);
+  expect(parsedVariants[0].images).toContain('/assets/saree-rose.webp');
+
+  // PATCH guard
+  const patchReq = new NextRequest(`http://localhost/api/admin/products/${data.product.id}`, {
+    method: 'PATCH',
+    headers: { cookie: adminCookie, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      images: ['blob:http://localhost/patch-uuid', '/assets/saree-indigo.webp'],
+    }),
+  });
+  const patchRes = await editProduct(patchReq, { params: Promise.resolve({ id: String(data.product.id) }) });
+  expect(patchRes.status).toBe(200);
+  const patchData = await patchRes.json();
+  const patchedImages = JSON.parse(patchData.product.images);
+  expect(patchedImages.some((img) => img.startsWith('blob:'))).toBe(false);
+  expect(patchedImages).toEqual(['/assets/saree-indigo.webp']);
+});
+
+test('colour variants model allows up to 3 images per variant and preserves single-colour sarees (B5)', async () => {
+  const adminCookie = `${ADMIN_SESSION_COOKIE}=${createAdminSession()}`;
+  const req = new NextRequest('http://localhost/api/admin/products', {
+    method: 'POST',
+    headers: { cookie: adminCookie, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      name: 'Multi-Colour Handloom Saree',
+      type: 'Kanchipuram pure silk',
+      collection: 'Silk',
+      price: 8500,
+      colour: 'Emerald',
+      images: ['/assets/saree-emerald.webp'],
+      variants: [
+        { name: 'Emerald Green', colour: 'Emerald', images: ['/assets/saree-emerald.webp', '/assets/saree-rose.webp', '/assets/saree-indigo.webp', '/assets/saree-ivory.webp'] },
+        { name: 'Ruby Pink', colour: 'Ruby', images: ['/assets/saree-rose.webp'] },
+      ],
+    }),
+  });
+  const res = await createProduct(req);
+  expect(res.status).toBe(200);
+  const data = await res.json();
+  const variants = JSON.parse(data.product.variants);
+  expect(variants).toHaveLength(2);
+  expect(variants[0].name).toBe('Emerald Green');
+  // Capped at 3 images per variant
+  expect(variants[0].images).toHaveLength(3);
+  expect(variants[1].name).toBe('Ruby Pink');
+  expect(variants[1].images).toEqual(['/assets/saree-rose.webp']);
+
+  // Single-colour product without variants works as before
+  const singleColourReq = new NextRequest('http://localhost/api/admin/products', {
+    method: 'POST',
+    headers: { cookie: adminCookie, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      name: 'Single Colour Saree',
+      type: 'Tussar silk',
+      collection: 'Silk',
+      price: 6000,
+      colour: 'Indigo',
+      images: ['/assets/saree-indigo.webp'],
+    }),
+  });
+  const singleRes = await createProduct(singleColourReq);
+  expect(singleRes.status).toBe(200);
+  const singleData = await singleRes.json();
+  expect(singleData.product.variants).toBeNull();
+  expect(singleData.product.colour).toBe('Indigo');
+});
+
+

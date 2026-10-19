@@ -3,12 +3,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { COLOUR_HEX_MAP } from '@/data/products';
+import { COLOUR_HEX_MAP, capitalizeColour } from '@/data/products';
 import { useStore } from '@/context/store-context';
 import { ProductCard } from '@/components/ProductCard';
 import { Icon } from '@/components/Icons';
 import { PriceRangeFilter } from '@/components/PriceRangeFilter';
-import { createShopFilters, filterShopProducts, getShopFilterOptions } from '@/lib/shop-filters';
+import { createShopFilters, filterShopProducts, getShopFilterOptions, DISCOUNT_FILTER_OPTIONS } from '@/lib/shop-filters';
 import type { ShopFilterState } from '@/types';
 
 interface SareeListingProps {
@@ -18,17 +18,22 @@ interface SareeListingProps {
 export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
   const { products } = useStore();
   const { collections: collectionOptions, priceBounds } = useMemo(() => getShopFilterOptions(products), [products]);
-  const colourOptions = [...new Set(products.map((p) => p.colour))].map((colour) => [colour, COLOUR_HEX_MAP[colour] || '#d8d0c8']);
+  const colourOptions = [...new Set(products.map((p) => capitalizeColour(p.colour)))].map((colour) => [colour, COLOUR_HEX_MAP[colour] || '#d8d0c8']);
   const searchParams = useSearchParams();
   const initialCollection = searchParams.get('collection');
+  const initialOffers = searchParams.get('offers') || searchParams.get('discount');
+  const initialDiscount = initialOffers ? (parseInt(initialOffers, 10) || 50) : 0;
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [filters, setFilters] = useState<ShopFilterState>(() => createShopFilters(
-    priceBounds,
-    initialCollection && collectionOptions.includes(initialCollection)
-      ? initialCollection
-      : 'All'
-  ));
+  const [filters, setFilters] = useState<ShopFilterState>(() => ({
+    ...createShopFilters(
+      priceBounds,
+      initialCollection && collectionOptions.includes(initialCollection)
+        ? initialCollection
+        : 'All'
+    ),
+    minDiscount: initialDiscount,
+  }));
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetDraft, setSheetDraft] = useState<ShopFilterState>(filters);
@@ -51,11 +56,14 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
   // Sync if URL search params change
   useEffect(() => {
     const c = searchParams.get('collection');
-    if (c && collectionOptions.includes(c)) {
-      setFilters((prev) => ({ ...prev, collection: c }));
-    } else if (!initialSearchMode || !collectionOptions.includes(filters.collection)) {
-      setFilters((prev) => ({ ...prev, collection: 'All' }));
-    }
+    const offersP = searchParams.get('offers') || searchParams.get('discount');
+    const discountVal = offersP ? (parseInt(offersP, 10) || 50) : 0;
+
+    setFilters((prev) => ({
+      ...prev,
+      collection: c && collectionOptions.includes(c) ? c : (!initialSearchMode || !collectionOptions.includes(prev.collection) ? 'All' : prev.collection),
+      minDiscount: discountVal,
+    }));
     setVisibleCount(6);
   }, [searchParams, initialSearchMode, collectionOptions.join('\0')]);
 
@@ -82,7 +90,8 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
   const activeFilterCount =
     (filters.collection !== 'All' ? 1 : 0) +
     filters.colours.length +
-    (filters.priceRange.min !== priceBounds.min || filters.priceRange.max !== priceBounds.max ? 1 : 0);
+    (filters.priceRange.min !== priceBounds.min || filters.priceRange.max !== priceBounds.max ? 1 : 0) +
+    (filters.minDiscount && filters.minDiscount > 0 ? 1 : 0);
 
   // Draft count for mobile bottom sheet
   const draftMatchingCount = useMemo(
@@ -96,12 +105,22 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
   };
 
   const handleOpenSheet = () => {
-    setSheetDraft({ ...filters, colours: [...filters.colours], priceRange: { ...filters.priceRange } });
+    setSheetDraft({
+      ...filters,
+      colours: [...filters.colours],
+      priceRange: { ...filters.priceRange },
+      minDiscount: filters.minDiscount || 0,
+    });
     setSheetOpen(true);
   };
 
   const handleApplySheet = () => {
-    setFilters({ ...sheetDraft, colours: [...sheetDraft.colours], priceRange: { ...sheetDraft.priceRange } });
+    setFilters({
+      ...sheetDraft,
+      colours: [...sheetDraft.colours],
+      priceRange: { ...sheetDraft.priceRange },
+      minDiscount: sheetDraft.minDiscount || 0,
+    });
     setVisibleCount(6);
     setSheetOpen(false);
   };
@@ -117,6 +136,8 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
         <Link href="/">Home</Link> /{' '}
         {initialSearchMode
           ? 'Search'
+          : filters.minDiscount && filters.minDiscount > 0
+          ? `Offers · ${filters.minDiscount}%+ OFF`
           : filters.collection === 'All'
           ? 'All sarees'
           : `${filters.collection} sarees`}
@@ -199,7 +220,7 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
                     }}
                   />
                   <span className="filter-colour" style={{ background: hex }} aria-hidden="true" />
-                  <span>{colName}</span>
+                  <span>{capitalizeColour(colName)}</span>
                 </label>
               ))}
             </div>
@@ -215,6 +236,28 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
                 setVisibleCount(6);
               }}
             />
+          </fieldset>
+
+          <fieldset>
+            <legend>% of offers</legend>
+            <div className="filter-options">
+              {DISCOUNT_FILTER_OPTIONS.map((opt) => (
+                <label key={opt.value} htmlFor={`desktop-discount-${opt.value}`}>
+                  <input
+                    id={`desktop-discount-${opt.value}`}
+                    type="radio"
+                    name="desktop-discount"
+                    value={opt.value}
+                    checked={(filters.minDiscount || 0) === opt.value}
+                    onChange={() => {
+                      setFilters((prev) => ({ ...prev, minDiscount: opt.value }));
+                      setVisibleCount(6);
+                    }}
+                  />
+                  <span>{opt.label}</span>
+                </label>
+              ))}
+            </div>
           </fieldset>
 
           <button className="text-link filter-reset" type="button" onClick={resetFilters}>
@@ -385,7 +428,7 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
                         }}
                       />
                       <span className="filter-colour" style={{ background: hex }} aria-hidden="true" />
-                      <span>{colName}</span>
+                      <span>{capitalizeColour(colName)}</span>
                     </label>
                   ))}
                 </div>
@@ -400,6 +443,29 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
                     setSheetDraft((prev) => ({ ...prev, priceRange }))
                   }
                 />
+              </fieldset>
+
+              <fieldset>
+                <legend>% of offers</legend>
+                <div className="filter-options">
+                  {DISCOUNT_FILTER_OPTIONS.map((opt) => (
+                    <label
+                      key={opt.value}
+                      htmlFor={`sheet-discount-${opt.value}`}
+                      className={(sheetDraft.minDiscount || 0) === opt.value ? 'checked' : ''}
+                    >
+                      <input
+                        id={`sheet-discount-${opt.value}`}
+                        type="radio"
+                        name="sheet-discount"
+                        value={opt.value}
+                        checked={(sheetDraft.minDiscount || 0) === opt.value}
+                        onChange={() => setSheetDraft((prev) => ({ ...prev, minDiscount: opt.value }))}
+                      />
+                      <span>{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
               </fieldset>
             </div>
 

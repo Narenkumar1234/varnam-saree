@@ -1,4 +1,4 @@
-import { money, VARNAM_CONFIG } from '@/data/products';
+import { money, VARNAM_CONFIG, capitalizeColour } from '@/data/products';
 import type { OrderItem, OrderPricing, OrderPayment } from '@/types';
 
 export interface WhatsAppProduct {
@@ -62,7 +62,7 @@ export function createProductWhatsAppMessage(
     `Product ID: #${product.id}`,
     ...(product.type ? [`Fabric: ${product.type}`] : []),
     ...(product.collection ? [`Collection: ${product.collection}`] : []),
-    ...(product.colour ? [`Colour: ${product.colour}`] : []),
+    ...(product.colour ? [`Colour: ${capitalizeColour(product.colour)}`] : []),
     `Finishing: ${options.finish || 'Unstitched blouse · included'}`,
     `Unit price: ${money(product.price)}`,
   ];

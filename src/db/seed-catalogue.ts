@@ -11,7 +11,10 @@ export async function seedCatalogue(database: typeof db) {
       collection: product.collection, price: product.price,
       oldPrice: product.oldPrice ?? null, colour: product.colour,
       stock: product.stock ?? 5, tag: product.tag || null,
-      image: product.image, description: product.description || '',
+      image: product.image,
+      images: product.images ? JSON.stringify(product.images) : null,
+      variants: (product as any).variants ? JSON.stringify((product as any).variants) : null,
+      description: product.description || '',
     }))).onConflictDoNothing({ target: products.id });
     // Explicit seed IDs must not make the next Studio insert reuse ID 1.
     await tx.execute(sql`select setval(pg_get_serial_sequence('products', 'id'), greatest((select coalesce(max(id), 1) from products), coalesce(pg_sequence_last_value(pg_get_serial_sequence('products', 'id')::regclass), 1)), true)`);
