@@ -1,7 +1,7 @@
 'use client';
 
 import { DeliveryPolicy } from '@/components/DeliveryPolicy';
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useStore } from '@/context/store-context';
@@ -15,13 +15,30 @@ import { AddressFields } from '@/components/AddressFields';
 import { ADDRESS_FIELDS, readSavedAddress } from '@/lib/address-storage';
 import { formatWhatsAppOrderMessage } from '@/lib/whatsapp';
 import type { DeliveryAddress } from '@/types';
+import { loadRazorpayCheckout } from '@/components/StudioPayment';
+import { money } from '@/data/products';
+import { createWhatsAppOrderUrl } from '@/lib/whatsapp';
+
+async function razorpayRequest(endpoint: string, body: unknown) {
+  const response = await fetch(`/api/payments/razorpay/${endpoint}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || 'Payment could not be completed.');
+  return result;
+}
 
 function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { cart, products, commerce, getProductById, couponCode, placeOrder, openWhatsAppMessage } = useStore();
+  const { cart, products, commerce, getProductById, couponCode, placeOrder, openWhatsAppMessage, updateOrderPayment } = useStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'online' | 'whatsapp'>('online');
+  const [paymentPhase, setPaymentPhase] = useState<'form' | 'paying' | 'error'>('form');
+  const [paymentMessage, setPaymentMessage] = useState('');
+  const [placedOrderId, setPlacedOrderId] = useState<string | null>(null);
+  const savedTotal = useRef(0);
 
   const buyNowId = searchParams.get('buyNow');
   const requestedQty = Number(searchParams.get('qty') || '1');
@@ -64,6 +81,136 @@ function CheckoutContent() {
 
   const updateAddress = (field: keyof DeliveryAddress, value: string) => setFormData((current) => ({ ...current, [field]: value }));
 
+  // --- Razorpay payment flow (called after order placement) ---
+  const startRazorpayPayment = async (orderId: string) => {
+    setPaymentPhase('paying');
+    setPaymentMessage('Starting payment…');
+    try {
+      const result = await razorpayRequest('order', { orderId });
+      if (result.status === 'paid') {
+        updateOrderPayment(orderId, { provider: 'razorpay', status: 'paid', razorpayOrderId: '', amount: result.amount || 0, currency: 'INR' });
+        router.push(`/confirmation/${orderId}`);
+        return;
+      }
+      if (result.status === 'processing') {
+        router.push(`/confirmation/${orderId}`);
+        return;
+      }
+      await loadRazorpayCheckout();
+      if (!window.Razorpay) throw new Error('Razorpay is unavailable. Please complete your order on WhatsApp.');
+      setPaymentMessage('');
+      let submitted = false;
+      const checkout = new window.Razorpay({
+        key: result.keyId, order_id: result.orderId, amount: result.amount, currency: result.currency,
+        name: 'Varnam Saree', description: `Order ${orderId}`,
+        prefill: { name: `${formData.first} ${formData.last}`.trim(), email: formData.email, contact: formData.phone },
+        theme: { color: getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#392535' },
+        handler: (proof) => {
+          submitted = true;
+          void (async () => {
+            setPaymentMessage('Verifying payment…');
+            try {
+              const verifyResult = await razorpayRequest('verify', { orderId, ...proof });
+              if (verifyResult.status === 'paid') {
+                updateOrderPayment(orderId, {
+                  provider: 'razorpay', status: 'paid',
+                  razorpayOrderId: proof.razorpay_order_id, amount: result.amount,
+                  currency: 'INR', paymentId: proof.razorpay_payment_id,
+                });
+              }
+              router.push(`/confirmation/${orderId}`);
+            } catch (err) {
+              setPaymentPhase('error');
+              setPaymentMessage(err instanceof Error ? err.message : 'Payment verification pending. Your order is saved — do not pay again.');
+              setIsSubmitting(false);
+            }
+          })();
+        },
+        modal: { ondismiss: () => {
+          if (submitted) return;
+          setPaymentPhase('error');
+          setPaymentMessage('Payment window closed. Your order is saved.');
+          setIsSubmitting(false);
+        } },
+      });
+      checkout.on('payment.failed', () => {
+        setPaymentMessage('Payment failed. You can retry in the payment window or close it.');
+      });
+      checkout.open();
+    } catch (err) {
+      setPaymentPhase('error');
+      setPaymentMessage(err instanceof Error ? err.message : 'Payment could not start. Your order is saved.');
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSubmitting || checkoutError) return;
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      const orderId = await placeOrder(
+        { ...formData, address: `${formData.address} ${formData.apartment}`.trim() },
+        buyNowProduct ? checkoutItems : undefined
+      );
+
+      if (paymentMethod === 'whatsapp') {
+        router.push(`/confirmation/${orderId}`);
+        return;
+      }
+
+      // Razorpay: order saved, now initiate payment
+      savedTotal.current = checkoutQuote.pricing.total;
+      setPlacedOrderId(orderId);
+      await startRazorpayPayment(orderId);
+    } catch (err) {
+      setSubmitError(err instanceof TypeError
+        ? 'Your order could not be saved. Check your connection and try again.'
+        : err instanceof Error ? err.message : 'Your order could not be saved. Please try again.');
+      setIsSubmitting(false);
+    }
+  };
+
+  // --- Payment progress / error view (shown after order is placed) ---
+  if (placedOrderId && paymentPhase !== 'form') {
+    const whatsAppUrl = createWhatsAppOrderUrl(
+      `Hello Varnam, I need help completing payment for order ${placedOrderId} (${money(savedTotal.current)}). Please help me arrange payment and delivery.`
+    );
+    return (
+      <>
+        <div className="page-title">
+          <h1>Complete your payment</h1>
+          <p>Order <strong>{placedOrderId}</strong> is saved</p>
+        </div>
+        <section className="section" style={{ paddingTop: '10px', textAlign: 'center', maxWidth: '480px', margin: '0 auto' }}>
+          {paymentPhase === 'paying' && (
+            <p role="status" style={{ padding: '40px 0' }}>{paymentMessage || 'Opening payment window…'}</p>
+          )}
+          {paymentPhase === 'error' && (
+            <>
+              <p className="coupon-feedback error" role="alert">{paymentMessage}</p>
+              <button className="btn" type="button" onClick={() => void startRazorpayPayment(placedOrderId)} style={{ width: '100%', marginTop: '16px' }}>
+                Retry payment
+              </button>
+              {whatsAppUrl && (
+                <p style={{ marginTop: '12px' }}>
+                  <a className="text-link" href={whatsAppUrl}>Complete on WhatsApp instead</a>
+                </p>
+              )}
+              <p style={{ marginTop: '16px' }}>
+                <Link className="text-link" href={`/confirmation/${placedOrderId}`}>View your order →</Link>
+              </p>
+              <p className="muted" style={{ marginTop: '12px', fontSize: '0.85rem' }}>
+                Your order is saved. You can pay online, arrange payment on WhatsApp, or pay later from your order page.
+              </p>
+            </>
+          )}
+        </section>
+      </>
+    );
+  }
+
   if (checkoutItems.length === 0) {
     return (
       <>
@@ -80,26 +227,6 @@ function CheckoutContent() {
       </>
     );
   }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isSubmitting || checkoutError) return;
-    setIsSubmitting(true);
-    setSubmitError(null);
-    try {
-      const orderId = await placeOrder(
-        { ...formData, address: `${formData.address} ${formData.apartment}`.trim() },
-        buyNowProduct ? checkoutItems : undefined
-      );
-      router.push(`/confirmation/${orderId}`);
-    } catch (err) {
-      setSubmitError(err instanceof TypeError
-        ? 'Your order could not be saved. Check your connection and try again.'
-        : err instanceof Error ? err.message : 'Your order could not be saved. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const handleWhatsAppCheckout = () => {
     if (checkoutError) return;
@@ -141,7 +268,7 @@ function CheckoutContent() {
       <section className="section" style={{ paddingTop: '10px' }}>
         <div className="cart-layout">
           <form id="checkoutForm" onSubmit={handleSubmit}>
-            <h2>Contact & delivery</h2>
+            <h2>Contact &amp; delivery</h2>
             <div className="form-grid">
               <AddressFields value={formData} onChange={updateAddress} fields={['first', 'last']} />
 
@@ -188,11 +315,21 @@ function CheckoutContent() {
               days
             </label>
 
+            <h3>Payment method</h3>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input type="radio" name="payment" checked={paymentMethod === 'online'} onChange={() => setPaymentMethod('online')} />
+              Pay online (Razorpay)
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+              <input type="radio" name="payment" checked={paymentMethod === 'whatsapp'} onChange={() => setPaymentMethod('whatsapp')} />
+              Complete on WhatsApp
+            </label>
+
             {checkoutError && <p className="coupon-feedback error" role="alert">{checkoutError}</p>}
             {checkoutError && <p><Link className="text-link" href={buyNowProduct ? `/product/${buyNowProduct.id}` : '/cart'}>{buyNowProduct ? 'Review this saree' : 'Review your bag'}</Link></p>}
             {submitError && <p className="coupon-feedback error" role="alert">{submitError}</p>}
             <button className="btn" type="submit" disabled={isSubmitting || !!checkoutError} style={{ width: '100%', marginTop: '24px' }}>
-              {isSubmitting ? 'Placing order…' : 'Place order'} <Icon name="arrow-up-right" />
+              {isSubmitting ? 'Placing order…' : paymentMethod === 'online' ? 'Place order & pay' : 'Place order'} <Icon name="arrow-up-right" />
             </button>
             <div className="checkout-or-divider" aria-hidden="true">
               <span>or</span>
