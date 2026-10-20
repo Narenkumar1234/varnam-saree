@@ -3,6 +3,9 @@ const ALLOWED_HOSTS = [
   'storage.googleapis.com',
   'lh3.googleusercontent.com',
   'drive.google.com',
+  'images.unsplash.com',
+  'plus.unsplash.com',
+  'upload.wikimedia.org',
 ];
 
 type ImageLoaderParams = {

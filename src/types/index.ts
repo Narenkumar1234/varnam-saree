@@ -1,6 +1,7 @@
 export interface ProductVariant {
   name: string;
   colour?: string;
+  hex?: string;
   images: string[];
 }
 

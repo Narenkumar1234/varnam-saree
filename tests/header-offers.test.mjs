@@ -5,7 +5,11 @@ import { DEFAULT_SETTINGS } from '../src/lib/commerce.ts';
 
 let store;
 mock.module('../src/context/store-context.tsx', () => ({ useStore: () => store }));
-mock.module('next/navigation', () => ({ usePathname: () => '/' }));
+mock.module('next/navigation', () => ({
+  usePathname: () => '/',
+  useRouter: () => ({ push: () => {}, replace: () => {} }),
+  useSearchParams: () => new URLSearchParams(),
+}));
 mock.module('next/image', () => ({
   default: ({ alt, src, width, height }) => createElement('img', { alt, src, width, height }),
 }));
