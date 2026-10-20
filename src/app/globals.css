@@ -1604,6 +1604,34 @@ form h3 {
   border: 1px solid var(--line);
 }
 
+.track-step {
+  padding: 10px 0 10px 14px;
+  border-left: 2px solid var(--line);
+  opacity: 0.55;
+}
+
+.track-step.current {
+  opacity: 1;
+  border-left-color: var(--gold);
+}
+
+.track-payment-banner {
+  margin: 16px 0 8px;
+  font-weight: 600;
+}
+
+.track-payment-banner.is-unpaid {
+  color: #92400e;
+}
+
+.track-payment-banner.is-authorized {
+  color: #1e40af;
+}
+
+.track-payment-banner.is-cancelled {
+  color: #9f1239;
+}
+
 .tabs {
   display: flex;
   justify-content: center;

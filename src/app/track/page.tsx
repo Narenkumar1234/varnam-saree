@@ -3,13 +3,12 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useStore } from '@/context/store-context';
-import { money } from '@/data/products';
-import { OrderSavings } from '@/components/OrderTotals';
+import { TrackedOrderView } from '@/components/TrackedOrderView';
 import { loadTrackedOrder, type TrackedOrder } from '@/lib/order-lookup';
 
 function TrackContent() {
   const searchParams = useSearchParams();
-  const { getOrderById } = useStore();
+  const { getOrderById, updateOrderPayment } = useStore();
   const [orderQuery, setOrderQuery] = useState('');
   const [searchedId, setSearchedId] = useState('');
   const [lookup, setLookup] = useState<{ id: string; status: 'loading' | 'found' | 'not-found' | 'error'; order?: TrackedOrder } | null>(null);
@@ -86,36 +85,13 @@ function TrackContent() {
                 <button type="button" className="btn outline" onClick={() => setAttempt((current) => current + 1)}>Retry lookup</button>
               </div>
             ) : order ? (
-              <div>
-                <h2 style={{ fontSize: '24px' }}>{order.id}</h2>
-                <p className="muted">
-                  Order placed on{' '}
-                  {order.date ||
-                    new Date(order.createdAt || Date.now()).toLocaleDateString('en-IN', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                    })}
-                </p>
-
-                <div className="track-step current" style={{ margin: '20px 0' }}>
-                  <div className="step-title">1. Order confirmed</div>
-                  <small>Your saree was chosen and hand-inspected in our workshop.</small>
-                </div>
-                <div className="track-step">
-                  <div className="step-title">2. Handloom finishing</div>
-                  <small>Tassels, fall, and edging being prepared with care.</small>
-                </div>
-                <div className="track-step">
-                  <div className="step-title">3. Dispatched</div>
-                  <small>Complimentary insured shipping across India.</small>
-                </div>
-
-                <div style={{ marginTop: '24px', borderTop: '1px solid var(--line)', paddingTop: '15px' }}>
-                  <strong>Total: {money(order.total)}</strong>
-                  <OrderSavings pricing={order.pricing} />
-                </div>
-              </div>
+              <TrackedOrderView
+                order={{ ...order, name: localOrder?.name }}
+                onPaid={localOrder ? () => updateOrderPayment(order.id, {
+                  provider: 'razorpay', status: 'paid',
+                  razorpayOrderId: '', amount: order.total * 100, currency: 'INR',
+                }) : undefined}
+              />
             ) : (
               <div className="empty" style={{ padding: '20px 0' }}>
                 <p>No order found with number “{searchedId}”.</p>

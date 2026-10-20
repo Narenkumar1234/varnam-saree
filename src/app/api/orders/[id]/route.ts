@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { orders } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { readOrderSnapshot } from '@/lib/order-pricing';
+import { toPublicTrackedOrder } from '@/lib/order-lookup';
 
 export async function GET(
   req: NextRequest,
@@ -16,13 +16,7 @@ export async function GET(
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    const order = found[0];
-    return NextResponse.json({
-      order: {
-        ...order,
-        ...readOrderSnapshot(order.itemsJson),
-      },
-    });
+    return NextResponse.json({ order: toPublicTrackedOrder(found[0]) });
   } catch (error: any) {
     console.error('Failed to lookup order in database:', error);
     return NextResponse.json(

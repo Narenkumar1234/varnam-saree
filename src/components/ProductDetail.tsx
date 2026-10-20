@@ -10,6 +10,7 @@ import { useStore } from '@/context/store-context';
 import { ProductCard } from '@/components/ProductCard';
 import { Icon } from '@/components/Icons';
 import { ProductPrice } from '@/components/ProductPrice';
+import { PINCODE_PATTERN, PINCODE_PATTERN_MESSAGE } from '@/lib/address-validation';
 import { getProductQuantityLimit } from '@/lib/product-quantity';
 import { imageLoader, needsUnoptimized } from '@/lib/image-loader';
 import { buildProductGalleryImages, clampGalleryIndex } from '@/lib/product-gallery';
@@ -76,7 +77,7 @@ export default function ProductDetail({ id }: { id: string }) {
     if (pincode.length === 6) {
       setPinMessage('Demo estimate: delivery in 5–7 business days.');
     } else {
-      setPinMessage('Please enter a valid 6-digit pincode.');
+      setPinMessage(PINCODE_PATTERN_MESSAGE);
     }
   };
 
@@ -296,8 +297,9 @@ export default function ProductDetail({ id }: { id: string }) {
                 <input
                   id="pin"
                   inputMode="numeric"
-                  pattern="[0-9]{6}"
+                  pattern={PINCODE_PATTERN}
                   maxLength={6}
+                  title={PINCODE_PATTERN_MESSAGE}
                   placeholder="6-digit pincode"
                   value={pincode}
                   onChange={(e) => setPincode(e.target.value)}

@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { customerFacingOrderStatus, orderPaymentLabel, paymentDisplayStatus } from '../src/lib/order-status.ts';
+import { customerFacingOrderStatus, orderPaymentLabel, paymentDisplayStatus, publicPaymentSnapshot, trackingConfirmStepComplete } from '../src/lib/order-status.ts';
 
 const pending = { provider: 'razorpay', status: 'pending', razorpayOrderId: 'order_1', amount: 250000, currency: 'INR' };
 const authorized = { ...pending, status: 'authorized', paymentId: 'pay_1' };
@@ -30,4 +30,23 @@ test('cancelled orders keep their fulfilment status regardless of payment', () =
   expect(customerFacingOrderStatus('Cancelled', pending)).toBe('Cancelled');
   expect(customerFacingOrderStatus('cancelled', paid)).toBe('cancelled');
   expect(orderPaymentLabel(pending)).toBe('Awaiting payment');
+});
+
+test('public payment snapshots expose only status', () => {
+  expect(publicPaymentSnapshot(pending)).toEqual({ status: 'pending' });
+  expect(publicPaymentSnapshot(authorized)).toEqual({ status: 'authorized' });
+  expect(publicPaymentSnapshot(paid)).toEqual({ status: 'paid' });
+  expect(publicPaymentSnapshot(undefined)).toBeUndefined();
+  expect(publicPaymentSnapshot({ status: 'refunded' })).toBeUndefined();
+  expect(Object.keys(publicPaymentSnapshot(paid))).toEqual(['status']);
+});
+
+test('the tracking confirm step is done only for paid, non-cancelled orders', () => {
+  expect(trackingConfirmStepComplete('Confirmed')).toBe(false);
+  expect(trackingConfirmStepComplete('Confirmed', pending)).toBe(false);
+  expect(trackingConfirmStepComplete('Confirmed', authorized)).toBe(false);
+  expect(trackingConfirmStepComplete('Confirmed', paid)).toBe(true);
+  expect(trackingConfirmStepComplete('Handloom Finishing', paid)).toBe(true);
+  expect(trackingConfirmStepComplete('Cancelled', paid)).toBe(false);
+  expect(trackingConfirmStepComplete('cancelled', pending)).toBe(false);
 });

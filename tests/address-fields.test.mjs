@@ -3,7 +3,7 @@ import { createElement } from 'react';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { EMPTY_ADDRESS } from '../src/lib/address-storage.ts';
+import { EMPTY_ADDRESS, isAddressFormOpen } from '../src/lib/address-storage.ts';
 import {
   INDIAN_MOBILE_PATTERN, INDIAN_MOBILE_PATTERN_MESSAGE, PINCODE_PATTERN, PINCODE_PATTERN_MESSAGE,
   normalizeIndianMobile, normalizePincode,
@@ -13,6 +13,7 @@ import { ADDRESS_FIELD_INPUTS, AddressFields } from '../src/components/AddressFi
 const checkoutSource = readFileSync(fileURLToPath(new URL('../src/app/checkout/page.tsx', import.meta.url)), 'utf8');
 const addressFieldsSource = readFileSync(fileURLToPath(new URL('../src/components/AddressFields.tsx', import.meta.url)), 'utf8');
 const addressesSource = readFileSync(fileURLToPath(new URL('../src/app/addresses/page.tsx', import.meta.url)), 'utf8');
+const productDetailSource = readFileSync(fileURLToPath(new URL('../src/components/ProductDetail.tsx', import.meta.url)), 'utf8');
 
 function patternsFromSource(source) {
   return [...source.matchAll(/\bpattern=["']([^"']+)["']/g)].map((match) => match[1]);
@@ -65,5 +66,24 @@ test('the add-address form has Cancel, an optional nickname, and does not force 
   expect(addressesSource).toContain('Address nickname (optional)');
   expect(addressesSource).toMatch(/onClick=\{resetForm\}/);
   expect(addressesSource).toContain('>Cancel<');
+  expect(addressesSource).toContain('Add address');
+  expect(addressesSource).toContain('isAddressFormOpen(');
   expect(addressesSource).not.toContain('{editingId &&');
+});
+
+test('the add form stays open with zero addresses and hides behind Add address once one is saved', () => {
+  expect(isAddressFormOpen(0, false)).toBe(true);
+  expect(isAddressFormOpen(1, false)).toBe(false);
+  expect(isAddressFormOpen(1, true)).toBe(true);
+  expect(isAddressFormOpen(2, false, true)).toBe(true);
+  expect(isAddressFormOpen(1, false, false)).toBe(false);
+});
+
+test('every pincode validation message is the shared copy with a trailing full stop', () => {
+  expect(PINCODE_PATTERN_MESSAGE).toBe('Enter a 6-digit pincode.');
+  expect(PINCODE_PATTERN_MESSAGE.endsWith('.')).toBe(true);
+  expect(productDetailSource).toContain('PINCODE_PATTERN_MESSAGE');
+  expect(productDetailSource).toContain('setPinMessage(PINCODE_PATTERN_MESSAGE)');
+  expect(productDetailSource).not.toContain('Please enter a valid 6-digit pincode');
+  expect(addressFieldsSource).toContain('PINCODE_PATTERN_MESSAGE');
 });
