@@ -6,6 +6,7 @@ import {
   getOffersNav,
   getProductDiscountPercentage,
   getShopOffersHeading,
+  getShopListingHeading,
 } from '../src/lib/shop-filters.ts';
 
 const product = (id, price, oldPrice) => ({
@@ -72,5 +73,13 @@ test('shop ?offers=N heading matches discount >= N filtering', () => {
     expect(matches.length).toBeGreaterThan(0);
     expect(matches.every((item) => getProductDiscountPercentage(item) >= minDiscount)).toBe(true);
     expect(getShopOffersHeading(minDiscount)).toBe(`Offers · ${minDiscount}%+ OFF`);
+    expect(getShopListingHeading(minDiscount, 'Silk')).toBe(`Offers · ${minDiscount}%+ OFF`);
   }
+});
+
+test('shop listing heading covers collection and all sarees, and skips search mode', () => {
+  expect(getShopListingHeading(0, 'All')).toBe('All sarees');
+  expect(getShopListingHeading(0, 'Silk')).toBe('Silk sarees');
+  expect(getShopListingHeading(20, 'Silk')).toBe('Offers · 20%+ OFF');
+  expect(getShopListingHeading(20, 'All', true)).toBeNull();
 });

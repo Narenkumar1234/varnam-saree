@@ -767,6 +767,10 @@ nav a:hover {
   padding: 16px 5% 48px;
 }
 
+.shop-section > .page-title.shop-listing-title {
+  padding: 6px 0 20px;
+}
+
 .shop-layout {
   display: grid;
   grid-template-columns: 190px 1fr;
@@ -2369,6 +2373,9 @@ footer {
   }
   .shop-section {
     padding: 12px 6% 36px;
+  }
+  .shop-section > .page-title.shop-listing-title {
+    padding: 4px 0 16px;
   }
   .breadcrumb {
     margin-bottom: 10px;

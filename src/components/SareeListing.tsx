@@ -8,7 +8,7 @@ import { useStore } from '@/context/store-context';
 import { ProductCard } from '@/components/ProductCard';
 import { Icon } from '@/components/Icons';
 import { PriceRangeFilter } from '@/components/PriceRangeFilter';
-import { createShopFilters, filterShopProducts, getShopFilterOptions, getShopOffersHeading, DISCOUNT_FILTER_OPTIONS } from '@/lib/shop-filters';
+import { createShopFilters, filterShopProducts, getShopFilterOptions, getShopListingHeading, DISCOUNT_FILTER_OPTIONS } from '@/lib/shop-filters';
 import type { ShopFilterState } from '@/types';
 
 interface SareeListingProps {
@@ -99,6 +99,12 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
     [searchQuery, sheetDraft, products]
   );
 
+  const listingHeading = getShopListingHeading(
+    filters.minDiscount || 0,
+    filters.collection,
+    initialSearchMode
+  );
+
   const resetFilters = () => {
     setFilters(createShopFilters(priceBounds));
     setVisibleCount(6);
@@ -134,11 +140,14 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
       {/* Breadcrumb with reduced compact margins */}
       <div className="breadcrumb">
         <Link href="/">Home</Link> /{' '}
-        {initialSearchMode
-          ? 'Search'
-          : getShopOffersHeading(filters.minDiscount || 0)
-            || (filters.collection === 'All' ? 'All sarees' : `${filters.collection} sarees`)}
+        {listingHeading || 'Search'}
       </div>
+
+      {listingHeading && (
+        <div className="page-title shop-listing-title">
+          <h1>{listingHeading}</h1>
+        </div>
+      )}
 
       {/* If in search mode, display prominent search input */}
       {initialSearchMode && (
