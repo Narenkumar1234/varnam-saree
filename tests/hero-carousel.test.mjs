@@ -139,3 +139,18 @@ test('globals.css configures crossfade, responsive heights, and prefers-reduced-
   expect(css).toContain('.hero-carousel-arrow');
   expect(css).toContain('display: none;');
 });
+
+test('hero caption sits in the left copy column and the copy has a readability wash', () => {
+  const pageSource = readFileSync(new URL('../src/app/page.tsx', import.meta.url), 'utf8');
+  const copyStart = pageSource.indexOf('<div className="hero-copy">');
+  const caption = pageSource.indexOf('<div className="hero-counter">');
+  const sectionEnd = pageSource.indexOf('</section>', copyStart);
+  const copyEnd = pageSource.lastIndexOf('</div>', sectionEnd);
+  expect(copyStart).toBeGreaterThan(-1);
+  expect(caption).toBeGreaterThan(copyStart);
+  expect(caption).toBeLessThan(copyEnd);
+
+  const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
+  expect(css).toContain('@media (min-width: 701px) {\n  .hero-carousel::after');
+  expect(css).not.toMatch(/\.hero-counter \{\s*position: absolute;/);
+});

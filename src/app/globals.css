@@ -316,15 +316,36 @@ nav a:hover {
   box-shadow: inset 0 0 0 2px var(--gold);
 }
 
-/* Tablet widths: the copy can overlap the models, so soften the left side */
-@media (min-width: 701px) and (max-width: 1100px) {
+/* Desktop and tablet: a soft cream wash behind the copy column keeps the
+   headline, paragraph and caption readable on every slide while the models
+   on the right stay clear. */
+@media (min-width: 701px) {
   .hero-carousel::after {
     content: '';
     position: absolute;
     inset: 0;
     z-index: 1;
     pointer-events: none;
-    background: linear-gradient(90deg, rgba(248, 244, 238, 0.72) 0%, rgba(248, 244, 238, 0.45) 38%, rgba(248, 244, 238, 0) 66%);
+    background: linear-gradient(
+      90deg,
+      rgba(248, 244, 238, 0.86) 0%,
+      rgba(248, 244, 238, 0.78) 26%,
+      rgba(248, 244, 238, 0.45) 40%,
+      rgba(248, 244, 238, 0) 54%
+    );
+  }
+}
+
+/* Tablet widths: the copy column is proportionally wider, so extend the wash */
+@media (min-width: 701px) and (max-width: 1100px) {
+  .hero-carousel::after {
+    background: linear-gradient(
+      90deg,
+      rgba(248, 244, 238, 0.88) 0%,
+      rgba(248, 244, 238, 0.8) 37%,
+      rgba(248, 244, 238, 0.4) 50%,
+      rgba(248, 244, 238, 0) 63%
+    );
   }
 }
 
@@ -457,12 +478,11 @@ nav a:hover {
 }
 
 .hero-counter {
-  position: absolute;
-  bottom: 27px;
-  right: 5%;
-  color: var(--ink);
+  margin-top: 22px;
+  color: #674d27;
   font-size: 12px;
-  z-index: 2;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .btn {
@@ -2713,7 +2733,8 @@ footer {
     margin: 0 0 18px;
   }
   .hero .btn {
-    width: 100%;
+    /* Leave a lane on the right for the fixed Instagram/WhatsApp stack */
+    width: calc(100% - 64px);
     margin-top: 0;
     min-height: 48px;
     justify-content: center;
@@ -2722,12 +2743,9 @@ footer {
     display: none;
   }
   .hero-counter {
-    position: static;
+    margin-top: 16px;
     text-align: center;
     font-size: 11px;
-    color: var(--muted);
-    padding: 0 6% 20px;
-    background: #f8f4ee;
   }
   .benefits {
     padding: 17px 5%;
@@ -2987,6 +3005,14 @@ footer {
     right: max(16px, env(safe-area-inset-right));
     bottom: max(16px, env(safe-area-inset-bottom));
     gap: 10px;
+  }
+  .floating-socials a {
+    width: 48px;
+    height: 48px;
+  }
+  .floating-socials .icon {
+    width: 24px;
+    height: 24px;
   }
   .product-actions {
     gap: 6px;

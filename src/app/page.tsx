@@ -32,8 +32,8 @@ export default function HomePage() {
           <Link className="btn" href="/shop">
             Discover the collection <Icon name="arrow-up-right" />
           </Link>
+          <div className="hero-counter">Silk, in its finest form</div>
         </div>
-        <div className="hero-counter">Silk, in its finest form</div>
       </section>
 
       <div className="benefits">
