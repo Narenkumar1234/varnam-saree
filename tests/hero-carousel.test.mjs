@@ -151,6 +151,23 @@ test('hero caption sits in the left copy column and the copy has a readability w
   expect(caption).toBeLessThan(copyEnd);
 
   const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
-  expect(css).toContain('@media (min-width: 701px) {\n  .hero-carousel::after');
+  expect(css).toContain('@media (min-width: 1101px) {\n  .hero-carousel::after');
   expect(css).not.toMatch(/\.hero-counter \{\s*position: absolute;/);
+});
+
+test('tablet hero stacks like phone with no wash, phone caption aligns left', () => {
+  const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
+  const tabletStart = css.indexOf('@media (min-width: 701px) and (max-width: 1100px) {\n  .hero {');
+  expect(tabletStart).toBeGreaterThan(-1);
+  const tablet = css.slice(tabletStart, css.indexOf('\n}\n', tabletStart));
+  expect(tablet).toContain('flex-direction: column;');
+  expect(tablet).toContain('position: relative;');
+  expect(tablet).not.toContain('::after');
+  // No wash rule anywhere targets the tablet range
+  expect(css).not.toMatch(/@media \(min-width: 701px\)[^{]*\{\s*\.hero-carousel::after/);
+
+  const phoneCounter = css.match(/@media \(max-width: 700px\)[\s\S]*?\.hero-counter \{([^}]*)\}/);
+  expect(phoneCounter).not.toBeNull();
+  expect(phoneCounter[1]).toContain('text-align: left;');
+  expect(phoneCounter[1]).not.toContain('text-align: center;');
 });
