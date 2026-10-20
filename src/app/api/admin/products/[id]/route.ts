@@ -4,6 +4,7 @@ import { products } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { requireAdminSession } from '@/lib/admin-session';
 import { productInteger } from '@/lib/product-input';
+import { normalizeImageUrl } from '@/lib/image-url';
 
 export async function PATCH(
   req: NextRequest,
@@ -51,16 +52,25 @@ export async function PATCH(
     if (body.images !== undefined) {
       let cleanImages: string[] = [];
       if (Array.isArray(body.images)) {
-        cleanImages = body.images.filter((img: any) => typeof img === 'string' && img.trim().length > 0 && !img.trim().startsWith('blob:')).slice(0, 3);
+        cleanImages = body.images
+          .map((img: any) => typeof img === 'string' ? normalizeImageUrl(img) : null)
+          .filter((img: string | null): img is string => img !== null)
+          .slice(0, 3);
       } else if (typeof body.images === 'string' && body.images.trim().length > 0) {
         try {
           if (body.images.trim().startsWith('[')) {
             const parsed = JSON.parse(body.images);
             if (Array.isArray(parsed)) {
-              cleanImages = parsed.filter((img: any) => typeof img === 'string' && img.trim().length > 0 && !img.trim().startsWith('blob:')).slice(0, 3);
+              cleanImages = parsed
+                .map((img: any) => typeof img === 'string' ? normalizeImageUrl(img) : null)
+                .filter((img: string | null): img is string => img !== null)
+                .slice(0, 3);
             }
           } else {
-            cleanImages = body.images.split(',').map((s: string) => s.trim()).filter((s: string) => Boolean(s) && !s.startsWith('blob:')).slice(0, 3);
+            cleanImages = body.images.split(',')
+              .map((s: string) => normalizeImageUrl(s.trim()))
+              .filter((s: string | null): s is string => s !== null)
+              .slice(0, 3);
           }
         } catch {
           cleanImages = [];
@@ -80,7 +90,9 @@ export async function PATCH(
             name: String(v.name || v.colour || '').trim(),
             colour: String(v.colour || v.name || '').trim(),
             images: Array.isArray(v.images)
-              ? v.images.filter((img: any) => typeof img === 'string' && img.trim().length > 0 && !img.trim().startsWith('blob:')).slice(0, 3)
+              ? v.images.map((img: any) => typeof img === 'string' ? normalizeImageUrl(img) : null)
+                  .filter((img: string | null): img is string => img !== null)
+                  .slice(0, 3)
               : [],
           }));
       } else if (typeof body.variants === 'string' && body.variants.trim().length > 0) {
@@ -93,7 +105,9 @@ export async function PATCH(
                 name: String(v.name || v.colour || '').trim(),
                 colour: String(v.colour || v.name || '').trim(),
                 images: Array.isArray(v.images)
-                  ? v.images.filter((img: any) => typeof img === 'string' && img.trim().length > 0 && !img.trim().startsWith('blob:')).slice(0, 3)
+                  ? v.images.map((img: any) => typeof img === 'string' ? normalizeImageUrl(img) : null)
+                      .filter((img: string | null): img is string => img !== null)
+                      .slice(0, 3)
                   : [],
               }));
           }
@@ -108,7 +122,10 @@ export async function PATCH(
     if (body.collection !== undefined) updateData.collection = body.collection;
     if (body.colour !== undefined) updateData.colour = typeof body.colour === 'string' ? body.colour.trim() : body.colour;
     if (body.tag !== undefined) updateData.tag = body.tag;
-    if (body.image !== undefined && typeof body.image === 'string' && !body.image.trim().startsWith('blob:')) updateData.image = body.image.trim();
+    if (body.image !== undefined && typeof body.image === 'string') {
+      const normalized = normalizeImageUrl(body.image);
+      if (normalized) updateData.image = normalized;
+    }
     if (body.description !== undefined) updateData.description = body.description;
 
     const updated = await db

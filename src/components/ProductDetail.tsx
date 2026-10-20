@@ -11,6 +11,7 @@ import { ProductCard } from '@/components/ProductCard';
 import { Icon } from '@/components/Icons';
 import { ProductPrice } from '@/components/ProductPrice';
 import { getProductQuantityLimit } from '@/lib/product-quantity';
+import { needsUnoptimized } from '@/lib/image-loader';
 
 export default function ProductDetail({ id }: { id: string }) {
   const router = useRouter();
@@ -110,6 +111,7 @@ export default function ProductDetail({ id }: { id: string }) {
                 priority
                 sizes="(max-width: 700px) 100vw, 50vw"
                 style={{ objectFit: 'cover' }}
+                unoptimized={needsUnoptimized(selectedImage || product.image)}
               />
             </div>
 
@@ -154,6 +156,7 @@ export default function ProductDetail({ id }: { id: string }) {
                         fill
                         sizes="74px"
                         style={{ objectFit: 'cover' }}
+                        unoptimized={needsUnoptimized(img)}
                       />
                     </button>
                   );

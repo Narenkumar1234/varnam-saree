@@ -4,6 +4,7 @@ import { products } from '@/db/schema';
 import { desc } from 'drizzle-orm';
 import { requireAdminSession } from '@/lib/admin-session';
 import { productInteger } from '@/lib/product-input';
+import { normalizeImageUrl, rejectTemporaryUrls } from '@/lib/image-url';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,22 +51,31 @@ export async function POST(req: NextRequest) {
 
     let cleanImages: string[] = [];
     if (Array.isArray(images)) {
-      cleanImages = images.filter((img) => typeof img === 'string' && img.trim().length > 0 && !img.trim().startsWith('blob:')).slice(0, 3);
+      cleanImages = images
+        .map((img) => typeof img === 'string' ? normalizeImageUrl(img) : null)
+        .filter((img: string | null): img is string => img !== null)
+        .slice(0, 3);
     } else if (typeof images === 'string' && images.trim().length > 0) {
       try {
         if (images.trim().startsWith('[')) {
           const parsed = JSON.parse(images);
           if (Array.isArray(parsed)) {
-            cleanImages = parsed.filter((img) => typeof img === 'string' && img.trim().length > 0 && !img.trim().startsWith('blob:')).slice(0, 3);
+            cleanImages = parsed
+              .map((img) => typeof img === 'string' ? normalizeImageUrl(img) : null)
+              .filter((img: string | null): img is string => img !== null)
+              .slice(0, 3);
           }
         } else {
-          cleanImages = images.split(',').map((s) => s.trim()).filter((s) => Boolean(s) && !s.startsWith('blob:')).slice(0, 3);
+          cleanImages = images.split(',')
+            .map((s) => normalizeImageUrl(s.trim()))
+            .filter((s: string | null): s is string => s !== null)
+            .slice(0, 3);
         }
       } catch {
         cleanImages = [];
       }
     }
-    const safeImage = (typeof image === 'string' && !image.trim().startsWith('blob:')) ? image.trim() : null;
+    const safeImage = typeof image === 'string' ? normalizeImageUrl(image) : null;
     const primaryImage = cleanImages[0] || safeImage || '/assets/saree-emerald.webp';
     if (cleanImages.length === 0 && primaryImage) {
       cleanImages = [primaryImage];
@@ -79,7 +89,9 @@ export async function POST(req: NextRequest) {
           name: String(v.name || v.colour || '').trim(),
           colour: String(v.colour || v.name || '').trim(),
           images: Array.isArray(v.images)
-            ? v.images.filter((img: any) => typeof img === 'string' && img.trim().length > 0 && !img.trim().startsWith('blob:')).slice(0, 3)
+            ? v.images.map((img: any) => typeof img === 'string' ? normalizeImageUrl(img) : null)
+                .filter((img: string | null): img is string => img !== null)
+                .slice(0, 3)
             : [],
         }));
     } else if (typeof body.variants === 'string' && body.variants.trim().length > 0) {
@@ -92,7 +104,9 @@ export async function POST(req: NextRequest) {
               name: String(v.name || v.colour || '').trim(),
               colour: String(v.colour || v.name || '').trim(),
               images: Array.isArray(v.images)
-                ? v.images.filter((img: any) => typeof img === 'string' && img.trim().length > 0 && !img.trim().startsWith('blob:')).slice(0, 3)
+                ? v.images.map((img: any) => typeof img === 'string' ? normalizeImageUrl(img) : null)
+                    .filter((img: string | null): img is string => img !== null)
+                    .slice(0, 3)
                 : [],
             }));
         }
