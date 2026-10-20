@@ -75,7 +75,6 @@ test.each([
   ['auth/unauthorized-domain', 'CUSTOMER_AUTH_UNAUTHORIZED_DOMAIN'],
   ['auth/operation-not-allowed', 'CUSTOMER_AUTH_PROVIDER_DISABLED'],
   ['auth/popup-blocked', 'CUSTOMER_AUTH_POPUP_BLOCKED'],
-  ['auth/popup-closed-by-user', 'CUSTOMER_AUTH_POPUP_CLOSED'],
   ['auth/network-request-failed', 'CUSTOMER_AUTH_NETWORK'],
 ])('popup %s surfaces the real safe reason and never offers verification without a Firebase user', async (code, expected) => {
   const h = harness(); h.flags.popupError = { code, message: 'TOKEN_AND_SECRET_MUST_NOT_BE_RENDERED' };
@@ -85,6 +84,44 @@ test.each([
   expect(h.requests).toHaveLength(0);
   expect(JSON.stringify(h.controller.getState())).not.toContain('TOKEN_AND_SECRET');
   h.stop();
+});
+
+test.each([
+  'auth/popup-closed-by-user',
+  'auth/cancelled-popup-request',
+  'auth/user-cancelled',
+])('popup %s resets button without error (user cancelled)', async (code) => {
+  const h = harness(); h.flags.popupError = { code, message: 'TOKEN_AND_SECRET_MUST_NOT_BE_RENDERED' };
+  await h.controller.signIn();
+  expect(h.controller.getState().error).toBeNull();
+  expect(h.controller.getState().signingIn).toBe(false);
+  expect(h.controller.getState().canRetryVerification).toBe(false);
+  expect(h.requests).toHaveLength(0);
+  h.stop();
+});
+
+test('signIn is safe without window and attaches a focus listener when window exists', async () => {
+  expect(typeof window).toBe('undefined');
+  const withoutWindow = harness();
+  await withoutWindow.controller.signIn();
+  expect(withoutWindow.controller.getState().phase).toBe('signed-in');
+  withoutWindow.stop();
+
+  const listeners = new Map();
+  globalThis.window = {
+    addEventListener(type, fn) { listeners.set(type, fn); },
+    removeEventListener(type, fn) { if (listeners.get(type) === fn) listeners.delete(type); },
+  };
+  try {
+    const withWindow = harness();
+    const pending = withWindow.controller.signIn();
+    expect(typeof listeners.get('focus')).toBe('function');
+    await pending;
+    expect(listeners.has('focus')).toBe(false);
+    withWindow.stop();
+  } finally {
+    delete globalThis.window;
+  }
 });
 
 test.each(['CUSTOMER_AUTH_NOT_CONFIGURED', 'CUSTOMER_AUTH_INVALID_CREDENTIALS', 'CUSTOMER_AUTH_PROJECT_MISMATCH'])('sync %s stays signed out with a distinct retryable explanation', async (code) => {

@@ -116,16 +116,50 @@ export function createCustomerAccount(deps: CustomerAccountDependencies, notify:
     if (!active || state.signingIn) return;
     const attempt = ++action;
     publish({ signingIn: true, error: null, ordersError: null });
+    
+    // Timeout to reset signingIn if popup never settles (60s)
+    const timeout = setTimeout(() => {
+      if (active && attempt === action && state.signingIn) {
+        publish({ signingIn: false });
+      }
+    }, 60000);
+    
+    // Reset on window focus if popup closed without resolving (browser only).
+    const resetOnFocus = () => {
+      if (typeof window === 'undefined') return;
+      if (active && attempt === action && state.signingIn) {
+        publish({ signingIn: false });
+        window.removeEventListener('focus', resetOnFocus);
+      }
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', resetOnFocus);
+    }
+    
     try {
       // Invoke popup synchronously from the click; do not await persistence or a
       // network preflight first, which would lose the browser's user gesture.
       const result = await deps.popup();
+      clearTimeout(timeout);
+      if (typeof window !== 'undefined') window.removeEventListener('focus', resetOnFocus);
       if (active && attempt === action) await verify(result.user);
     } catch (error) {
+      clearTimeout(timeout);
+      if (typeof window !== 'undefined') window.removeEventListener('focus', resetOnFocus);
       if (active && attempt === action && !state.profile) {
-        publish({ phase: 'signed-out', error: mapCustomerAuthError(error), canRetryVerification: Boolean(deps.currentUser()) });
+        const code = error && typeof error === 'object' ? (error as { code?: unknown }).code : undefined;
+        // Don't show error message for user-cancelled popups
+        if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request' || code === 'auth/user-cancelled') {
+          publish({ phase: 'signed-out', error: null, canRetryVerification: Boolean(deps.currentUser()) });
+        } else {
+          publish({ phase: 'signed-out', error: mapCustomerAuthError(error), canRetryVerification: Boolean(deps.currentUser()) });
+        }
       }
-    } finally { if (active && attempt === action) publish({ signingIn: false }); }
+    } finally { 
+      clearTimeout(timeout);
+      if (typeof window !== 'undefined') window.removeEventListener('focus', resetOnFocus);
+      if (active && attempt === action) publish({ signingIn: false }); 
+    }
   };
   const logOut = async () => {
     action++; revision++; pending?.abort(); inFlight = null;

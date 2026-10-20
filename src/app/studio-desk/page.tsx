@@ -269,8 +269,8 @@ export default function StudioDeskPage() {
     colour: '',
     stock: 0,
     tag: '',
-    image: '/assets/saree-emerald.webp',
-    images: ['/assets/saree-emerald.webp'] as string[],
+    image: '',
+    images: [] as string[],
     variants: [] as AdminProductVariant[],
     description: '',
   });
@@ -288,6 +288,14 @@ export default function StudioDeskPage() {
       return 'Please upload the file or paste a permanent image URL. Browser previews (blob: or data:) cannot be saved.';
     }
     return null;
+  };
+
+  const hasInvalidImageUrls = (images: string[], variants: AdminProductVariant[]): boolean => {
+    const allImages = [...images];
+    for (const variant of variants) {
+      allImages.push(...(variant.images || []));
+    }
+    return allImages.some(img => img.trim().startsWith('blob:') || img.trim().startsWith('data:'));
   };
 
   const compressImage = async (file: File): Promise<File> => {
@@ -646,22 +654,21 @@ export default function StudioDeskPage() {
       showToast('Please wait for photo upload to finish.');
       return;
     }
-    const hasBlob = (editingProduct.images || []).some((img) => img.startsWith('blob:'))
-      || (editingProduct.variants || []).some((v) => (v.images || []).some((img) => img.startsWith('blob:')));
-    if (hasBlob) {
-      showToast('Photo upload contains an invalid preview. Please re-upload before saving.');
+    if (hasInvalidImageUrls(editingProduct.images || [editingProduct.image || ''], editingProduct.variants || [])) {
+      setUploadError('Please upload the file or paste a permanent image URL. Browser previews (blob: or data:) cannot be saved.');
+      showToast('Please upload the file or paste a permanent image URL. Browser previews (blob: or data:) cannot be saved.');
       return;
     }
 
     setIsSavingEdit(true);
     try {
       const cleanImages = (editingProduct.images && editingProduct.images.length > 0)
-        ? editingProduct.images.filter((img) => !img.startsWith('blob:')).slice(0, 3)
-        : (editingProduct.image && !editingProduct.image.startsWith('blob:') ? [editingProduct.image] : []);
+        ? editingProduct.images.filter((img) => !img.startsWith('blob:') && !img.startsWith('data:')).slice(0, 3)
+        : (editingProduct.image && !editingProduct.image.startsWith('blob:') && !editingProduct.image.startsWith('data:') ? [editingProduct.image] : []);
       const cleanVariants = (editingProduct.variants || []).map((v) => ({
         name: v.name.trim(),
         colour: (v.colour || v.name).trim(),
-        images: (v.images || []).filter((img) => !img.startsWith('blob:')).slice(0, 3),
+        images: (v.images || []).filter((img) => !img.startsWith('blob:') && !img.startsWith('data:')).slice(0, 3),
       })).filter((v) => v.name.length > 0);
       const payload = {
         ...editingProduct,
@@ -728,22 +735,21 @@ export default function StudioDeskPage() {
       showToast('Please wait for photo upload to finish.');
       return;
     }
-    const hasBlob = (newSaree.images || []).some((img) => img.startsWith('blob:'))
-      || (newSaree.variants || []).some((v) => (v.images || []).some((img) => img.startsWith('blob:')));
-    if (hasBlob) {
-      showToast('Photo upload contains an invalid preview. Please re-upload before saving.');
+    if (hasInvalidImageUrls([...(newSaree.images || []), newSaree.image].filter(Boolean), newSaree.variants || [])) {
+      setUploadError('Please upload the file or paste a permanent image URL. Browser previews (blob: or data:) cannot be saved.');
+      showToast('Please upload the file or paste a permanent image URL. Browser previews (blob: or data:) cannot be saved.');
       return;
     }
 
     setIsAddingProduct(true);
     try {
       const cleanImages = (newSaree.images && newSaree.images.length > 0)
-        ? newSaree.images.filter((img) => !img.startsWith('blob:')).slice(0, 3)
-        : (newSaree.image && !newSaree.image.startsWith('blob:') ? [newSaree.image] : []);
+        ? newSaree.images.filter((img) => !img.startsWith('blob:') && !img.startsWith('data:')).slice(0, 3)
+        : (newSaree.image && !newSaree.image.startsWith('blob:') && !newSaree.image.startsWith('data:') ? [newSaree.image] : []);
       const cleanVariants = (newSaree.variants || []).map((v) => ({
         name: v.name.trim(),
         colour: (v.colour || v.name).trim(),
-        images: (v.images || []).filter((img) => !img.startsWith('blob:')).slice(0, 3),
+        images: (v.images || []).filter((img) => !img.startsWith('blob:') && !img.startsWith('data:')).slice(0, 3),
       })).filter((v) => v.name.length > 0);
       const payload = {
         ...newSaree,
@@ -778,8 +784,8 @@ export default function StudioDeskPage() {
           colour: '',
           stock: 0,
           tag: '',
-          image: '/assets/saree-emerald.webp',
-          images: ['/assets/saree-emerald.webp'],
+          image: '',
+          images: [],
           variants: [],
           description: '',
         });
