@@ -63,7 +63,6 @@ export function createProductWhatsAppMessage(
     ...(product.type ? [`Fabric: ${product.type}`] : []),
     ...(product.collection ? [`Collection: ${product.collection}`] : []),
     ...(product.colour ? [`Colour: ${capitalizeColour(product.colour)}`] : []),
-    `Finishing: ${options.finish || 'Unstitched blouse · included'}`,
     `Unit price: ${money(product.price)}`,
   ];
   if (options.pricing) {
@@ -102,7 +101,6 @@ export function createSavedOrderWhatsAppMessage(
     lines.push(`${item.name || product?.name || `Saree #${item.id}`} × ${item.qty}`);
     if (item.unitPrice !== undefined) lines.push(`  Unit price: ${money(item.unitPrice)}`);
     else if (product) lines.push(`  Current listed unit price: ${money(product.price)} (please confirm)`);
-    if (item.finish) lines.push(`  Finishing: ${item.finish}`);
     if (item.total !== undefined) lines.push(`  Line total: ${money(item.total)}`);
   }
   if (order.pricing) {

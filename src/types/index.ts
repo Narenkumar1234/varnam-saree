@@ -24,7 +24,8 @@ export interface Product {
 export interface CartItem {
   id: number;
   qty: number;
-  finish: string;
+  /** Legacy blouse/finishing field. Ignored for new orders; kept so old bags still load. */
+  finish?: string;
 }
 
 export interface Order {

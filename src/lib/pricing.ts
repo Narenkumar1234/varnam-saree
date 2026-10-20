@@ -28,7 +28,7 @@ export function quoteFromCatalogue(items: CartItem[], code: string | null | unde
     return {
       id: product.id,
       qty: item.qty,
-      finish: typeof item.finish === 'string' ? item.finish : 'Unstitched blouse · included',
+      ...(typeof item.finish === 'string' ? { finish: item.finish } : {}),
       name: product.name,
       unitPrice: product.price,
       subtotal,
@@ -81,7 +81,14 @@ export function parseOrderItems(input: unknown): CartItem[] {
   )) {
     throw new OrderPricingError('Add at least one valid saree to your bag before ordering.');
   }
-  return input.map((item) => ({ id: item.id, qty: item.qty, finish: item.finish }));
+  return input.map((item) => sanitizeLineItem({ id: item.id, qty: item.qty, finish: item.finish }));
+}
+
+/** Keep string finishing from old bags/orders; drop objects/numbers so the UI cannot crash. */
+export function sanitizeLineItem<T extends { finish?: unknown }>(item: T): T & { finish?: string } {
+  if (typeof item.finish === 'string') return item as T & { finish?: string };
+  const { finish: _ignored, ...rest } = item;
+  return rest as T & { finish?: string };
 }
 
 // Keep the price at purchase time in the existing JSON column; no schema migration is needed.
@@ -93,9 +100,9 @@ export function readOrderSnapshot(json: string): { items: OrderItem[]; pricing?:
   try {
     const stored = JSON.parse(json);
     // Orders created before coupon support stored only an array of items.
-    if (Array.isArray(stored)) return { items: stored };
+    if (Array.isArray(stored)) return { items: stored.map(sanitizeLineItem) };
     if (stored && Array.isArray(stored.items)) {
-      return { items: stored.items, pricing: stored.pricing, ...(stored.payment ? { payment: stored.payment } : {}) };
+      return { items: stored.items.map(sanitizeLineItem), pricing: stored.pricing, ...(stored.payment ? { payment: stored.payment } : {}) };
     }
   } catch {
     // A malformed legacy record should not prevent the order list from loading.

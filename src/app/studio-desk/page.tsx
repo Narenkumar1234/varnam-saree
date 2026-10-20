@@ -14,6 +14,7 @@ import { StudioCommerce } from '@/components/StudioCommerce';
 import { createSavedOrderWhatsAppMessage } from '@/lib/whatsapp';
 import { useStore } from '@/context/store-context';
 import { needsUnoptimized } from '@/lib/image-loader';
+import { getProductCoverImage } from '@/lib/product-gallery';
 
 type AdminProductVariant = { name: string; colour?: string; images: string[] };
 type AdminProduct = Omit<Product, 'stock' | 'tag'> & {
@@ -1044,13 +1045,14 @@ export default function StudioDeskPage() {
                   {products.map((p) => {
                     const isSoldOut = p.stock <= 0;
                     const isLow = p.stock > 0 && p.stock <= 2;
+                    const cover = getProductCoverImage({ image: p.image, images: parseProductImages(p.images, p.image) });
 
                     return (
                       <tr key={p.id}>
                         <td>
                           <div className="admin-prod-cell">
                             <div className="admin-thumb">
-                              <Image src={p.image} alt={p.name} fill sizes="48px" style={{ objectFit: 'cover' }} unoptimized={needsUnoptimized(p.image)} />
+                              <Image src={cover} alt={p.name} fill sizes="48px" style={{ objectFit: 'cover' }} unoptimized={needsUnoptimized(cover)} />
                             </div>
                             <div>
                               <strong>{p.name}</strong>
@@ -1608,7 +1610,6 @@ export default function StudioDeskPage() {
                             {parsedItems.map((item, idx) => (
                               <div key={idx} style={{ marginBottom: '4px' }}>
                                 Product #{item.id} × {item.qty}
-                                {item.finish && <span className="muted" style={{ fontSize: '10px' }}> ({item.finish})</span>}
                               </div>
                             ))}
                           </div>

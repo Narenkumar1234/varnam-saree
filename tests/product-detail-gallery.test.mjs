@@ -114,6 +114,8 @@ test('ProductDetail thumbs and main image share the gallery builder and selected
   expect(src).toContain('const isCurrent = idx === currentImageIndex');
   expect(src).toContain('key={currentImage}');
   expect(src).toContain('src={currentImage}');
+  expect(src).toContain('loader={imageLoader}');
+  expect(src).toContain('PINCODE_PATTERN_MESSAGE');
   expect(src).not.toContain('galleryKey');
   expect(src).not.toContain('setSelectedImage(');
 });
@@ -166,4 +168,25 @@ test('rendered gallery uses one array: main image is index 0 and thumbs stay in 
   expect(markup).toContain('aria-selected="true"');
   expect(markup).toContain('View photo 1 of QA gallery saree');
   expect(markup).toContain('View photo 3 of QA gallery saree');
+  expect(markup).toContain('Includes unstitched blouse piece');
+  expect(markup).not.toContain('Choose finishing');
+});
+
+test('desktop gallery places a vertical thumbnail rail to the right of the main image', () => {
+  const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
+  const src = readFileSync(new URL('../src/components/ProductDetail.tsx', import.meta.url), 'utf8');
+  expect(src).toContain('product-gallery-stage');
+  expect(src).toContain('gallery-thumbnails');
+  expect(src).toContain('product-gallery-main');
+  expect(css).toContain('aspect-ratio: 4 / 5');
+  expect(css).toMatch(/@media \(min-width: 768px\)[\s\S]*\.product-gallery-stage:has\(\.gallery-thumbnails\)[\s\S]*grid-template-columns: minmax\(0, 1fr\) 72px/);
+  expect(css).toMatch(/@media \(min-width: 768px\)[\s\S]*flex-direction: column/);
+  expect(css).toMatch(/@media \(min-width: 768px\)[\s\S]*overflow-y: auto/);
+});
+
+test('mobile gallery keeps a compact horizontal thumbnail row that cannot overflow', () => {
+  const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
+  expect(css).toContain('flex-direction: row');
+  expect(css).toContain('overflow-x: auto');
+  expect(css).toContain('max-width: 100%');
 });
