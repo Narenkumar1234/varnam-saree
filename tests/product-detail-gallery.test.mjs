@@ -119,6 +119,7 @@ test('ProductDetail thumbs and main image share the gallery builder and selected
   expect(src).toContain('key={currentImage}');
   expect(src).toContain('src={currentImage}');
   expect(src).toContain('loader={imageLoader}');
+  expect(src).toContain('<QuantityStepper');
   expect(src).toContain('PINCODE_PATTERN_MESSAGE');
   expect(src).not.toContain('galleryKey');
   expect(src).not.toContain('setSelectedImage(');

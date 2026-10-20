@@ -1,4 +1,5 @@
-import type { Product } from '@/types';
+import type { Product, ProductVariant } from '@/types';
+import { resolveDisplayImageUrl } from '@/lib/image-url';
 
 /** Used when a product has no usable gallery or main image. */
 export const PRODUCT_IMAGE_PLACEHOLDER = '/assets/saree-emerald.webp';
@@ -13,17 +14,22 @@ type ImageLike = {
   order?: unknown;
 };
 
+type VariantImageSource = Pick<ProductVariant, 'images'> & {
+  image?: string | null;
+  imageUrl?: string | null;
+};
+
 export type GalleryProduct = Pick<Product, 'image'> & {
   images?: Product['images'] | unknown;
   imageUrl?: string | null;
-  variants?: Product['variants'] | null;
+  variants?: Array<VariantImageSource> | null;
 };
 
 export function uniqueImageUrls(urls: Array<string | null | undefined>): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
   for (const raw of urls) {
-    const url = typeof raw === 'string' ? raw.trim() : '';
+    const url = usableUrl(raw);
     if (!url || seen.has(url)) continue;
     seen.add(url);
     result.push(url);
@@ -33,9 +39,7 @@ export function uniqueImageUrls(urls: Array<string | null | undefined>): string[
 
 function usableUrl(value: unknown): string | null {
   if (typeof value !== 'string') return null;
-  const url = value.trim();
-  if (!url || url.startsWith('blob:') || url.startsWith('data:')) return null;
-  return url;
+  return resolveDisplayImageUrl(value);
 }
 
 function sortValue(value: unknown, fallback: number): number {
@@ -115,7 +119,7 @@ export function buildProductGalleryImages(
 
   const variants = product.variants ?? [];
   const activeVariant = variants[selectedVariantIndex] ?? variants[0];
-  const variantImages = uniqueImageUrls(activeVariant?.images ?? []);
+  const variantImages = variantImageUrls(activeVariant);
   const mainImages = mainProductImages(product);
 
   if (variants.length > 0 && variantImages.length > 0) {
@@ -145,4 +149,27 @@ export function getProductCoverImage(product: GalleryProduct | null | undefined)
     || usableUrl(product?.image)
     || usableUrl(product?.imageUrl)
     || PRODUCT_IMAGE_PLACEHOLDER;
+}
+
+function variantImageUrls(variant: VariantImageSource | null | undefined): string[] {
+  if (!variant) return [];
+  return uniqueImageUrls([
+    ...listedImageUrls(variant.images),
+    variant.image,
+    variant.imageUrl,
+  ]);
+}
+
+/**
+ * Cart / mini-cart thumbnail: first usable colour-variant photo, then the
+ * product cover (first Studio photo / main image / placeholder).
+ */
+export function getCartLineImage(
+  product: GalleryProduct | null | undefined,
+  selectedVariantIndex = 0,
+): string {
+  if (!product) return PRODUCT_IMAGE_PLACEHOLDER;
+  const variants = product.variants ?? [];
+  const activeVariant = variants[selectedVariantIndex] ?? variants[0];
+  return variantImageUrls(activeVariant)[0] || getProductCoverImage(product);
 }

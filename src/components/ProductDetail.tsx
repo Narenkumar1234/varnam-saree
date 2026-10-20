@@ -13,6 +13,7 @@ import { ProductPrice } from '@/components/ProductPrice';
 import { PINCODE_PATTERN, PINCODE_PATTERN_MESSAGE } from '@/lib/address-validation';
 import { getProductQuantityLimit } from '@/lib/product-quantity';
 import { imageLoader, needsUnoptimized } from '@/lib/image-loader';
+import { QuantityStepper } from '@/components/QuantityStepper';
 import { buildProductGalleryImages, clampGalleryIndex } from '@/lib/product-gallery';
 
 export default function ProductDetail({ id }: { id: string }) {
@@ -202,20 +203,15 @@ export default function ProductDetail({ id }: { id: string }) {
             <p className="blouse-note">Includes unstitched blouse piece</p>
 
             <div className="buy-row">
-              <div className="qty">
-                <button
-                  type="button"
-                  aria-label="Decrease quantity"
-                  disabled={soldOut || qty <= 1}
-                  onClick={() => setQty(Math.max(1, qty - 1))}
-                >
-                  <Icon name="minus" />
-                </button>
-                <span id="pqty">{soldOut ? 0 : qty}</span>
-                <button type="button" aria-label="Increase quantity" disabled={soldOut || qty >= quantityLimit} onClick={() => setQty((current) => Math.min(current + 1, quantityLimit))}>
-                  <Icon name="plus" />
-                </button>
-              </div>
+              <QuantityStepper
+                value={soldOut ? 0 : qty}
+                valueId="pqty"
+                onDecrease={() => setQty(Math.max(1, qty - 1))}
+                onIncrease={() => setQty((current) => Math.min(current + 1, quantityLimit))}
+                decreaseDisabled={soldOut || qty <= 1}
+                increaseDisabled={soldOut || qty >= quantityLimit}
+                aria-label={`Quantity of ${product.name}`}
+              />
 
               <button
                 className="btn add-bag-btn"

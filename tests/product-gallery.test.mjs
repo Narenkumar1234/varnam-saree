@@ -4,8 +4,10 @@ import {
   PRODUCT_IMAGE_PLACEHOLDER,
   buildProductGalleryImages,
   clampGalleryIndex,
+  getCartLineImage,
   getProductCoverImage,
   normalizeProductImages,
+  uniqueImageUrls,
 } from '../src/lib/product-gallery.ts';
 
 const product = {
@@ -47,6 +49,39 @@ test('cover image ignores colour-variant photos (no variant selected)', () => {
   expect(getProductCoverImage(withVariants)).toBe('/first.webp');
 });
 
+test('getCartLineImage prefers a usable colour-variant photo, then the cover', () => {
+  const withVariants = {
+    ...product,
+    image: '/stale-main.webp',
+    variants: [
+      { name: 'Maroon', colour: 'Maroon', images: ['assets/maroon.webp', 'blob:http://localhost/x'] },
+      { name: 'Gold', colour: 'Gold', images: ['/gold.webp'] },
+    ],
+  };
+  expect(getCartLineImage(withVariants, 0)).toBe('/assets/maroon.webp');
+  expect(getCartLineImage(withVariants, 1)).toBe('/gold.webp');
+  expect(getCartLineImage({
+    ...product,
+    variants: [{ name: 'Maroon', images: ['blob:http://localhost/x'] }],
+  })).toBe('/first.webp');
+  expect(getCartLineImage({
+    image: '/only.webp',
+    variants: [{ name: 'Maroon', image: 'https://drive.google.com/file/d/variantDriveId/view' }],
+  })).toBe('https://lh3.googleusercontent.com/d/variantDriveId');
+  expect(getCartLineImage(null)).toBe(PRODUCT_IMAGE_PLACEHOLDER);
+});
+
+test('uniqueImageUrls rewrites Drive links and root-relative paths', () => {
+  expect(uniqueImageUrls([
+    'assets/maroon.webp',
+    'https://drive.google.com/file/d/abc123/view?usp=sharing',
+    'blob:http://localhost/x',
+  ])).toEqual([
+    '/assets/maroon.webp',
+    'https://lh3.googleusercontent.com/d/abc123',
+  ]);
+});
+
 test('buildProductGalleryImages prepends a selected variant, then the main image list', () => {
   expect(buildProductGalleryImages(product)).toEqual(['/main.webp', '/first.webp', '/second.webp', '/third.webp']);
   expect(buildProductGalleryImages({ image: '/only.webp' })).toEqual(['/only.webp']);
@@ -70,7 +105,7 @@ test('clampGalleryIndex keeps a clickable index inside the current gallery', () 
   expect(clampGalleryIndex(0, 0)).toBe(0);
 });
 
-test('listing cards, cart, related products and Studio thumbs share getProductCoverImage', () => {
+test('listing cards, cart, related products and Studio thumbs share cover helpers', () => {
   const card = readFileSync(new URL('../src/components/ProductCard.tsx', import.meta.url), 'utf8');
   const detail = readFileSync(new URL('../src/components/ProductDetail.tsx', import.meta.url), 'utf8');
   const cart = readFileSync(new URL('../src/app/cart/page.tsx', import.meta.url), 'utf8');
@@ -78,6 +113,8 @@ test('listing cards, cart, related products and Studio thumbs share getProductCo
   expect(card).toContain('getProductCoverImage');
   expect(card).not.toMatch(/src=\{product\.image\}/);
   expect(detail).toContain('<ProductCard');
-  expect(cart).toContain('getProductCoverImage');
+  expect(cart).toContain('getCartLineImage');
+  expect(cart).toContain('ProductThumb');
+  expect(cart).toContain('QuantityStepper');
   expect(studio).toContain('getProductCoverImage');
 });
