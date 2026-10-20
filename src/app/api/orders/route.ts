@@ -10,6 +10,8 @@ import { requireAdminSession } from '@/lib/admin-session';
 import { requireCustomerIdentity, customerAuthFailure, customerPrivateHeaders, CustomerAuthError } from '@/lib/customer-auth-server';
 import { localDemoModeEnabled } from '@/lib/local-demo-mode';
 import { notifyAdminsOfOrder } from '@/lib/telegram';
+import { getCatalogue } from '@/lib/catalogue-server';
+import { withLineImages } from '@/lib/order-lookup';
 
 export async function POST(req: NextRequest) {
   try {
@@ -136,13 +138,18 @@ export async function GET(req: NextRequest) {
       result = await db.select().from(orders).where(eq(orders.email, customer.email)).orderBy(desc(orders.createdAt));
     }
     const customerList = Boolean(email || req.headers.has('authorization'));
+    const snapshots = result.map((order) => readOrderSnapshot(order.itemsJson));
+    // Older orders have no stored thumbnail; only then load the live catalogue to fill one in.
+    const needsCatalogue = snapshots.some((snapshot) => snapshot.items.some((item) => !item.image));
+    const catalogue = needsCatalogue ? (await getCatalogue()).products : undefined;
     return NextResponse.json({
-      orders: result.map((order) => {
-        const snapshot = readOrderSnapshot(order.itemsJson);
-        if (!customerList) return { ...order, ...snapshot };
+      orders: result.map((order, index) => {
+        const snapshot = snapshots[index];
+        const resolvedItems = withLineImages(snapshot.items, catalogue);
+        if (!customerList) return { ...order, ...snapshot, items: resolvedItems };
         const { payment: storedPayment, ...safeSnapshot } = snapshot;
         const payment = publicPaymentSnapshot(storedPayment);
-        return { ...order, ...safeSnapshot, ...(payment ? { payment } : {}) };
+        return { ...order, ...safeSnapshot, items: resolvedItems, ...(payment ? { payment } : {}) };
       }),
     }, { headers: customerPrivateHeaders });
   } catch (error: any) {

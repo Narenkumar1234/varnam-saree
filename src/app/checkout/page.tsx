@@ -20,6 +20,9 @@ import { money } from '@/data/products';
 import { createWhatsAppOrderUrl } from '@/lib/whatsapp';
 import { useCustomerAccount } from '@/hooks/use-customer-account';
 import { customerAuthHeaders } from '@/lib/customer-auth-headers';
+import { ProductThumb } from '@/components/ProductThumb';
+import { resolveOrderLineImage } from '@/lib/product-gallery';
+import { capitalizeColour } from '@/lib/colour';
 
 async function razorpayRequest(endpoint: string, body: unknown) {
   const response = await fetch(`/api/payments/razorpay/${endpoint}`, {
@@ -49,6 +52,7 @@ function CheckoutContent() {
 
   const buyNowId = searchParams.get('buyNow');
   const requestedQty = Number(searchParams.get('qty') || '1');
+  const requestedVariant = searchParams.get('variant') || searchParams.get('colour');
 
   const buyNowProduct = buyNowId ? getProductById(parseInt(buyNowId, 10)) : null;
   const buyNowQty = requestedQty;
@@ -57,7 +61,7 @@ function CheckoutContent() {
 
   // Single-item direct checkout if buyNow is provided, otherwise full cart
   const checkoutItems: CartItem[] = buyNowProduct
-    ? [{ id: buyNowProduct.id, qty: buyNowQty }]
+    ? [{ id: buyNowProduct.id, qty: buyNowQty, ...(requestedVariant ? { variant: requestedVariant, colour: requestedVariant } : {}) }]
     : buyNowId ? [] : cart;
 
   const { quote: checkoutQuote, error: quoteError } = previewOrderQuote(checkoutItems, couponCode, products, commerce);
@@ -426,16 +430,35 @@ function CheckoutContent() {
 
           <aside className="summary-box">
             <h2>Your order</h2>
-            {checkoutQuote.items.map((x) => {
-              return (
-                <div key={x.id} className="summary-row">
-                  <span>
-                    {x.name} × {x.qty}
-                  </span>
-                  <OrderLinePrice item={x} />
-                </div>
-              );
-            })}
+            <div className="order-summary-items">
+              {checkoutQuote.items.map((x) => {
+                const p = getProductById(x.id);
+                const lineImage = resolveOrderLineImage(x, p);
+                const variantName = x.variant || x.colour;
+                return (
+                  <div key={x.id} className="order-summary-item">
+                    <div className="order-summary-thumb">
+                      <ProductThumb
+                        src={lineImage}
+                        alt={x.name}
+                        sizes="64px"
+                      />
+                    </div>
+                    <div className="order-summary-details">
+                      <span className="order-summary-name">
+                        {x.name} × {x.qty}
+                      </span>
+                      {variantName && (
+                        <span className="order-summary-meta muted">
+                          {capitalizeColour(variantName)}
+                        </span>
+                      )}
+                    </div>
+                    <OrderLinePrice item={x} />
+                  </div>
+                );
+              })}
+            </div>
             <OrderTotals pricing={checkoutQuote.pricing} />
             <p className="muted delivery-policy"><DeliveryPolicy includeFee /></p>
             <CouponForm disabled={isSubmitting} items={checkoutItems} />

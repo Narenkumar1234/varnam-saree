@@ -27,6 +27,9 @@ export interface CartItem {
   qty: number;
   /** Legacy blouse/finishing field. Ignored for new orders; kept so old bags still load. */
   finish?: string;
+  variant?: string;
+  colour?: string;
+  image?: string;
 }
 
 export interface Order {
@@ -61,6 +64,9 @@ export interface OrderItem extends CartItem {
   subtotal?: number;
   discountAmount?: number;
   total?: number;
+  image?: string;
+  variant?: string;
+  colour?: string;
 }
 
 export interface PricedOrderItem extends CartItem {
@@ -69,6 +75,9 @@ export interface PricedOrderItem extends CartItem {
   subtotal: number;
   discountAmount: number;
   total: number;
+  image?: string;
+  variant?: string;
+  colour?: string;
 }
 
 export interface OrderPricing {
