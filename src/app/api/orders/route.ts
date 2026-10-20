@@ -5,6 +5,7 @@ import { eq, desc } from 'drizzle-orm';
 import { calculateOrderQuote, parseOrderItems, readOrderSnapshot, serializeOrderQuote, OrderPricingError } from '@/lib/order-pricing';
 import { requireAdminSession } from '@/lib/admin-session';
 import { requireCustomerIdentity, customerAuthFailure, customerPrivateHeaders, CustomerAuthError } from '@/lib/customer-auth-server';
+import { localDemoModeEnabled } from '@/lib/local-demo-mode';
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,7 +22,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Prices have changed. Please review the updated total and place your order again.' }, { status: 409 });
     }
 
-    if (!process.env.SQL_HOST) {
+    // Opt-in local demo only (never in production): the order is NOT saved.
+    if (localDemoModeEnabled()) {
       const orderId = id || `VRN-${crypto.randomUUID()}`;
       return NextResponse.json({
         success: true,
@@ -90,7 +92,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const email = searchParams.get('email');
 
-    if (!process.env.SQL_HOST) {
+    if (localDemoModeEnabled()) {
       if (!email && !req.headers.has('authorization')) {
         const denied = requireAdminSession(req);
         if (denied) return denied;
