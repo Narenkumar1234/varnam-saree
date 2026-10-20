@@ -47,7 +47,7 @@ interface StoreContextType {
   getOrderById: (id: string) => Order | undefined;
 }
 
-const StoreContext = createContext<StoreContextType | undefined>(undefined);
+export const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
 export function StoreProvider({ children, initialProducts, initialCommerce = DEFAULT_COMMERCE }: { children: ReactNode; initialProducts: Product[]; initialCommerce?: CommerceConfig }) {
   const [whatsAppFallback, setWhatsAppFallback] = useState<{ url: string | null } | null>(null);

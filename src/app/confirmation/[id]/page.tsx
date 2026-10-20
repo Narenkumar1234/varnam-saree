@@ -11,6 +11,9 @@ import { OrderLinePrice } from '@/components/OrderLinePrice';
 import { CustomerPayment } from '@/components/CustomerPayment';
 import { isPaidPayment } from '@/lib/order-status';
 import { createWhatsAppOrderUrl } from '@/lib/whatsapp';
+import { ProductThumb } from '@/components/ProductThumb';
+import { resolveOrderLineImage } from '@/lib/product-gallery';
+import { capitalizeColour } from '@/lib/colour';
 
 function ConfirmationContent({ orderId }: { orderId: string }) {
   const searchParams = useSearchParams();
@@ -71,17 +74,36 @@ function ConfirmationContent({ orderId }: { orderId: string }) {
       )}
 
       <div className="order-card" style={{ maxWidth: '480px', margin: '30px auto', textAlign: 'left' }}>
-        {order.items.map((x) => {
-          const p = getProductById(x.id);
-          return (
-            <div key={x.id} className="summary-row">
-              <span>
-                {x.name || p?.name || 'Saree'} × {x.qty}
-              </span>
-              <OrderLinePrice item={x} />
-            </div>
-          );
-        })}
+        <div className="order-summary-items" style={{ marginBottom: '16px' }}>
+          {order.items.map((x, idx) => {
+            const p = getProductById(x.id);
+            const itemName = x.name || p?.name || 'Saree';
+            const lineImage = resolveOrderLineImage(x, p);
+            const variantName = x.variant || x.colour;
+            return (
+              <div key={x.id ? `${x.id}-${idx}` : idx} className="order-summary-item">
+                <div className="order-summary-thumb">
+                  <ProductThumb
+                    src={lineImage}
+                    alt={itemName}
+                    sizes="64px"
+                  />
+                </div>
+                <div className="order-summary-details">
+                  <span className="order-summary-name">
+                    {itemName} × {x.qty}
+                  </span>
+                  {variantName && (
+                    <span className="order-summary-meta muted">
+                      {capitalizeColour(variantName)}
+                    </span>
+                  )}
+                </div>
+                <OrderLinePrice item={x} />
+              </div>
+            );
+          })}
+        </div>
         {order.pricing ? <OrderTotals pricing={order.pricing} /> : (
           <div className="summary-row total">
             <span>Order total</span>

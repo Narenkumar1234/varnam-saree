@@ -4,7 +4,7 @@ import { DeliveryPolicy } from '@/components/DeliveryPolicy';
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { capitalizeColour, resolveColourHex } from '@/lib/colour';
 import { useStore } from '@/context/store-context';
 import { ProductCard } from '@/components/ProductCard';
@@ -14,10 +14,11 @@ import { PINCODE_PATTERN, PINCODE_PATTERN_MESSAGE } from '@/lib/address-validati
 import { getProductQuantityLimit } from '@/lib/product-quantity';
 import { imageLoader, needsUnoptimized } from '@/lib/image-loader';
 import { QuantityStepper } from '@/components/QuantityStepper';
-import { buildProductGalleryImages, clampGalleryIndex } from '@/lib/product-gallery';
+import { buildProductGalleryImages, clampGalleryIndex, resolveVariantIndex } from '@/lib/product-gallery';
 
 export default function ProductDetail({ id }: { id: string }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { products, getProductById, addToCart, wish, toggleWish, orderProductOnWhatsApp } = useStore();
   const product = getProductById(id);
   const quantityLimit = product ? getProductQuantityLimit(product) : 1;
@@ -29,11 +30,16 @@ export default function ProductDetail({ id }: { id: string }) {
   useEffect(() => { setQty((current) => Math.max(1, Math.min(current, quantityLimit))); }, [product?.id, quantityLimit]);
 
   const hasVariants = Boolean(product?.variants && product.variants.length > 0);
+  const requestedVariant = searchParams?.get('variant') || searchParams?.get('colour');
   const [selectedVariantIndex, setSelectedVariantIndex] = useState<number>(0);
 
   useEffect(() => {
-    setSelectedVariantIndex(0);
-  }, [product?.id]);
+    if (requestedVariant && product?.variants) {
+      setSelectedVariantIndex(resolveVariantIndex(product.variants, requestedVariant));
+    } else {
+      setSelectedVariantIndex(0);
+    }
+  }, [product?.id, requestedVariant]);
 
   const activeVariant = hasVariants && product?.variants ? (product.variants[selectedVariantIndex] || product.variants[0]) : null;
 
@@ -226,11 +232,12 @@ export default function ProductDetail({ id }: { id: string }) {
                 className="btn outline buy-now-btn"
                 type="button"
                 disabled={soldOut}
-                onClick={() =>
+                onClick={() => {
+                  const varParam = activeVariant?.name || activeVariant?.colour ? `&variant=${encodeURIComponent(activeVariant.name || activeVariant.colour || '')}` : '';
                   router.push(
-                    `/checkout?buyNow=${product.id}&qty=${qty}`
-                  )
-                }
+                    `/checkout?buyNow=${product.id}&qty=${qty}${varParam}`
+                  );
+                }}
               >
                 Buy now
               </button>

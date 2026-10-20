@@ -8,6 +8,8 @@ import {
   getProductCoverImage,
   normalizeProductImages,
   uniqueImageUrls,
+  resolveVariantIndex,
+  resolveOrderLineImage,
 } from '../src/lib/product-gallery.ts';
 
 const product = {
@@ -110,6 +112,11 @@ test('listing cards, cart, related products and Studio thumbs share cover helper
   const detail = readFileSync(new URL('../src/components/ProductDetail.tsx', import.meta.url), 'utf8');
   const cart = readFileSync(new URL('../src/app/cart/page.tsx', import.meta.url), 'utf8');
   const studio = readFileSync(new URL('../src/app/studio-desk/page.tsx', import.meta.url), 'utf8');
+  const checkout = readFileSync(new URL('../src/app/checkout/page.tsx', import.meta.url), 'utf8');
+  const confirmation = readFileSync(new URL('../src/app/confirmation/[id]/page.tsx', import.meta.url), 'utf8');
+  const tracking = readFileSync(new URL('../src/components/TrackedOrderView.tsx', import.meta.url), 'utf8');
+  const account = readFileSync(new URL('../src/components/AccountView.tsx', import.meta.url), 'utf8');
+
   expect(card).toContain('getProductCoverImage');
   expect(card).not.toMatch(/src=\{product\.image\}/);
   expect(detail).toContain('<ProductCard');
@@ -117,4 +124,71 @@ test('listing cards, cart, related products and Studio thumbs share cover helper
   expect(cart).toContain('ProductThumb');
   expect(cart).toContain('QuantityStepper');
   expect(studio).toContain('getProductCoverImage');
+
+  expect(checkout).toContain('ProductThumb');
+  expect(checkout).toContain('resolveOrderLineImage');
+  expect(confirmation).toContain('ProductThumb');
+  expect(confirmation).toContain('resolveOrderLineImage');
+  expect(tracking).toContain('ProductThumb');
+  expect(tracking).toContain('resolveOrderLineImage');
+  expect(account).toContain('ProductThumb');
+  expect(account).toContain('resolveOrderLineImage');
 });
+
+test('resolveVariantIndex matches numeric index and case-insensitive name or colour with whitespace tolerance', () => {
+  const variants = [
+    { name: 'Rose', colour: 'Rose', images: ['/rose.webp'] },
+    { name: 'Gold Special', colour: 'Gold', images: ['/gold.webp'] },
+    { name: 'Ivory Weave', colour: 'Ivory Silk', images: ['/ivory.webp'] },
+  ];
+  expect(resolveVariantIndex(variants, 0)).toBe(0);
+  expect(resolveVariantIndex(variants, 1)).toBe(1);
+  expect(resolveVariantIndex(variants, '1')).toBe(1);
+  expect(resolveVariantIndex(variants, 'gold')).toBe(1);
+  expect(resolveVariantIndex(variants, 'GOLD')).toBe(1);
+  expect(resolveVariantIndex(variants, '  Gold Special  ')).toBe(1);
+  expect(resolveVariantIndex(variants, 'ivory silk')).toBe(2);
+  expect(resolveVariantIndex(variants, 'unknown')).toBe(0);
+  expect(resolveVariantIndex(variants, null)).toBe(0);
+  expect(resolveVariantIndex([], 'gold')).toBe(0);
+});
+
+test('buildProductGalleryImages and getCartLineImage support case-insensitive variant name/colour selection', () => {
+  const multiVariantProduct = {
+    id: 10,
+    image: '/cover.webp',
+    images: ['/cover.webp'],
+    variants: [
+      { name: 'Rose', colour: 'Rose', images: ['/rose.webp'] },
+      { name: 'Gold', colour: 'Gold', images: ['/assets/saree-ivory.webp'] },
+    ],
+  };
+
+  expect(getCartLineImage(multiVariantProduct, 'Gold')).toBe('/assets/saree-ivory.webp');
+  expect(getCartLineImage(multiVariantProduct, 'gold')).toBe('/assets/saree-ivory.webp');
+  expect(getCartLineImage(multiVariantProduct, 'GOLD')).toBe('/assets/saree-ivory.webp');
+  expect(getCartLineImage(multiVariantProduct, 'rose')).toBe('/rose.webp');
+  expect(getCartLineImage(multiVariantProduct, 'unknown')).toBe('/rose.webp');
+
+  const galleryGold = buildProductGalleryImages(multiVariantProduct, 'gold');
+  expect(galleryGold[0]).toBe('/assets/saree-ivory.webp');
+});
+
+test('resolveOrderLineImage uses line item image if present, otherwise resolves variant/colour from product', () => {
+  const testProduct = {
+    id: 10,
+    image: '/cover.webp',
+    images: ['/cover.webp'],
+    variants: [
+      { name: 'Rose', colour: 'Rose', images: ['/rose.webp'] },
+      { name: 'Gold', colour: 'Gold', images: ['/gold.webp'] },
+    ],
+  };
+
+  expect(resolveOrderLineImage({ id: 10, image: '/saved.webp' }, testProduct)).toBe('/saved.webp');
+  expect(resolveOrderLineImage({ id: 10, variant: 'Gold' }, testProduct)).toBe('/gold.webp');
+  expect(resolveOrderLineImage({ id: 10, colour: 'gold' }, testProduct)).toBe('/gold.webp');
+  expect(resolveOrderLineImage({ id: 10 }, testProduct)).toBe('/rose.webp');
+  expect(resolveOrderLineImage({ id: 10 }, null)).toBe(PRODUCT_IMAGE_PLACEHOLDER);
+});
+

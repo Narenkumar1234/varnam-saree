@@ -17,6 +17,8 @@ type ImageLike = {
 type VariantImageSource = Pick<ProductVariant, 'images'> & {
   image?: string | null;
   imageUrl?: string | null;
+  name?: string | null;
+  colour?: string | null;
 };
 
 export type GalleryProduct = Pick<Product, 'image'> & {
@@ -106,19 +108,55 @@ function mainProductImages(product: GalleryProduct | null | undefined): string[]
   ]);
 }
 
+function normalizeVariantKey(value: unknown): string {
+  return typeof value === 'string' ? value.trim().toLowerCase().replace(/\s+/g, ' ') : '';
+}
+
+/**
+ * Strict variant lookup by numeric index or case-insensitive name/colour.
+ * Returns -1 when nothing matches.
+ */
+export function findVariantIndex(
+  variants: Array<VariantImageSource> | null | undefined,
+  selection: number | string | null | undefined,
+): number {
+  if (!variants || variants.length === 0) return -1;
+  if (typeof selection === 'number') {
+    return Number.isInteger(selection) && selection >= 0 && selection < variants.length ? selection : -1;
+  }
+  const query = normalizeVariantKey(selection);
+  if (!query) return -1;
+  if (/^\d+$/.test(query)) {
+    const asNum = Number(query);
+    if (asNum < variants.length) return asNum;
+  }
+  return variants.findIndex((v) => normalizeVariantKey(v.name) === query || normalizeVariantKey(v.colour) === query);
+}
+
+/** Variant index for display: falls back to the first variant (0) when nothing matches. */
+export function resolveVariantIndex(
+  variants: Array<VariantImageSource> | null | undefined,
+  selection: number | string | null | undefined,
+): number {
+  const index = findVariantIndex(variants, selection);
+  return index >= 0 ? index : 0;
+}
+
 /**
  * Images shown on the product detail gallery.
  * Colour-variant photos come first when a variant is selected; otherwise the
  * main image column followed by additional Studio photos (deduped).
+ * Supports numeric index or case-insensitive variant name/colour matching.
  */
 export function buildProductGalleryImages(
   product: GalleryProduct | null | undefined,
-  selectedVariantIndex = 0,
+  selectedVariant: number | string | null | undefined = 0,
 ): string[] {
   if (!product) return [];
 
   const variants = product.variants ?? [];
-  const activeVariant = variants[selectedVariantIndex] ?? variants[0];
+  const variantIndex = resolveVariantIndex(variants, selectedVariant);
+  const activeVariant = variants[variantIndex] ?? variants[0];
   const variantImages = variantImageUrls(activeVariant);
   const mainImages = mainProductImages(product);
 
@@ -163,13 +201,32 @@ function variantImageUrls(variant: VariantImageSource | null | undefined): strin
 /**
  * Cart / mini-cart thumbnail: first usable colour-variant photo, then the
  * product cover (first Studio photo / main image / placeholder).
+ * Supports numeric index or case-insensitive variant name/colour matching.
  */
 export function getCartLineImage(
   product: GalleryProduct | null | undefined,
-  selectedVariantIndex = 0,
+  selectedVariant: number | string | null | undefined = 0,
 ): string {
   if (!product) return PRODUCT_IMAGE_PLACEHOLDER;
   const variants = product.variants ?? [];
-  const activeVariant = variants[selectedVariantIndex] ?? variants[0];
+  const variantIndex = resolveVariantIndex(variants, selectedVariant);
+  const activeVariant = variants[variantIndex] ?? variants[0];
   return variantImageUrls(activeVariant)[0] || getProductCoverImage(product);
+}
+
+/**
+ * Resolve the display image URL for an order line item.
+ * If the line item already stores an image, resolve and use it;
+ * otherwise resolve from the product and ordered variant/colour.
+ */
+export function resolveOrderLineImage(
+  item: { id?: number; image?: string | null; variant?: string | null; colour?: string | null } | null | undefined,
+  product?: GalleryProduct | null,
+): string {
+  if (item?.image) {
+    const usable = resolveDisplayImageUrl(item.image);
+    if (usable) return usable;
+  }
+  const selection = item?.variant || item?.colour || 0;
+  return getCartLineImage(product, selection);
 }

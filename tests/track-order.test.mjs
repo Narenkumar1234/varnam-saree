@@ -57,6 +57,7 @@ test('toPublicTrackedOrder keeps status and payment status, never Razorpay secre
     total: 2500,
     status: 'Confirmed',
     createdAt: '2026-10-20T10:00:00.000Z',
+    items: [{ id: 1, qty: 1 }],
     pricing: { subtotal: 2500, discountAmount: 0, shipping: 0, total: 2500 },
     payment: { status: 'authorized', provider: 'razorpay' },
   });

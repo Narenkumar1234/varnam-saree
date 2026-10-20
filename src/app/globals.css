@@ -1633,6 +1633,57 @@ details p {
   font-weight: 400;
 }
 
+.order-summary-items {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.order-summary-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  min-width: 0;
+}
+
+.order-summary-thumb {
+  position: relative;
+  width: 56px;
+  aspect-ratio: 3 / 4;
+  border-radius: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #f1ece5;
+}
+
+.order-summary-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.order-summary-name {
+  font-weight: 500;
+  color: var(--ink);
+  line-height: 1.3;
+  overflow-wrap: break-word;
+}
+
+.order-summary-meta {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.order-card-items {
+  margin: 16px 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
 button:disabled {
   cursor: not-allowed;
   opacity: .65;

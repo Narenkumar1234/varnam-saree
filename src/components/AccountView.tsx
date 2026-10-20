@@ -1,11 +1,16 @@
 'use client';
 
-import React from 'react';
+import React, { useContext } from 'react';
 import Link from 'next/link';
-import { money } from '@/data/products';
+import { money, fallbackProducts } from '@/data/products';
 import { OrderSavings } from '@/components/OrderTotals';
 import { useCustomerAccount } from '@/hooks/use-customer-account';
 import { accountOrderStatusLine } from '@/lib/order-status';
+import { StoreContext } from '@/context/store-context';
+import { ProductThumb } from '@/components/ProductThumb';
+import { resolveOrderLineImage } from '@/lib/product-gallery';
+import { capitalizeColour } from '@/lib/colour';
+import { OrderLinePrice } from '@/components/OrderLinePrice';
 
 interface AccountViewProps {
   initialSignUp?: boolean;
@@ -13,6 +18,8 @@ interface AccountViewProps {
 }
 
 export function AccountView({ initialSignUp = false, ordersOnly = false }: AccountViewProps) {
+  const store = useContext(StoreContext);
+  const getProductById = store?.getProductById ?? ((id: number | string) => fallbackProducts.find((p) => p.id === Number(id)));
   const { profile, orders, phase, loading, signingIn, canSignIn, error, errorCode, ordersError, canRetryVerification, signIn, logOut, retry } = useCustomerAccount();
 
   if (!profile && (phase === 'restoring' || phase === 'verifying')) {
@@ -95,6 +102,40 @@ export function AccountView({ initialSignUp = false, ordersOnly = false }: Accou
               <div key={order.id} className="order-card">
                 <h3>{order.id}{' '}<span className="muted" style={{ fontSize: '11px' }}>{accountOrderStatusLine(order.status, order.payment)}</span></h3>
                 <p>{order.date || new Date(order.createdAt || '').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} · {money(order.total)}</p>
+                {order.items && order.items.length > 0 && (
+                  <div className="order-card-items">
+                    <div className="order-summary-items">
+                      {order.items.map((x, idx) => {
+                        const p = getProductById(x.id);
+                        const itemName = x.name || p?.name || 'Saree';
+                        const lineImage = resolveOrderLineImage(x, p);
+                        const variantName = x.variant || x.colour;
+                        return (
+                          <div key={x.id ? `${x.id}-${idx}` : idx} className="order-summary-item">
+                            <div className="order-summary-thumb">
+                              <ProductThumb
+                                src={lineImage}
+                                alt={itemName}
+                                sizes="64px"
+                              />
+                            </div>
+                            <div className="order-summary-details">
+                              <span className="order-summary-name">
+                                {itemName} × {x.qty}
+                              </span>
+                              {variantName && (
+                                <span className="order-summary-meta muted">
+                                  {capitalizeColour(variantName)}
+                                </span>
+                              )}
+                            </div>
+                            <OrderLinePrice item={x} />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 <OrderSavings pricing={order.pricing} />
                 <Link className="text-link" href={`/track?order=${encodeURIComponent(order.id)}`}>View order & tracking</Link>
               </div>

@@ -1,3 +1,4 @@
+import React, { Suspense } from 'react';
 import type { Metadata } from 'next';
 import ProductDetail from '@/components/ProductDetail';
 import { getCatalogue } from '@/lib/catalogue-server';
@@ -18,5 +19,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ProductPage({ params }: Props) {
   const { id } = await params;
-  return <ProductDetail id={id} />;
+  return (
+    <Suspense fallback={null}>
+      <ProductDetail id={id} />
+    </Suspense>
+  );
 }
