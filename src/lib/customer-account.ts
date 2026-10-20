@@ -124,25 +124,28 @@ export function createCustomerAccount(deps: CustomerAccountDependencies, notify:
       }
     }, 60000);
     
-    // Reset on window focus if popup closed without resolving
+    // Reset on window focus if popup closed without resolving (browser only).
     const resetOnFocus = () => {
+      if (typeof window === 'undefined') return;
       if (active && attempt === action && state.signingIn) {
         publish({ signingIn: false });
         window.removeEventListener('focus', resetOnFocus);
       }
     };
-    window.addEventListener('focus', resetOnFocus);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', resetOnFocus);
+    }
     
     try {
       // Invoke popup synchronously from the click; do not await persistence or a
       // network preflight first, which would lose the browser's user gesture.
       const result = await deps.popup();
       clearTimeout(timeout);
-      window.removeEventListener('focus', resetOnFocus);
+      if (typeof window !== 'undefined') window.removeEventListener('focus', resetOnFocus);
       if (active && attempt === action) await verify(result.user);
     } catch (error) {
       clearTimeout(timeout);
-      window.removeEventListener('focus', resetOnFocus);
+      if (typeof window !== 'undefined') window.removeEventListener('focus', resetOnFocus);
       if (active && attempt === action && !state.profile) {
         const code = error && typeof error === 'object' ? (error as { code?: unknown }).code : undefined;
         // Don't show error message for user-cancelled popups
@@ -154,7 +157,7 @@ export function createCustomerAccount(deps: CustomerAccountDependencies, notify:
       }
     } finally { 
       clearTimeout(timeout);
-      window.removeEventListener('focus', resetOnFocus);
+      if (typeof window !== 'undefined') window.removeEventListener('focus', resetOnFocus);
       if (active && attempt === action) publish({ signingIn: false }); 
     }
   };
