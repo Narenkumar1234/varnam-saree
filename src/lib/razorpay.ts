@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { orders } from '@/db/schema';
 import { readOrderSnapshot } from '@/lib/pricing';
+import { deriveOrderStatusFromPayment } from '@/lib/order-status';
 import { notifyAdminsOfOrder } from '@/lib/telegram';
 import type { OrderPayment } from '@/types';
 
@@ -44,7 +45,14 @@ async function lockedOrder(tx: Transaction, id: string) {
 async function savePayment(tx: Transaction, order: SavedOrder, payment: OrderPayment) {
   const raw = JSON.parse(order.itemsJson);
   const snapshot = Array.isArray(raw) ? { version: 1, items: raw } : raw;
-  await tx.update(orders).set({ itemsJson: JSON.stringify({ ...snapshot, payment }) }).where(eq(orders.id, order.id));
+  const updates: { itemsJson: string; status?: string } = {
+    itemsJson: JSON.stringify({ ...snapshot, payment }),
+  };
+  if (payment.status === 'paid') {
+    const nextStatus = deriveOrderStatusFromPayment(order.status, payment);
+    if (nextStatus !== order.status) updates.status = nextStatus;
+  }
+  await tx.update(orders).set(updates).where(eq(orders.id, order.id));
 }
 
 function assertPayable(order: SavedOrder) {

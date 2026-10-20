@@ -160,7 +160,7 @@ test('all exported admin handlers, including any newly added routes, reject anon
       covered++;
     }
   }
-  expect(covered).toBe(13);
+  expect(covered).toBe(14);
   expect(dbCalls).toHaveLength(0);
 });
 
@@ -174,10 +174,19 @@ test('valid session permits inventory listing, create/edit/stock/delete, and dis
   expect(product.price).toBe(3000); expect(product.stock).toBe(9);
   const list = await orders.GET(request('/api/admin/orders', 'GET', undefined, token));
   expect((await list.json()).orders[0].items).toHaveLength(1);
-  expect((await orderById.PATCH(request('/api/admin/orders/VRN-admin-test', 'PATCH', { status: 'Dispatched' }, token), { params: Promise.resolve({ id: order.id }) })).status).toBe(200);
-  expect(order.status).toBe('Dispatched');
+  const snapshot = JSON.parse(order.itemsJson);
+  order.itemsJson = JSON.stringify({
+    ...snapshot,
+    payment: { provider: 'offline', status: 'paid', method: 'UPI' },
+  });
+  order.status = 'Confirmed';
+  expect((await orderById.PATCH(request('/api/admin/orders/VRN-admin-test', 'PATCH', { status: 'Delivered' }, token), { params: Promise.resolve({ id: order.id }) })).status).toBe(200);
+  expect(order.status).toBe('Delivered');
+  const lookedUp = await orderById.GET(request('/api/admin/orders/VRN-admin-test', 'GET', undefined, token), { params: Promise.resolve({ id: order.id }) });
+  expect(lookedUp.status).toBe(200);
+  expect((await lookedUp.json()).order.id).toBe(order.id);
   expect((await productById.DELETE(request('/api/admin/products/1', 'DELETE', undefined, token), { params: Promise.resolve({ id: '1' }) })).status).toBe(200);
-  expect(dbCalls).toEqual(['select', 'insert', 'update', 'select', 'update', 'delete']);
+  expect(dbCalls).toEqual(['select', 'insert', 'update', 'select', 'select', 'update', 'select', 'delete']);
 });
 
 test('admin can record and undo an offline payment on the order snapshot', async () => {
@@ -210,7 +219,7 @@ test('admin can record and undo an offline payment on the order snapshot', async
   expect((await orderById.PATCH(
     request('/api/admin/orders/VRN-admin-test', 'PATCH', { payment: { action: 'mark-offline-paid', method: 'Cheque' } }, token),
     { params: Promise.resolve({ id: order.id }) }
-  )).status).toBe(400);
+  )).status).toBe(409);
 
   const undo = await orderById.PATCH(
     request('/api/admin/orders/VRN-admin-test', 'PATCH', { payment: { action: 'mark-unpaid' } }, token),
@@ -247,6 +256,72 @@ test('unreadable order snapshot is left untouched and returns 500', async () => 
   expect((await mark.json()).error).toBe('Order data could not be read');
   expect(order.itemsJson).toBe(corrupt);
   expect(dbCalls).toEqual(['select']);
+});
+
+test('admin lookup returns the order or No order found', async () => {
+  const token = (await login(credentials())).cookies.get(session.ADMIN_SESSION_COOKIE).value;
+  const found = await orderById.GET(request('/api/admin/orders/VRN-admin-test', 'GET', undefined, token), { params: Promise.resolve({ id: 'vrn-admin-test' }) });
+  expect(found.status).toBe(200);
+  expect((await found.json()).order.id).toBe('VRN-admin-test');
+  order = undefined;
+  const missing = await orderById.GET(request('/api/admin/orders/VRN-missing', 'GET', undefined, token), { params: Promise.resolve({ id: 'VRN-missing' }) });
+  expect(missing.status).toBe(404);
+  expect((await missing.json()).error).toBe('No order found');
+});
+
+test('admin status and payment actions follow the four-status rules', async () => {
+  const token = (await login(credentials())).cookies.get(session.ADMIN_SESSION_COOKIE).value;
+  expect((await orderById.PATCH(
+    request('/api/admin/orders/VRN-admin-test', 'PATCH', { status: 'Dispatched' }, token),
+    { params: Promise.resolve({ id: order.id }) }
+  )).status).toBe(409);
+  const confirmUnpaid = await orderById.PATCH(
+    request('/api/admin/orders/VRN-admin-test', 'PATCH', { status: 'Confirmed' }, token),
+    { params: Promise.resolve({ id: order.id }) }
+  );
+  expect(confirmUnpaid.status).toBe(409);
+  expect((await confirmUnpaid.json()).error).toContain('Mark the order as paid');
+
+  const deliveredUnpaid = await orderById.PATCH(
+    request('/api/admin/orders/VRN-admin-test', 'PATCH', { status: 'Delivered' }, token),
+    { params: Promise.resolve({ id: order.id }) }
+  );
+  expect(deliveredUnpaid.status).toBe(409);
+
+  const mark = await orderById.PATCH(
+    request('/api/admin/orders/VRN-admin-test', 'PATCH', { payment: { action: 'mark-offline-paid', method: 'Cash' } }, token),
+    { params: Promise.resolve({ id: order.id }) }
+  );
+  expect(mark.status).toBe(200);
+  expect(order.status).toBe('Confirmed');
+  expect(JSON.parse(order.itemsJson).payment.method).toBe('Cash');
+
+  const markAgain = await orderById.PATCH(
+    request('/api/admin/orders/VRN-admin-test', 'PATCH', { payment: { action: 'mark-offline-paid', method: 'UPI' } }, token),
+    { params: Promise.resolve({ id: order.id }) }
+  );
+  expect(markAgain.status).toBe(409);
+
+  expect((await orderById.PATCH(
+    request('/api/admin/orders/VRN-admin-test', 'PATCH', { status: 'Delivered' }, token),
+    { params: Promise.resolve({ id: order.id }) }
+  )).status).toBe(200);
+  expect(order.status).toBe('Delivered');
+
+  const undoDelivered = await orderById.PATCH(
+    request('/api/admin/orders/VRN-admin-test', 'PATCH', { payment: { action: 'mark-unpaid' } }, token),
+    { params: Promise.resolve({ id: order.id }) }
+  );
+  expect(undoDelivered.status).toBe(409);
+
+  order.status = 'Confirmed';
+  const undo = await orderById.PATCH(
+    request('/api/admin/orders/VRN-admin-test', 'PATCH', { payment: { action: 'mark-unpaid' } }, token),
+    { params: Promise.resolve({ id: order.id }) }
+  );
+  expect(undo.status).toBe(200);
+  expect(order.status).toBe('Payment pending');
+  expect(JSON.parse(order.itemsJson).payment).toBeUndefined();
 });
 
 test('cancelled orders cannot be marked paid offline', async () => {

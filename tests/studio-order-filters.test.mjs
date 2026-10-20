@@ -1,11 +1,10 @@
 import { expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { orderPaymentLabel, paymentDisplayStatus } from '../src/lib/order-status.ts';
+import { normalizeOrderStatus } from '../src/lib/order-status.ts';
 import {
+  STUDIO_ORDER_FILTER_TABS,
   STUDIO_ORDER_STATUSES,
-  STUDIO_PAYMENT_FILTERS,
-  countStudioOrdersByPayment,
   countStudioOrdersByStatus,
   createStudioOrderFilters,
   filterStudioOrders,
@@ -13,7 +12,6 @@ import {
   normalizeStudioOrderStatus,
   studioOrderCountsTowardRevenue,
   studioOrderLineLabel,
-  studioOrderPaymentLabel,
   sumStudioPaidRevenue,
 } from '../src/lib/studio-order-filters.ts';
 
@@ -65,62 +63,47 @@ const catalogue = [
   }),
 ];
 
-test('Studio payment filters reuse main orderPaymentLabel values', () => {
-  expect(paymentDisplayStatus({ status: 'paid' })).toBe('paid');
-  expect(paymentDisplayStatus({ status: 'paid', provider: 'offline' })).toBe('paid');
-  expect(studioOrderPaymentLabel({ status: 'paid' })).toBe('Paid');
-  expect(studioOrderPaymentLabel({ status: 'authorized' })).toBe('Payment processing');
-  expect(studioOrderPaymentLabel({ status: 'pending' })).toBe('Awaiting payment');
-  expect(studioOrderPaymentLabel(null)).toBe('Awaiting payment');
-  expect(orderPaymentLabel(undefined)).toBe('Awaiting payment');
-});
-
-test('status chips use the Studio dropdown values and count empty status as Confirmed', () => {
+test('Studio filter tabs are Ordered plus the four live statuses', () => {
   expect([...STUDIO_ORDER_STATUSES]).toEqual([
+    'Payment pending',
     'Confirmed',
-    'Handloom Finishing',
-    'Dispatched',
     'Delivered',
     'Cancelled',
   ]);
-  expect(normalizeStudioOrderStatus(undefined)).toBe('Confirmed');
-  expect(normalizeStudioOrderStatus('')).toBe('Confirmed');
-  expect(normalizeStudioOrderStatus('  Dispatched  ')).toBe('Dispatched');
+  expect([...STUDIO_ORDER_FILTER_TABS]).toEqual([
+    'Ordered',
+    'Payment pending',
+    'Confirmed',
+    'Delivered',
+    'Cancelled',
+  ]);
+  expect(normalizeStudioOrderStatus(undefined)).toBe('Payment pending');
+  expect(normalizeStudioOrderStatus('')).toBe('Payment pending');
+  expect(normalizeStudioOrderStatus('Confirmed')).toBe('Payment pending');
+  expect(normalizeStudioOrderStatus('  Dispatched  ', { status: 'paid' })).toBe('Confirmed');
+  expect(normalizeOrderStatus('Handloom Finishing', { status: 'paid' })).toBe('Confirmed');
 
   const counts = countStudioOrdersByStatus([
     ...catalogue,
     order({ id: 'VRN-1047', status: '' }),
   ]);
-  expect(counts.All).toBe(6);
-  expect(counts.Confirmed).toBe(2);
-  expect(counts['Handloom Finishing']).toBe(1);
-  expect(counts.Dispatched).toBe(1);
+  expect(counts.Ordered).toBe(6);
+  expect(counts['Payment pending']).toBe(3);
+  expect(counts.Confirmed).toBe(1);
   expect(counts.Delivered).toBe(1);
   expect(counts.Cancelled).toBe(1);
 });
 
-test('payment chips count Paid, Awaiting payment and Payment processing', () => {
-  expect([...STUDIO_PAYMENT_FILTERS]).toEqual([
-    'All',
-    'Paid',
-    'Awaiting payment',
-    'Payment processing',
-  ]);
-  const counts = countStudioOrdersByPayment(catalogue);
-  expect(counts.All).toBe(5);
-  expect(counts.Paid).toBe(2);
-  expect(counts['Awaiting payment']).toBe(2);
-  expect(counts['Payment processing']).toBe(1);
-});
-
-test('status, payment and text search combine and stay case-insensitive', () => {
+test('status chips and search combine; payment is not a separate filter', () => {
   const defaults = createStudioOrderFilters();
+  expect(defaults.status).toBe('Ordered');
+  expect(defaults.payment).toBeUndefined();
   expect(filterStudioOrders(catalogue, defaults)).toHaveLength(5);
 
-  expect(filterStudioOrders(catalogue, { ...defaults, status: 'Dispatched' }).map((o) => o.id))
-    .toEqual(['VRN-1044']);
-  expect(filterStudioOrders(catalogue, { ...defaults, payment: 'Paid' }).map((o) => o.id))
-    .toEqual(['VRN-1043', 'VRN-1046']);
+  expect(filterStudioOrders(catalogue, { ...defaults, status: 'Confirmed' }).map((o) => o.id))
+    .toEqual(['VRN-1043']);
+  expect(filterStudioOrders(catalogue, { ...defaults, status: 'Payment pending' }).map((o) => o.id))
+    .toEqual(['VRN-1042', 'VRN-1044']);
   expect(filterStudioOrders(catalogue, { ...defaults, query: 'vrn-1042' }).map((o) => o.id))
     .toEqual(['VRN-1042']);
   expect(filterStudioOrders(catalogue, { ...defaults, query: 'MEERA' }).map((o) => o.id))
@@ -132,49 +115,49 @@ test('status, payment and text search combine and stay case-insensitive', () => 
 
   expect(filterStudioOrders(catalogue, {
     status: 'Cancelled',
-    payment: 'Paid',
     query: 'priya',
   }).map((o) => o.id)).toEqual(['VRN-1046']);
-
-  expect(filterStudioOrders(catalogue, {
-    status: 'Cancelled',
-    payment: 'Awaiting payment',
-    query: '',
-  })).toHaveLength(0);
 });
 
 test('changing an order status immediately changes which status filter it matches', () => {
   const defaults = createStudioOrderFilters();
-  const confirmed = filterStudioOrders(catalogue, { ...defaults, status: 'Confirmed' });
-  expect(confirmed.map((o) => o.id)).toEqual(['VRN-1042']);
+  const pending = filterStudioOrders(catalogue, { ...defaults, status: 'Payment pending' });
+  expect(pending.map((o) => o.id)).toEqual(['VRN-1042', 'VRN-1044']);
 
   const afterUpdate = catalogue.map((item) => (
     item.id === 'VRN-1042' ? { ...item, status: 'Delivered' } : item
   ));
-  expect(filterStudioOrders(afterUpdate, { ...defaults, status: 'Confirmed' })).toHaveLength(0);
+  expect(filterStudioOrders(afterUpdate, { ...defaults, status: 'Payment pending' }).map((o) => o.id))
+    .toEqual(['VRN-1044']);
   expect(filterStudioOrders(afterUpdate, { ...defaults, status: 'Delivered' }).map((o) => o.id))
     .toEqual(['VRN-1042', 'VRN-1045']);
   expect(countStudioOrdersByStatus(afterUpdate).Delivered).toBe(2);
-  expect(countStudioOrdersByStatus(afterUpdate).Confirmed).toBe(0);
+  expect(countStudioOrdersByStatus(afterUpdate)['Payment pending']).toBe(1);
 });
 
-test('Studio orders UI keeps the status dropdown values and drops WhatsApp confirm', () => {
+test('Studio orders UI keeps the four statuses, lookup, and drops the payment filter', () => {
   const source = readFileSync(fileURLToPath(new URL('../src/app/studio-desk/page.tsx', import.meta.url)), 'utf8');
+  const css = readFileSync(fileURLToPath(new URL('../src/app/globals.css', import.meta.url)), 'utf8');
   expect(source).toContain('No orders match these filters');
   expect(source).toContain('filterStudioOrders');
-  expect(source).toContain('STUDIO_ORDER_STATUSES.map');
+  expect(source).toContain('STUDIO_ORDER_FILTER_TABS');
+  expect(source).toContain('Order lookup');
+  expect(source).toContain('StudioOrderLookup');
+  expect(source).toContain('StudioOrderStatusEditor');
   expect(source).not.toContain('Confirm on WhatsApp');
-  expect(source).not.toContain('createSavedOrderWhatsAppMessage');
-  expect(source).not.toContain('confirmOrderOnWhatsApp');
+  expect(source).not.toContain('STUDIO_PAYMENT_FILTERS');
+  expect(source).not.toContain('countStudioOrdersByPayment');
+  expect(source).not.toContain('studio-order-payment-filter');
+  expect(source).not.toContain('Handloom Finishing');
+  expect(source).not.toContain('Dispatched');
   expect(source).not.toContain('StudioPayment');
-  expect(source).not.toContain('Pay ${money(total)} with Razorpay');
-  expect(source).toContain('StudioOfflinePayment');
-  expect(source).toContain('cancelled={isCancelledOrderStatus(o.status)}');
   expect(source).toContain('getProductCoverImage');
   expect(source).toContain('studioOrderLineLabel');
   expect(source).toContain('sumStudioPaidRevenue');
-  expect(source).not.toContain('Product #{item.id} × {item.qty}');
-  expect(source).not.toContain('item.finish');
+  expect(css).toContain('status-payment-pending');
+  expect(css).toContain('status-cancelled');
+  expect(css).not.toContain('status-handloom-finishing');
+  expect(css).not.toContain('status-dispatched');
 });
 
 test('Studio revenue counts only paid non-cancelled orders', () => {
@@ -205,6 +188,5 @@ test('active-filter helper ignores blank search text', () => {
   expect(hasActiveStudioOrderFilters(createStudioOrderFilters())).toBe(false);
   expect(hasActiveStudioOrderFilters({ ...createStudioOrderFilters(), query: '   ' })).toBe(false);
   expect(hasActiveStudioOrderFilters({ ...createStudioOrderFilters(), status: 'Delivered' })).toBe(true);
-  expect(hasActiveStudioOrderFilters({ ...createStudioOrderFilters(), payment: 'Paid' })).toBe(true);
   expect(hasActiveStudioOrderFilters({ ...createStudioOrderFilters(), query: 'meera' })).toBe(true);
 });

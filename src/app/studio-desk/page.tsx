@@ -7,17 +7,15 @@ import type { Product } from '@/types';
 import { money, capitalizeColour } from '@/data/products';
 import { Icon } from '@/components/Icons';
 import { readOrderSnapshot } from '@/lib/pricing';
-import { isCancelledOrderStatus, orderPaymentLabel, paymentDisplayStatus } from '@/lib/order-status';
 import { singleColourHelperText } from '@/lib/product-input';
 import { OrderSavings } from '@/components/OrderTotals';
-import { StudioOfflinePayment } from '@/components/StudioOfflinePayment';
 import { StudioCommerce } from '@/components/StudioCommerce';
+import { StudioOrderLookup } from '@/components/StudioOrderLookup';
+import { StudioOrderStatusEditor } from '@/components/StudioOrderStatusEditor';
 import { needsUnoptimized } from '@/lib/image-loader';
 import { getProductCoverImage } from '@/lib/product-gallery';
 import {
-  STUDIO_ORDER_STATUSES,
-  STUDIO_PAYMENT_FILTERS,
-  countStudioOrdersByPayment,
+  STUDIO_ORDER_FILTER_TABS,
   countStudioOrdersByStatus,
   createStudioOrderFilters,
   filterStudioOrders,
@@ -264,7 +262,7 @@ export default function StudioDeskPage() {
   const [authError, setAuthError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'inventory' | 'add' | 'orders' | 'coupons' | 'settings'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'add' | 'orders' | 'lookup' | 'coupons' | 'settings'>('inventory');
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [orderFilters, setOrderFilters] = useState(createStudioOrderFilters);
@@ -593,6 +591,8 @@ export default function StudioDeskPage() {
   useEffect(() => {
     if (isAuthenticated) {
       loadData();
+      const deepLink = new URLSearchParams(window.location.search).get('order');
+      if (deepLink) setActiveTab('lookup');
     }
   }, [isAuthenticated]);
 
@@ -844,23 +844,9 @@ export default function StudioDeskPage() {
     }
   };
 
-  // Update Order Status
-  const updateOrderStatus = async (orderId: string, status: string) => {
-    try {
-      const res = await adminFetch(`/api/admin/orders/${orderId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      });
-      if (res.ok) {
-        setOrders((prev) =>
-          prev.map((o) => (o.id === orderId ? { ...o, status } : o))
-        );
-        showToast(`Order ${orderId} marked as ${status}`);
-      }
-    } catch (err) {
-      showToast('Failed to update status');
-    }
+  const applyOrderStatus = (orderId: string, status: string) => {
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status } : o)));
+    showToast(`Order ${orderId} marked as ${status}`);
   };
 
   const ordersForFilters = useMemo(
@@ -875,7 +861,6 @@ export default function StudioDeskPage() {
     [ordersForFilters, orderFilters]
   );
   const statusCounts = useMemo(() => countStudioOrdersByStatus(ordersForFilters), [ordersForFilters]);
-  const paymentCounts = useMemo(() => countStudioOrdersByPayment(ordersForFilters), [ordersForFilters]);
   const filtersActive = hasActiveStudioOrderFilters(orderFilters);
   const clearOrderFilters = () => setOrderFilters(createStudioOrderFilters());
 
@@ -1017,9 +1002,25 @@ export default function StudioDeskPage() {
         >
           Customer Orders ({orders.length})
         </button>
+        <button
+          type="button"
+          className={activeTab === 'lookup' ? 'active' : ''}
+          onClick={() => setActiveTab('lookup')}
+        >
+          Order lookup
+        </button>
         <button type="button" className={activeTab === 'coupons' ? 'active' : ''} onClick={() => setActiveTab('coupons')}>Coupons</button>
         <button type="button" className={activeTab === 'settings' ? 'active' : ''} onClick={() => setActiveTab('settings')}>Site settings</button>
       </div>
+
+      {activeTab === 'lookup' && (
+        <StudioOrderLookup
+          products={products}
+          adminFetch={adminFetch}
+          onUpdated={loadData}
+          showToast={showToast}
+        />
+      )}
 
       {(activeTab === 'coupons' || activeTab === 'settings') && <StudioCommerce key={activeTab} section={activeTab} adminFetch={adminFetch} />}
 
@@ -1587,7 +1588,7 @@ export default function StudioDeskPage() {
                 <div className="studio-order-filter-group">
                   <span className="studio-order-filter-label" id="studio-order-status-filter-label">Status</span>
                   <div className="studio-order-filter-chips" role="group" aria-labelledby="studio-order-status-filter-label">
-                    {(['All', ...STUDIO_ORDER_STATUSES] as const).map((status) => (
+                    {STUDIO_ORDER_FILTER_TABS.map((status) => (
                       <button
                         key={status}
                         type="button"
@@ -1601,36 +1602,16 @@ export default function StudioDeskPage() {
                   </div>
                 </div>
 
-                <div className="studio-order-filter-row">
-                  <label className="studio-order-filter-group studio-order-filter-search">
-                    <span className="studio-order-filter-label">Search</span>
-                    <input
-                      type="search"
-                      value={orderFilters.query}
-                      onChange={(e) => setOrderFilters((prev) => ({ ...prev, query: e.target.value }))}
-                      placeholder="Order ID, name, phone or email"
-                      autoComplete="off"
-                    />
-                  </label>
-
-                  <label className="studio-order-filter-group studio-order-payment-filter">
-                    <span className="studio-order-filter-label">Payment</span>
-                    <select
-                      className="studio-order-payment-select"
-                      value={orderFilters.payment}
-                      onChange={(e) => setOrderFilters((prev) => ({
-                        ...prev,
-                        payment: e.target.value as typeof prev.payment,
-                      }))}
-                    >
-                      {STUDIO_PAYMENT_FILTERS.map((payment) => (
-                        <option key={payment} value={payment}>
-                          {payment} ({paymentCounts[payment]})
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
+                <label className="studio-order-filter-group studio-order-filter-search">
+                  <span className="studio-order-filter-label">Search</span>
+                  <input
+                    type="search"
+                    value={orderFilters.query}
+                    onChange={(e) => setOrderFilters((prev) => ({ ...prev, query: e.target.value }))}
+                    placeholder="Order ID, name, phone or email"
+                    autoComplete="off"
+                  />
+                </label>
 
                 {filtersActive && (
                   <button type="button" className="text-link studio-order-clear-filters" onClick={clearOrderFilters}>
@@ -1662,7 +1643,6 @@ export default function StudioDeskPage() {
                     <tbody>
                       {filteredOrders.map((o) => {
                         const { items: parsedItems, pricing, payment } = readOrderSnapshot(o.itemsJson);
-                        const paymentState = paymentDisplayStatus(payment);
 
                         return (
                           <tr key={o.id}>
@@ -1714,22 +1694,14 @@ export default function StudioDeskPage() {
                               <OrderSavings pricing={pricing} />
                             </td>
                             <td>
-                              <select
-                                className={`admin-status-select status-${(o.status || 'confirmed').toLowerCase().replace(/\s+/g, '-')}`}
-                                value={o.status || 'Confirmed'}
-                                onChange={(e) => updateOrderStatus(o.id, e.target.value)}
-                              >
-                                {STUDIO_ORDER_STATUSES.map((status) => (
-                                  <option key={status} value={status}>{status}</option>
-                                ))}
-                              </select>
-                              <div className={`admin-payment-label is-${paymentState}`}>{orderPaymentLabel(payment)}</div>
-                              <StudioOfflinePayment
+                              <StudioOrderStatusEditor
                                 orderId={o.id}
+                                status={o.status}
                                 payment={payment}
-                                cancelled={isCancelledOrderStatus(o.status)}
                                 adminFetch={adminFetch}
                                 onUpdated={loadData}
+                                onStatusChange={(status) => applyOrderStatus(o.id, status)}
+                                onError={showToast}
                               />
                             </td>
                           </tr>

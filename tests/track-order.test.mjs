@@ -69,7 +69,11 @@ test('unpaid tracked orders show awaiting payment, no completed step, and Pay no
   expect(plainText(markup)).toContain('Awaiting payment');
   expect(markup).toContain('Pay now');
   expect(markup).not.toContain('track-step current');
-  expect(markup).toContain('1. Order confirmed');
+  expect(markup).toContain('1. Order placed');
+  expect(markup).toContain('2. Confirmed (paid)');
+  expect(markup).toContain('3. Delivered');
+  expect(markup).not.toContain('Handloom finishing');
+  expect(markup).not.toContain('Dispatched');
 });
 
 test('pending payment snapshots offer Retry payment instead of marking confirmed done', () => {
@@ -90,8 +94,9 @@ test('authorized orders show payment processing and do not complete the timeline
 test('paid orders mark order confirmed current and hide the pay call to action', () => {
   const markup = render({ id: 'VRN-1', total: 4000, status: 'Confirmed', payment: paid });
   expect(markup).toContain('track-step current');
-  expect(plainText(markup)).toContain('1. Order confirmed');
-  expect(plainText(markup)).toContain('Paid');
+  expect(plainText(markup)).toContain('1. Order placed');
+  expect(plainText(markup)).toContain('2. Confirmed (paid)');
+  expect(plainText(markup)).toContain('Confirmed · Paid');
   expect(plainText(markup)).not.toContain('Awaiting payment');
   expect(plainText(markup)).not.toContain('Pay now');
   expect(plainText(markup)).not.toContain('Retry payment');

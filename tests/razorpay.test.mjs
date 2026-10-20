@@ -137,7 +137,8 @@ test('HMAC uses constant-time comparison and rejects malformed or altered signat
   for (const invalid of ['', 'xyz', 'a'.repeat(63), 'a'.repeat(65)]) expect(validSignature('body', invalid, process.env.RAZORPAY_KEY_SECRET)).toBe(false);
 });
 
-test('valid signed captured payment is paid, idempotent, and separate from fulfilment', async () => {
+test('valid signed captured payment is paid, idempotent, and confirms a pending order', async () => {
+  row.status = 'Payment pending';
   await createCheckout(row.id);
   const response = await verifyRoute(request(proof()));
   expect(response.status).toBe(200);
@@ -150,6 +151,20 @@ test('valid signed captured payment is paid, idempotent, and separate from fulfi
   expect(await createCheckout(row.id)).toEqual({ status: 'paid' });
   expect(writes).toBe(before);
   expect(creations).toBe(1);
+});
+
+test('Razorpay capture promotes Handloom Finishing to Confirmed and leaves Delivered alone', async () => {
+  row.status = 'Handloom Finishing';
+  await createCheckout(row.id);
+  await verifyCheckout(proof());
+  expect(row.status).toBe('Confirmed');
+
+  row = fixture();
+  row.status = 'Delivered';
+  await createCheckout(row.id);
+  await verifyCheckout(proof());
+  expect(payment().status).toBe('paid');
+  expect(row.status).toBe('Delivered');
 });
 
 test('forged signature and swapped provider order ID never mark paid', async () => {

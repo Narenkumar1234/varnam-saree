@@ -64,6 +64,38 @@ export function cancelledOrderBlocksOffline(status?: string | null): string | nu
   return null;
 }
 
+export function offlineMarkPaidBlocked(
+  status?: string | null,
+  payment?: Pick<OrderPayment, 'provider' | 'status'> | null,
+): string | null {
+  const cancelled = cancelledOrderBlocksOffline(status);
+  if (cancelled) return cancelled;
+  if ((status || '').trim().toLowerCase() === 'delivered') {
+    return 'Delivered orders cannot be marked as paid offline.';
+  }
+  const razorpay = razorpayPaidBlocksOffline(payment);
+  if (razorpay) return razorpay;
+  if (payment?.status === 'paid') {
+    return 'Only payment-pending orders can be marked as paid offline.';
+  }
+  return null;
+}
+
+export function offlineMarkUnpaidBlocked(
+  status?: string | null,
+  payment?: Pick<OrderPayment, 'provider' | 'status'> | null,
+): string | null {
+  const required = offlinePaidRequiredToUndo(payment);
+  if (required) return required;
+  if ((status || '').trim().toLowerCase() === 'cancelled') {
+    return 'Cancelled orders cannot be marked unpaid.';
+  }
+  if ((status || '').trim().toLowerCase() === 'delivered') {
+    return 'Only confirmed offline-paid orders can be marked unpaid.';
+  }
+  return null;
+}
+
 export function razorpayPaidBlocksOffline(payment?: Pick<OrderPayment, 'provider' | 'status'> | null): string | null {
   if (payment?.provider === 'razorpay' && payment.status === 'paid') {
     return 'This order is already paid online and cannot be marked as offline paid.';

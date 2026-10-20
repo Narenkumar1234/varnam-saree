@@ -16,6 +16,8 @@ import {
   createOfflinePaidPayment,
   isOfflinePaymentMethod,
   normalizeOfflinePaymentNote,
+  offlineMarkPaidBlocked,
+  offlineMarkUnpaidBlocked,
   offlinePaidRequiredToUndo,
   offlineTelegramPaymentStatus,
   razorpayPaidBlocksOffline,
@@ -84,6 +86,20 @@ test('razorpay-paid orders cannot be marked offline; only offline paid can be un
   expect(cancelledOrderBlocksOffline('cancelled')).not.toBeNull();
   expect(cancelledOrderBlocksOffline('Confirmed')).toBeNull();
   expect(cancelledOrderBlocksOffline('')).toBeNull();
+
+  expect(offlineMarkPaidBlocked('Payment pending')).toBeNull();
+  expect(offlineMarkPaidBlocked('Confirmed')).toBeNull();
+  expect(offlineMarkPaidBlocked('Handloom Finishing')).toBeNull();
+  expect(offlineMarkPaidBlocked('Cancelled')).toContain('Cancelled orders cannot be marked as paid');
+  expect(offlineMarkPaidBlocked('Delivered')).toContain('Delivered orders cannot be marked as paid');
+  expect(offlineMarkPaidBlocked('Confirmed', { provider: 'offline', status: 'paid' })).toContain('Only payment-pending');
+  expect(offlineMarkPaidBlocked('Confirmed', { provider: 'razorpay', status: 'paid' })).toContain('already paid online');
+
+  expect(offlineMarkUnpaidBlocked('Confirmed', { provider: 'offline', status: 'paid' })).toBeNull();
+  expect(offlineMarkUnpaidBlocked('Handloom Finishing', { provider: 'offline', status: 'paid' })).toBeNull();
+  expect(offlineMarkUnpaidBlocked('Delivered', { provider: 'offline', status: 'paid' })).toContain('Only confirmed offline-paid');
+  expect(offlineMarkUnpaidBlocked('Cancelled', { provider: 'offline', status: 'paid' })).toContain('Cancelled');
+  expect(offlineMarkUnpaidBlocked('Confirmed', { provider: 'razorpay', status: 'paid' })).toContain('Only offline');
 });
 
 test('offline method and note validation', () => {
@@ -102,7 +118,7 @@ test('offline method and note validation', () => {
 test('customer helpers treat offline-paid orders as paid', () => {
   const offlinePaid = { provider: 'offline', status: 'paid', method: 'Cash', note: 'secret', adminEmail: 'owner@varnam.test' };
   expect(paymentDisplayStatus(offlinePaid)).toBe('paid');
-  expect(customerFacingOrderStatus('Handloom Finishing', offlinePaid)).toBe('Handloom Finishing');
+  expect(customerFacingOrderStatus('Handloom Finishing', offlinePaid)).toBe('Confirmed');
   expect(customerFacingOrderStatus('Confirmed', offlinePaid)).toBe('Confirmed');
   expect(customerFacingOrderStatus('')).toBe('Awaiting payment');
   expect(customerPaymentLabel(offlinePaid)).toBe('Paid · Offline (Cash)');
@@ -164,10 +180,22 @@ test('Studio offline payment UI has confirm and unpaid actions, not Razorpay che
     ...props,
     payment: { provider: 'razorpay', status: 'paid', razorpayOrderId: 'order_1' },
   }))).not.toContain('Mark unpaid');
-  expect(renderToStaticMarkup(createElement(StudioOfflinePayment, { ...props, cancelled: true }))).not.toContain('Mark as paid (offline)');
+  expect(renderToStaticMarkup(createElement(StudioOfflinePayment, { ...props, status: 'Cancelled' }))).not.toContain('Mark as paid (offline)');
+  expect(renderToStaticMarkup(createElement(StudioOfflinePayment, { ...props, status: 'Confirmed', payment: { provider: 'offline', status: 'paid', method: 'UPI' } }))).not.toContain('Mark as paid (offline)');
+  expect(renderToStaticMarkup(createElement(StudioOfflinePayment, { ...props, status: 'Delivered' }))).not.toContain('Mark as paid (offline)');
   expect(renderToStaticMarkup(createElement(StudioOfflinePayment, {
     ...props,
-    cancelled: true,
+    status: 'Delivered',
+    payment: { provider: 'offline', status: 'paid', method: 'UPI' },
+  }))).toContain('Paid · Offline (UPI)');
+  expect(renderToStaticMarkup(createElement(StudioOfflinePayment, {
+    ...props,
+    status: 'Delivered',
+    payment: { provider: 'offline', status: 'paid', method: 'UPI' },
+  }))).not.toContain('Mark unpaid');
+  expect(renderToStaticMarkup(createElement(StudioOfflinePayment, {
+    ...props,
+    status: 'Cancelled',
     payment: { provider: 'offline', status: 'paid', method: 'UPI' },
   }))).toContain('Paid · Offline (UPI)');
 });
@@ -178,9 +206,11 @@ test('customer order surfaces use shared paid/status helpers', () => {
   const orders = readFileSync(fileURLToPath(new URL('../src/app/orders/page.tsx', import.meta.url)), 'utf8');
   const lookup = readFileSync(fileURLToPath(new URL('../src/lib/order-lookup.ts', import.meta.url)), 'utf8');
   expect(account).toContain('accountOrderStatusLine(order.status, order.payment)');
-  expect(trackView).toContain('customerFacingOrderStatus');
-  expect(trackView).toContain('customerPaymentLabel');
+  expect(trackView).toContain('accountOrderStatusLine');
   expect(trackView).toContain('paymentDisplayStatus');
+  expect(trackView).toContain('1. Order placed');
+  expect(trackView).toContain('2. Confirmed (paid)');
+  expect(trackView).toContain('3. Delivered');
   expect(orders).toContain('AccountView');
   expect(lookup).toContain('publicPaymentSnapshot');
   expect(lookup).toContain('toPublicTrackedOrder');

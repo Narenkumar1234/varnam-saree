@@ -220,10 +220,12 @@ test('account order rows show customer-facing status plus a payment label', () =
   const html = render();
   expect(html).toContain('VRN-unpaid');
   expect(html).toContain('Awaiting payment');
+  expect(html).not.toContain('· Awaiting payment');
   expect(html).toContain('VRN-offline');
   expect(html).toContain('Confirmed · Paid · Offline (UPI)');
   expect(html).toContain('VRN-paid');
-  expect(html).toContain('Handloom Finishing · Paid');
+  expect(html).toContain('Confirmed · Paid');
+  expect(html).not.toContain('Handloom Finishing');
 });
 
 test.each([500, 502, 503, 200])('HTML/non-JSON HTTP %s shows a safe service explanation, never a JSON parser exception', async (status) => {

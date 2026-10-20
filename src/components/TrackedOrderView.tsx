@@ -5,10 +5,11 @@ import { OrderSavings } from '@/components/OrderTotals';
 import { money } from '@/data/products';
 import type { TrackedOrder } from '@/lib/order-lookup';
 import {
-  customerFacingOrderStatus,
-  customerPaymentLabel,
+  accountOrderStatusLine,
+  isCancelledOrderStatus,
   paymentDisplayStatus,
   trackingConfirmStepComplete,
+  trackingDeliveredStepComplete,
 } from '@/lib/order-status';
 import { createWhatsAppOrderUrl } from '@/lib/whatsapp';
 
@@ -19,9 +20,10 @@ interface Props {
 
 export function TrackedOrderView({ order, onPaid }: Props) {
   const payState = paymentDisplayStatus(order.payment);
-  const facing = customerFacingOrderStatus(order.status, order.payment);
-  const cancelled = facing.toLowerCase() === 'cancelled';
+  const facing = accountOrderStatusLine(order.status, order.payment);
+  const cancelled = isCancelledOrderStatus(order.status);
   const confirmDone = trackingConfirmStepComplete(order.status, order.payment);
+  const deliveredDone = trackingDeliveredStepComplete(order.status, order.payment);
   const whatsAppUrl = createWhatsAppOrderUrl(
     `Hello Varnam, I need help completing payment for order ${order.id} (${money(order.total)}). Please help me arrange payment and delivery.`
   );
@@ -40,7 +42,7 @@ export function TrackedOrderView({ order, onPaid }: Props) {
       </p>
 
       <p role="status" className={`track-payment-banner is-${cancelled ? 'cancelled' : payState}`}>
-        {cancelled ? facing : customerPaymentLabel(order.payment)}
+        {facing}
       </p>
 
       {!cancelled && payState !== 'paid' && (
@@ -55,16 +57,16 @@ export function TrackedOrderView({ order, onPaid }: Props) {
         />
       )}
 
-      <div className={`track-step${confirmDone ? ' current' : ''}`} style={{ margin: '20px 0' }}>
-        <div className="step-title">1. Order confirmed</div>
+      <div className="track-step" style={{ margin: '20px 0' }}>
+        <div className="step-title">1. Order placed</div>
         <small>Your saree was chosen and hand-inspected in our workshop.</small>
       </div>
-      <div className="track-step">
-        <div className="step-title">2. Handloom finishing</div>
-        <small>Tassels, fall, and edging being prepared with care.</small>
+      <div className={`track-step${confirmDone ? ' current' : ''}`}>
+        <div className="step-title">2. Confirmed (paid)</div>
+        <small>Payment received. We are preparing your saree with care.</small>
       </div>
-      <div className="track-step">
-        <div className="step-title">3. Dispatched</div>
+      <div className={`track-step${deliveredDone ? ' current' : ''}`}>
+        <div className="step-title">3. Delivered</div>
         <small>Complimentary insured shipping across India.</small>
       </div>
 

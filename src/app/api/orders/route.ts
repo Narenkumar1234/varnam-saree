@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
           userId: null,
           email: orderEmail,
           total: quote.pricing.total,
-          status: 'Confirmed',
+          status: 'Payment pending',
           itemsJson: serializeOrderQuote(quote),
           createdAt: new Date().toISOString(),
           ...shipping,
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
         userId: dbUserId,
         email: orderEmail,
         total: quote.pricing.total,
-        status: 'Confirmed',
+        status: 'Payment pending',
         itemsJson: serializeOrderQuote(quote),
         ...shipping,
       })

@@ -49,7 +49,7 @@ export const orders = pgTable('orders', {
   shippingState: text('shipping_state'),
   shippingPincode: text('shipping_pincode'),
   total: integer('total').notNull(),
-  status: text('status').notNull().default('Confirmed'), // Confirmed, Handloom Finishing, Dispatched, Delivered
+  status: text('status').notNull().default('Payment pending'), // Payment pending, Confirmed, Delivered, Cancelled
   itemsJson: text('items_json').notNull(), // Serialized JSON items
   createdAt: timestamp('created_at').defaultNow(),
 });
