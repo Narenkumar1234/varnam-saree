@@ -1,23 +1,23 @@
-import { isCancelledOrderStatus, orderPaymentLabel, paymentDisplayStatus, type PaymentStatusSnapshot } from '@/lib/order-status';
+import {
+  isCancelledOrderStatus,
+  normalizeOrderStatus,
+  orderPaymentLabel,
+  paymentDisplayStatus,
+  type OrderStatus,
+  type PaymentStatusSnapshot,
+} from '@/lib/order-status';
 
 export const STUDIO_ORDER_STATUSES = [
+  'Payment pending',
   'Confirmed',
-  'Handloom Finishing',
-  'Dispatched',
   'Delivered',
   'Cancelled',
 ] as const;
 
 export type StudioOrderStatus = (typeof STUDIO_ORDER_STATUSES)[number];
 
-export const STUDIO_PAYMENT_FILTERS = [
-  'All',
-  'Paid',
-  'Awaiting payment',
-  'Payment processing',
-] as const;
-
-export type StudioPaymentFilter = (typeof STUDIO_PAYMENT_FILTERS)[number];
+export const STUDIO_ORDER_FILTER_TABS = ['Ordered', ...STUDIO_ORDER_STATUSES] as const;
+export type StudioOrderFilterTab = (typeof STUDIO_ORDER_FILTER_TABS)[number];
 
 export interface StudioOrderFilterable {
   id: string;
@@ -30,29 +30,30 @@ export interface StudioOrderFilterable {
 }
 
 export interface StudioOrderFilters {
-  status: 'All' | StudioOrderStatus;
-  payment: StudioPaymentFilter;
+  status: StudioOrderFilterTab;
   query: string;
 }
 
 export function createStudioOrderFilters(): StudioOrderFilters {
-  return { status: 'All', payment: 'All', query: '' };
+  return { status: 'Ordered', query: '' };
 }
 
 export function hasActiveStudioOrderFilters(filters: StudioOrderFilters): boolean {
-  return filters.status !== 'All' || filters.payment !== 'All' || filters.query.trim() !== '';
+  return filters.status !== 'Ordered' || filters.query.trim() !== '';
 }
 
-/** Empty or missing status is treated as Confirmed, matching the Studio dropdown. */
-export function normalizeStudioOrderStatus(status?: string | null): string {
-  const value = status?.trim();
-  return value || 'Confirmed';
+/** Empty / legacy statuses follow the same payment-aware normalisation as Studio. */
+export function normalizeStudioOrderStatus(
+  status?: string | null,
+  payment?: PaymentStatusSnapshot | null,
+): OrderStatus {
+  return normalizeOrderStatus(status, payment);
 }
 
 export function studioOrderPaymentLabel(
   payment?: StudioOrderFilterable['payment']
-): Exclude<StudioPaymentFilter, 'All'> {
-  return orderPaymentLabel(payment) as Exclude<StudioPaymentFilter, 'All'>;
+): 'Paid' | 'Awaiting payment' | 'Payment processing' {
+  return orderPaymentLabel(payment) as 'Paid' | 'Awaiting payment' | 'Payment processing';
 }
 
 function matchesStudioOrderQuery(order: StudioOrderFilterable, query: string): boolean {
@@ -67,47 +68,26 @@ export function filterStudioOrders<T extends StudioOrderFilterable>(
   filters: StudioOrderFilters
 ): T[] {
   return orders.filter((order) => {
-    const status = normalizeStudioOrderStatus(order.status);
-    if (filters.status !== 'All' && status !== filters.status) return false;
-    if (filters.payment !== 'All' && studioOrderPaymentLabel(order.payment) !== filters.payment) return false;
+    const status = normalizeStudioOrderStatus(order.status, order.payment);
+    if (filters.status !== 'Ordered' && status !== filters.status) return false;
     return matchesStudioOrderQuery(order, filters.query);
   });
 }
 
 export function countStudioOrdersByStatus(
   orders: StudioOrderFilterable[]
-): Record<'All' | StudioOrderStatus, number> {
+): Record<StudioOrderFilterTab, number> {
   const counts = {
-    All: orders.length,
+    Ordered: orders.length,
+    'Payment pending': 0,
     Confirmed: 0,
-    'Handloom Finishing': 0,
-    Dispatched: 0,
     Delivered: 0,
     Cancelled: 0,
-  } satisfies Record<'All' | StudioOrderStatus, number>;
+  } satisfies Record<StudioOrderFilterTab, number>;
 
   for (const order of orders) {
-    const status = normalizeStudioOrderStatus(order.status);
-    if (status in counts && status !== 'All') {
-      counts[status as StudioOrderStatus] += 1;
-    }
-  }
-
-  return counts;
-}
-
-export function countStudioOrdersByPayment(
-  orders: StudioOrderFilterable[]
-): Record<StudioPaymentFilter, number> {
-  const counts = {
-    All: orders.length,
-    Paid: 0,
-    'Awaiting payment': 0,
-    'Payment processing': 0,
-  } satisfies Record<StudioPaymentFilter, number>;
-
-  for (const order of orders) {
-    counts[studioOrderPaymentLabel(order.payment)] += 1;
+    const status = normalizeStudioOrderStatus(order.status, order.payment);
+    counts[status] += 1;
   }
 
   return counts;

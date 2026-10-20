@@ -8,16 +8,17 @@ import {
   isRazorpayPaid,
   studioPaidLabel,
 } from '@/lib/offline-payment';
+import { normalizeOrderStatus } from '@/lib/order-status';
 
 interface Props {
   orderId: string;
   payment?: OrderPayment;
-  cancelled?: boolean;
+  status?: string | null;
   adminFetch: (url: string, options?: RequestInit) => Promise<Response>;
   onUpdated: () => void;
 }
 
-export function StudioOfflinePayment({ orderId, payment, cancelled, adminFetch, onUpdated }: Props) {
+export function StudioOfflinePayment({ orderId, payment, status, adminFetch, onUpdated }: Props) {
   const [confirming, setConfirming] = useState(false);
   const [method, setMethod] = useState<OfflinePaymentMethod>('Cash');
   const [note, setNote] = useState('');
@@ -26,6 +27,9 @@ export function StudioOfflinePayment({ orderId, payment, cancelled, adminFetch, 
   const [error, setError] = useState(false);
 
   const paidLabel = studioPaidLabel(payment);
+  const normalized = normalizeOrderStatus(status, payment);
+  const canMarkPaid = normalized === 'Payment pending';
+  const canMarkUnpaid = normalized === 'Confirmed' && isOfflinePaid(payment);
 
   async function save(paymentBody: { action: 'mark-offline-paid'; method: OfflinePaymentMethod; note?: string } | { action: 'mark-unpaid' }) {
     setBusy(true);
@@ -50,18 +54,19 @@ export function StudioOfflinePayment({ orderId, payment, cancelled, adminFetch, 
     }
   }
 
-  if (isRazorpayPaid(payment)) {
-    return (
+  if (isRazorpayPaid(payment) || (isOfflinePaid(payment) && !canMarkUnpaid) || (!canMarkPaid && !canMarkUnpaid)) {
+    return paidLabel ? (
       <div className="studio-offline-payment">
         <div className="studio-payment-paid" role="status">
           {paidLabel}
-          {payment?.paymentId && <small>{payment.paymentId}</small>}
+          {payment?.provider === 'razorpay' && payment.paymentId && <small>{payment.paymentId}</small>}
+          {payment?.provider === 'offline' && payment.note && <small>{payment.note}</small>}
         </div>
       </div>
-    );
+    ) : null;
   }
 
-  if (isOfflinePaid(payment)) {
+  if (canMarkUnpaid) {
     return (
       <div className="studio-offline-payment">
         <div className="studio-payment-paid" role="status">
@@ -84,7 +89,7 @@ export function StudioOfflinePayment({ orderId, payment, cancelled, adminFetch, 
     );
   }
 
-  if (cancelled) return null;
+  if (!canMarkPaid) return null;
 
   if (!confirming) {
     return (
