@@ -29,11 +29,11 @@ test('edit modal X button prevents form submit and click fall-through', () => {
 });
 
 test('Add saree single-colour helper omits empty brackets', () => {
-  expect(singleColourHelperText('', 'will-publish')).toBe('No variants added. This saree will be published as a single colour.');
-  expect(singleColourHelperText('   ', 'will-publish')).toBe('No variants added. This saree will be published as a single colour.');
-  expect(singleColourHelperText('Emerald', 'will-publish')).toBe('No variants added. This saree will be published as a single colour (Emerald).');
-  expect(singleColourHelperText('', 'is')).toBe('No variants added. This saree is a single colour.');
-  expect(singleColourHelperText('Rose', 'is')).toBe('No variants added. This saree is a single colour (Rose).');
+  expect(singleColourHelperText('', 'will-publish')).toBe('This saree will be published as a single colour.');
+  expect(singleColourHelperText('   ', 'will-publish')).toBe('This saree will be published as a single colour.');
+  expect(singleColourHelperText('Emerald', 'will-publish')).toBe('This saree will be published as a single colour (Emerald).');
+  expect(singleColourHelperText('', 'is')).toBe('This saree is a single colour.');
+  expect(singleColourHelperText('Rose', 'is')).toBe('This saree is a single colour (Rose).');
   expect(source).toContain("singleColourHelperText(newSaree.colour, 'will-publish')");
   expect(source).toContain("singleColourHelperText(editingProduct.colour, 'is')");
   expect(source).not.toContain('single colour ({newSaree.colour})');
@@ -44,4 +44,15 @@ test('uploadError resets when the edited product id or tab changes, not on each 
   expect(source).toContain('const editingProductId = editingProduct?.id ?? null;');
   expect(source).toMatch(/useEffect\(\s*\(\)\s*=>\s*\{\s*setUploadError\(null\);\s*\},\s*\[editingProductId, activeTab\]\)/);
   expect(source).toContain("if (event.key !== 'Escape') return;");
+});
+
+test('Studio forms omit colour variants UI and keep only primary colour', () => {
+  expect(source).not.toContain('Colour Variants (Optional)');
+  expect(source).not.toContain('Add Colour Variant');
+  expect(source).not.toContain('VariantImageManager');
+  expect(source).not.toContain('Remove Variant');
+  expect(source).toContain('Primary Colour');
+  // Edit save must not send variants, so existing variants are preserved server-side.
+  expect(source).toContain('const { variants: _existingVariants, ...editableProduct } = editingProduct;');
+  expect(source).not.toContain('variants: cleanVariants');
 });

@@ -2,12 +2,12 @@ export function singleColourHelperText(colour: string | null | undefined, tense:
   const value = typeof colour === 'string' ? colour.trim() : '';
   if (tense === 'will-publish') {
     return value
-      ? `No variants added. This saree will be published as a single colour (${value}).`
-      : 'No variants added. This saree will be published as a single colour.';
+      ? `This saree will be published as a single colour (${value}).`
+      : 'This saree will be published as a single colour.';
   }
   return value
-    ? `No variants added. This saree is a single colour (${value}).`
-    : 'No variants added. This saree is a single colour.';
+    ? `This saree is a single colour (${value}).`
+    : 'This saree is a single colour.';
 }
 
 export function productInteger(value: unknown, minimum: number): number {
