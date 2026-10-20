@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { capitalizeColour, resolveColourHex } from '@/lib/colour';
+import { resolveColourHex } from '@/lib/colour';
 import { useStore } from '@/context/store-context';
 import { ProductCard } from '@/components/ProductCard';
 import { Icon } from '@/components/Icons';
@@ -17,8 +17,11 @@ interface SareeListingProps {
 
 export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
   const { products } = useStore();
-  const { collections: collectionOptions, priceBounds } = useMemo(() => getShopFilterOptions(products), [products]);
-  const colourOptions = [...new Set(products.map((p) => capitalizeColour(p.colour)))].map((colour) => [colour, resolveColourHex(colour)]);
+  const { collections: collectionOptions, priceBounds, colours } = useMemo(() => getShopFilterOptions(products), [products]);
+  const colourOptions = useMemo(
+    () => colours.map((colour) => [colour, resolveColourHex(colour)] as [string, string]),
+    [colours]
+  );
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const initialCollection = searchParams.get('collection');
@@ -221,19 +224,19 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
                     type="checkbox"
                     name="desktop-colour"
                     value={colName}
-                    checked={filters.colours.includes(colName)}
+                    checked={filters.colours.some((c) => c.toLowerCase() === colName.toLowerCase())}
                     onChange={(e) => {
                       const checked = e.target.checked;
                       setFilters((prev) => ({
                         ...prev,
                         colours: checked
-                          ? [...prev.colours, colName]
-                          : prev.colours.filter((c) => c !== colName),
+                          ? [...prev.colours.filter((c) => c.toLowerCase() !== colName.toLowerCase()), colName]
+                          : prev.colours.filter((c) => c.toLowerCase() !== colName.toLowerCase()),
                       }));
                     }}
                   />
                   <span className="filter-colour" style={{ background: hex }} aria-hidden="true" />
-                  <span>{capitalizeColour(colName)}</span>
+                  <span>{colName}</span>
                 </label>
               ))}
             </div>
@@ -404,26 +407,26 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
                     <label
                       key={colName}
                       htmlFor={`sheet-${colName}`}
-                      className={sheetDraft.colours.includes(colName) ? 'checked' : ''}
+                      className={sheetDraft.colours.some((c) => c.toLowerCase() === colName.toLowerCase()) ? 'checked' : ''}
                     >
                       <input
                         id={`sheet-${colName}`}
                         type="checkbox"
                         name="sheet-colour"
                         value={colName}
-                        checked={sheetDraft.colours.includes(colName)}
+                        checked={sheetDraft.colours.some((c) => c.toLowerCase() === colName.toLowerCase())}
                         onChange={(e) => {
                           const checked = e.target.checked;
                           setSheetDraft((prev) => ({
                             ...prev,
                             colours: checked
-                              ? [...prev.colours, colName]
-                              : prev.colours.filter((c) => c !== colName),
+                              ? [...prev.colours.filter((c) => c.toLowerCase() !== colName.toLowerCase()), colName]
+                              : prev.colours.filter((c) => c.toLowerCase() !== colName.toLowerCase()),
                           }));
                         }}
                       />
                       <span className="filter-colour" style={{ background: hex }} aria-hidden="true" />
-                      <span>{capitalizeColour(colName)}</span>
+                      <span>{colName}</span>
                     </label>
                   ))}
                 </div>

@@ -73,6 +73,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
         <div className="card-bag-control">
           {qty > 0 ? (
             <QuantityStepper
+              variant="square"
               value={qty}
               onDecrease={() => handleAdjust(-1)}
               onIncrease={() => handleAdjust(1)}
