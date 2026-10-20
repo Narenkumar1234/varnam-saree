@@ -209,7 +209,8 @@ test('customer order surfaces use shared paid/status helpers', () => {
   expect(trackView).toContain('accountOrderStatusLine');
   expect(trackView).toContain('paymentDisplayStatus');
   expect(trackView).toContain('1. Order placed');
-  expect(trackView).toContain('2. Confirmed (paid)');
+  expect(trackView).toContain('2. Confirmed');
+  expect(trackView).not.toContain('Confirmed (paid)');
   expect(trackView).toContain('3. Delivered');
   expect(orders).toContain('AccountView');
   expect(lookup).toContain('publicPaymentSnapshot');

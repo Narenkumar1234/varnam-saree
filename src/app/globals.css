@@ -3288,6 +3288,30 @@ footer {
   gap: 8px;
 }
 
+.studio-order-payment-details {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.studio-order-payment-details div {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: 8px;
+  font-size: 13px;
+}
+
+.studio-order-payment-details dt {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.studio-order-payment-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .studio-order-clear-filters {
   align-self: flex-start;
   background: none;

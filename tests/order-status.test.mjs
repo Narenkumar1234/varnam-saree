@@ -6,8 +6,11 @@ import {
   customerPaymentLabel,
   deriveOrderStatusFromPayment,
   formatOrderCreatedAtIst,
+  lookupOrderById,
   normalizeOrderLookupId,
   normalizeOrderStatus,
+  normalizeStudioOrderLookupId,
+  studioAdminPaymentDetails,
   ORDER_STATUSES,
   orderPaymentLabel,
   paymentDisplayStatus,
@@ -147,6 +150,61 @@ test('order lookup ids are trimmed and reject blanks', () => {
   expect(normalizeOrderLookupId('   ')).toBeNull();
   expect(normalizeOrderLookupId('')).toBeNull();
   expect(normalizeOrderLookupId(null)).toBeNull();
+  expect(normalizeStudioOrderLookupId('  vrn-0692abcd  ')).toBe('VRN-0692ABCD');
+  expect(normalizeStudioOrderLookupId('   ')).toBeNull();
+});
+
+test('order lookup always falls back to a case-insensitive match, including lowercase input', async () => {
+  const stored = { id: 'VRN-0692abcd-ef' };
+  let foldedId;
+  expect(await lookupOrderById('vrn-0692abcd-ef', async () => null, async (id) => {
+    foldedId = id;
+    return stored;
+  })).toEqual(stored);
+  expect(foldedId).toBe('vrn-0692abcd-ef');
+
+  let foldedCalls = 0;
+  expect(await lookupOrderById('VRN-0692abcd-ef', async () => stored, async () => {
+    foldedCalls += 1;
+    return null;
+  })).toEqual(stored);
+  expect(foldedCalls).toBe(0);
+
+  expect(await lookupOrderById('vrn-missing', async () => null, async () => null)).toBeNull();
+});
+
+test('Studio admin payment details expose method, Razorpay id, paid date and offline note', () => {
+  expect(studioAdminPaymentDetails(undefined)).toEqual({
+    status: 'Awaiting payment',
+    provider: null,
+    paymentId: null,
+    paidAt: null,
+    note: null,
+  });
+  expect(studioAdminPaymentDetails({
+    provider: 'razorpay',
+    status: 'paid',
+    paymentId: 'pay_secret',
+    paidAt: '2026-10-20T06:30:00.000Z',
+  })).toMatchObject({
+    status: 'Paid',
+    provider: 'Razorpay',
+    paymentId: 'pay_secret',
+    note: null,
+  });
+  expect(studioAdminPaymentDetails({
+    provider: 'offline',
+    status: 'paid',
+    method: 'UPI',
+    note: 'GPay 8821',
+    paidAt: '2026-10-20T06:30:00.000Z',
+    adminEmail: 'owner@varnam.test',
+  })).toMatchObject({
+    status: 'Paid',
+    provider: 'Offline (UPI)',
+    paymentId: null,
+    note: 'GPay 8821',
+  });
 });
 
 test('IST formatter uses Asia/Kolkata', () => {
