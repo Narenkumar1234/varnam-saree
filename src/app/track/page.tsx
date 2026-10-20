@@ -6,6 +6,7 @@ import { useStore } from '@/context/store-context';
 import { money } from '@/data/products';
 import { OrderSavings } from '@/components/OrderTotals';
 import { loadTrackedOrder, type TrackedOrder } from '@/lib/order-lookup';
+import { customerFacingOrderStatus, paymentDisplayStatus } from '@/lib/order-status';
 
 function TrackContent() {
   const searchParams = useSearchParams();
@@ -88,6 +89,9 @@ function TrackContent() {
             ) : order ? (
               <div>
                 <h2 style={{ fontSize: '24px' }}>{order.id}</h2>
+                <p className="muted">
+                  {customerFacingOrderStatus(order.status)} · {paymentDisplayStatus(order.payment)}
+                </p>
                 <p className="muted">
                   Order placed on{' '}
                   {order.date ||

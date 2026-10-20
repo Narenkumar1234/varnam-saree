@@ -2,7 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { orders } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { requireAdminSession } from '@/lib/admin-session';
+import { configuredAdminEmail, requireAdminSession } from '@/lib/admin-session';
+import { readOrderSnapshot } from '@/lib/order-pricing';
+import {
+  createOfflinePaidPayment,
+  isOfflinePaymentMethod,
+  normalizeOfflinePaymentNote,
+  offlinePaidRequiredToUndo,
+  razorpayPaidBlocksOffline,
+  writePaymentSnapshot,
+} from '@/lib/offline-payment';
 
 export async function PATCH(
   req: NextRequest,
@@ -12,15 +21,55 @@ export async function PATCH(
   if (denied) return denied;
   try {
     const { id } = await params;
-    const { status } = await req.json();
+    const body = await req.json();
+    const status = typeof body?.status === 'string' ? body.status.trim() : '';
+    const paymentAction = body?.payment;
 
-    if (!status) {
+    if (!status && paymentAction == null) {
       return NextResponse.json({ error: 'Status is required' }, { status: 400 });
+    }
+
+    const updates: { status?: string; itemsJson?: string } = {};
+    if (status) updates.status = status;
+
+    if (paymentAction != null) {
+      const [order] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
+      if (!order) {
+        return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+      }
+
+      const current = readOrderSnapshot(order.itemsJson).payment;
+      if (paymentAction.action === 'mark-offline-paid') {
+        const blocked = razorpayPaidBlocksOffline(current);
+        if (blocked) return NextResponse.json({ error: blocked }, { status: 409 });
+        if (!isOfflinePaymentMethod(paymentAction.method)) {
+          return NextResponse.json({ error: 'Choose a valid offline payment method.' }, { status: 400 });
+        }
+        const note = normalizeOfflinePaymentNote(paymentAction.note);
+        if (note == null) {
+          return NextResponse.json({ error: 'Reference note is too long.' }, { status: 400 });
+        }
+        const adminEmail = configuredAdminEmail();
+        if (!adminEmail) {
+          return NextResponse.json({ error: 'Admin login is not configured.' }, { status: 503 });
+        }
+        updates.itemsJson = writePaymentSnapshot(order.itemsJson, createOfflinePaidPayment({
+          method: paymentAction.method,
+          note: note || undefined,
+          adminEmail,
+        }));
+      } else if (paymentAction.action === 'mark-unpaid') {
+        const blocked = offlinePaidRequiredToUndo(current);
+        if (blocked) return NextResponse.json({ error: blocked }, { status: 409 });
+        updates.itemsJson = writePaymentSnapshot(order.itemsJson, null);
+      } else {
+        return NextResponse.json({ error: 'Unknown payment action.' }, { status: 400 });
+      }
     }
 
     const updated = await db
       .update(orders)
-      .set({ status })
+      .set(updates)
       .where(eq(orders.id, id))
       .returning();
 
@@ -30,7 +79,7 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, order: updated[0] });
   } catch (error: any) {
-    console.error('Failed to update order status:', error);
+    console.error('Failed to update order:', error);
     return NextResponse.json({ error: 'Failed to update order status' }, { status: 500 });
   }
 }

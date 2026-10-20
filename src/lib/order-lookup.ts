@@ -1,6 +1,10 @@
 import type { Order } from '@/types';
 
-export type TrackedOrder = Pick<Order, 'id' | 'total' | 'pricing'> & { date?: string; createdAt?: string };
+export type TrackedOrder = Pick<Order, 'id' | 'total' | 'pricing' | 'payment'> & {
+  date?: string;
+  createdAt?: string;
+  status?: string;
+};
 
 // Only a confirmed 404 means "not found". Transport, server, and malformed
 // responses are retryable failures and must never become a missing-order result.

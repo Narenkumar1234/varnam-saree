@@ -8,7 +8,7 @@ import { money, capitalizeColour } from '@/data/products';
 import { Icon } from '@/components/Icons';
 import { readOrderSnapshot } from '@/lib/pricing';
 import { OrderSavings } from '@/components/OrderTotals';
-import { StudioPayment } from '@/components/StudioPayment';
+import { StudioOfflinePayment } from '@/components/StudioOfflinePayment';
 import { StudioCommerce } from '@/components/StudioCommerce';
 import { needsUnoptimized } from '@/lib/image-loader';
 import {
@@ -1553,7 +1553,7 @@ export default function StudioDeskPage() {
           <div className="admin-panel-header">
             <div>
               <h2>Customer Orders & Dispatch Status</h2>
-              <p className="muted">Pay securely with Razorpay or update delivery status for each customer order.</p>
+              <p className="muted">Record an offline payment or update delivery status for each customer order.</p>
             </div>
             <button type="button" onClick={loadData} className="btn outline" style={{ minHeight: '36px', padding: '6px 14px', fontSize: '12px' }}>
               Refresh
@@ -1697,10 +1697,11 @@ export default function StudioDeskPage() {
                                   <option key={status} value={status}>{status}</option>
                                 ))}
                               </select>
-                              <StudioPayment
-                                orderId={o.id} total={o.total} customerName={o.customerName}
-                                email={o.email} phone={o.phone} payment={payment}
-                                cancelled={o.status?.toLowerCase() === 'cancelled'} onPaid={loadData}
+                              <StudioOfflinePayment
+                                orderId={o.id}
+                                payment={payment}
+                                adminFetch={adminFetch}
+                                onUpdated={loadData}
                               />
                             </td>
                           </tr>

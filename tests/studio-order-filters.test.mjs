@@ -61,8 +61,9 @@ const catalogue = [
   }),
 ];
 
-test('paymentDisplayStatus maps Razorpay states to Studio payment labels', () => {
+test('paymentDisplayStatus maps Razorpay and offline states to shared labels', () => {
   expect(paymentDisplayStatus({ status: 'paid' })).toBe('Paid');
+  expect(paymentDisplayStatus({ status: 'paid', provider: 'offline' })).toBe('Paid');
   expect(paymentDisplayStatus({ status: 'authorized' })).toBe('Payment processing');
   expect(paymentDisplayStatus({ status: 'pending' })).toBe('Awaiting payment');
   expect(paymentDisplayStatus(null)).toBe('Awaiting payment');
@@ -160,6 +161,9 @@ test('Studio orders UI keeps the status dropdown values and drops WhatsApp confi
   expect(source).not.toContain('Confirm on WhatsApp');
   expect(source).not.toContain('createSavedOrderWhatsAppMessage');
   expect(source).not.toContain('confirmOrderOnWhatsApp');
+  expect(source).not.toContain('StudioPayment');
+  expect(source).not.toContain('Pay ${money(total)} with Razorpay');
+  expect(source).toContain('StudioOfflinePayment');
 });
 
 test('active-filter helper ignores blank search text', () => {

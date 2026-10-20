@@ -179,6 +179,60 @@ test('valid session permits inventory listing, create/edit/stock/delete, and dis
   expect(dbCalls).toEqual(['select', 'insert', 'update', 'select', 'update', 'delete']);
 });
 
+test('admin can record and undo an offline payment on the order snapshot', async () => {
+  const token = (await login(credentials())).cookies.get(session.ADMIN_SESSION_COOKIE).value;
+  const mark = await orderById.PATCH(
+    request('/api/admin/orders/VRN-admin-test', 'PATCH', { payment: { action: 'mark-offline-paid', method: 'UPI', note: 'GPay 8821' } }, token),
+    { params: Promise.resolve({ id: order.id }) }
+  );
+  expect(mark.status).toBe(200);
+  const saved = JSON.parse(order.itemsJson);
+  expect(saved.items).toHaveLength(1);
+  expect(saved.pricing.total).toBe(2500);
+  expect(saved.payment).toMatchObject({
+    provider: 'offline',
+    status: 'paid',
+    method: 'UPI',
+    note: 'GPay 8821',
+    adminEmail: process.env.ADMIN_LOGIN_EMAIL,
+  });
+  expect(typeof saved.payment.paidAt).toBe('string');
+
+  const listed = await orders.GET(request('/api/admin/orders', 'GET', undefined, token));
+  expect((await listed.json()).orders[0].payment.status).toBe('paid');
+
+  expect((await orderById.PATCH(
+    request('/api/admin/orders/VRN-admin-test', 'PATCH', { payment: { action: 'mark-offline-paid', method: 'Cheque' } }, token),
+    { params: Promise.resolve({ id: order.id }) }
+  )).status).toBe(400);
+
+  const undo = await orderById.PATCH(
+    request('/api/admin/orders/VRN-admin-test', 'PATCH', { payment: { action: 'mark-unpaid' } }, token),
+    { params: Promise.resolve({ id: order.id }) }
+  );
+  expect(undo.status).toBe(200);
+  expect(JSON.parse(order.itemsJson).payment).toBeUndefined();
+  expect(JSON.parse(order.itemsJson).items).toHaveLength(1);
+});
+
+test('online Razorpay-paid orders cannot be marked offline or unpaid from Studio', async () => {
+  const token = (await login(credentials())).cookies.get(session.ADMIN_SESSION_COOKIE).value;
+  const snapshot = JSON.parse(order.itemsJson);
+  order.itemsJson = JSON.stringify({
+    ...snapshot,
+    payment: { provider: 'razorpay', status: 'paid', razorpayOrderId: 'order_1', amount: 250000, currency: 'INR' },
+  });
+  expect((await orderById.PATCH(
+    request('/api/admin/orders/VRN-admin-test', 'PATCH', { payment: { action: 'mark-offline-paid', method: 'Cash' } }, token),
+    { params: Promise.resolve({ id: order.id }) }
+  )).status).toBe(409);
+  expect((await orderById.PATCH(
+    request('/api/admin/orders/VRN-admin-test', 'PATCH', { payment: { action: 'mark-unpaid' } }, token),
+    { params: Promise.resolve({ id: order.id }) }
+  )).status).toBe(409);
+  expect(JSON.parse(order.itemsJson).payment.provider).toBe('razorpay');
+});
+
 test('tampered/expired sessions reject both uploads and mutations without database access', async () => {
   const expired = session.createAdminSession(Date.now() - (session.ADMIN_SESSION_SECONDS + 1) * 1000);
   for (const token of [expired, 'forged.cookie']) {

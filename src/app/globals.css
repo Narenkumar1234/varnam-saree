@@ -3099,6 +3099,66 @@ footer {
 .studio-payment-paid { color: #176047; font-size: 12px; font-weight: 600; }
 .studio-payment-paid small { display: block; overflow-wrap: anywhere; font-weight: 400; }
 
+.studio-offline-payment {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  max-width: 250px;
+}
+
+.studio-offline-mark,
+.studio-offline-undo {
+  min-height: 44px;
+  padding: 8px 12px;
+  border-radius: 2px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.studio-offline-mark {
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+  cursor: pointer;
+}
+
+.studio-offline-mark:hover { background: #51364b; }
+.studio-offline-mark:disabled,
+.studio-offline-undo:disabled { opacity: .55; cursor: default; }
+
+.studio-offline-confirm label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.studio-offline-confirm select,
+.studio-offline-confirm input {
+  min-height: 40px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: #fff;
+  font-weight: 400;
+  color: var(--ink);
+}
+
+.studio-offline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.studio-offline-actions .btn {
+  min-height: 44px;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
 .admin-edit-form {
   display: flex;
   flex-direction: column;

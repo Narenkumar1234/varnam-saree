@@ -10,6 +10,7 @@ import { OrderTotals } from '@/components/OrderTotals';
 import { OrderLinePrice } from '@/components/OrderLinePrice';
 import { CustomerPayment } from '@/components/CustomerPayment';
 import { createWhatsAppOrderUrl } from '@/lib/whatsapp';
+import { paymentDisplayStatus } from '@/lib/order-status';
 
 function ConfirmationContent({ orderId }: { orderId: string }) {
   const searchParams = useSearchParams();
@@ -50,7 +51,7 @@ function ConfirmationContent({ orderId }: { orderId: string }) {
         Your order <strong>{order.id}</strong> is confirmed.
       </p>
 
-      {order.payment?.status === 'paid' ? (
+      {paymentDisplayStatus(order.payment) === 'Paid' ? (
         <p style={{ color: 'var(--success, #2e7d32)', fontWeight: 600 }} role="status">✓ Payment confirmed</p>
       ) : (
         <CustomerPayment

@@ -90,7 +90,7 @@ export function createSavedOrderWhatsAppMessage(
   const lines = [
     `Order: ${order.id}`,
     ...(order.status ? [`Status: ${order.status}`] : []),
-    ...(order.payment ? [`Payment: ${order.payment.status === 'paid' ? 'Paid via Razorpay' : order.payment.status === 'authorized' ? 'Authorized, awaiting capture' : 'Not yet confirmed'}`] : []),
+    ...(order.payment ? [`Payment: ${order.payment.status === 'paid' ? (order.payment.provider === 'offline' ? `Paid offline${order.payment.method ? ` (${order.payment.method})` : ''}` : 'Paid via Razorpay') : order.payment.status === 'authorized' ? 'Authorized, awaiting capture' : 'Not yet confirmed'}`] : []),
     ...(order.payment?.paymentId ? [`Payment reference: ${order.payment.paymentId}`] : []),
     ...(order.customerName ? [`Customer: ${order.customerName}`] : []),
     ...(order.phone ? [`Customer phone: ${order.phone}`] : []),
