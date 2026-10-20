@@ -3,11 +3,17 @@ import { createElement } from 'react';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { toPublicTrackedOrder } from '../src/lib/order-lookup.ts';
+import {
+  loadTrackedOrder,
+  resolveDisplayedTrackedOrder,
+  shouldUpdateLocalOrderPayment,
+  toPublicTrackedOrder,
+} from '../src/lib/order-lookup.ts';
 import { TrackedOrderView } from '../src/components/TrackedOrderView.tsx';
 
 const routeSource = readFileSync(fileURLToPath(new URL('../src/app/api/orders/[id]/route.ts', import.meta.url)), 'utf8');
 const trackSource = readFileSync(fileURLToPath(new URL('../src/app/track/page.tsx', import.meta.url)), 'utf8');
+const lookupSource = readFileSync(fileURLToPath(new URL('../src/lib/order-lookup.ts', import.meta.url)), 'utf8');
 const render = (order) => renderToStaticMarkup(createElement(TrackedOrderView, { order }));
 const plainText = (markup) => markup.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
 
@@ -22,6 +28,11 @@ test('the public lookup route and track page use the sanitised payload helpers',
   expect(routeSource).not.toContain('readOrderSnapshot');
   expect(trackSource).toContain('TrackedOrderView');
   expect(trackSource).toContain('loadTrackedOrder');
+  expect(trackSource).toContain("currentLookup?.status === 'found' ? currentLookup.order : localOrder");
+  expect(trackSource).not.toContain('localOrder || currentLookup?.order');
+  expect(trackSource).toContain('shouldUpdateLocalOrderPayment(localOrder, order.payment)');
+  expect(trackSource).toContain('name: localOrder?.name');
+  expect(lookupSource).toContain("cache: 'no-store'");
   expect(trackSource).not.toContain('if (localOrder) { setLookup({ id: searchedId, status: \'found\', order: localOrder }); return; }');
 });
 
@@ -100,6 +111,43 @@ test('offline-paid tracked orders show the method, complete confirm, and hide Pa
   expect(plainText(unpaid)).toContain('Awaiting payment');
   expect(unpaid).toContain('Pay now');
   expect(unpaid).toContain('Complete on WhatsApp instead');
+});
+
+test('local unpaid snapshot yields to a server offline-paid lookup', () => {
+  const localOrder = { id: 'VRN-1', total: 4000, status: 'Confirmed', name: 'Meera' };
+  const serverOrder = { id: 'VRN-1', total: 4000, status: 'Confirmed', payment: offlinePaid };
+  const placeholder = resolveDisplayedTrackedOrder({ status: 'loading' }, localOrder);
+  expect(placeholder).toEqual(localOrder);
+  expect(shouldUpdateLocalOrderPayment(localOrder, placeholder.payment)).toBe(true);
+
+  const displayed = resolveDisplayedTrackedOrder({ status: 'found', order: serverOrder }, localOrder);
+  expect(displayed).toBe(serverOrder);
+  expect(shouldUpdateLocalOrderPayment(localOrder, displayed.payment)).toBe(false);
+
+  const markup = render({ ...displayed, name: localOrder.name });
+  expect(plainText(markup)).toContain('Paid · Offline (UPI)');
+  expect(markup).toContain('track-step current');
+  expect(plainText(markup)).not.toContain('Awaiting payment');
+  expect(plainText(markup)).not.toContain('Pay now');
+  expect(plainText(markup)).not.toContain('Complete on WhatsApp');
+});
+
+test('loadTrackedOrder fetches with cache no-store', async () => {
+  const previous = globalThis.fetch;
+  let options;
+  globalThis.fetch = async (_url, init) => {
+    options = init;
+    return Response.json({
+      order: { id: 'VRN-1', total: 4000, status: 'Confirmed', payment: offlinePaid },
+    });
+  };
+  try {
+    const order = await loadTrackedOrder('VRN-1');
+    expect(options.cache).toBe('no-store');
+    expect(order.payment).toEqual(offlinePaid);
+  } finally {
+    globalThis.fetch = previous;
+  }
 });
 
 test('cancelled orders stay cancelled even when a payment snapshot exists', () => {
