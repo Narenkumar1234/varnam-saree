@@ -39,6 +39,34 @@ test('cart, product page and listing cards share QuantityStepper', () => {
   expect(cart).toContain('<QuantityStepper');
   expect(detail).toContain('<QuantityStepper');
   expect(card).toContain('<QuantityStepper');
+  expect(card).toContain('variant="square"');
+  expect(cart).not.toContain('variant="square"');
+  expect(detail).not.toContain('variant="square"');
   expect(cart).not.toMatch(/className="qty"/);
   expect(detail).not.toMatch(/className="qty"/);
 });
+
+test('quantity stepper square variant reproduces the card square stepper markup and classes', () => {
+  const markup = render({
+    variant: 'square',
+    value: 2,
+    onDecrease: () => {},
+    onIncrease: () => {},
+    decreaseDisabled: false,
+    increaseDisabled: true,
+    decreaseLabel: 'Remove one Mayil saree',
+    increaseLabel: 'Add one Mayil saree',
+    'aria-label': 'Quantity of Mayil saree in bag',
+  });
+  expect(markup).toContain('class="card-quantity"');
+  expect(markup).toContain('role="group"');
+  expect(markup).toContain('aria-label="Quantity of Mayil saree in bag"');
+  expect(markup).toContain('data-step="minus"');
+  expect(markup).toContain('data-step="plus"');
+  expect(markup).toContain('aria-label="Remove one Mayil saree"');
+  expect(markup).toContain('aria-label="Add one Mayil saree"');
+  expect(markup).toContain('aria-label="2 in bag"');
+  expect(markup).toContain('>2<');
+  expect(markup).not.toContain('quantity-stepper');
+});
+

@@ -112,146 +112,7 @@ const IMAGE_PRESETS = [
   { label: 'Heritage Weaves Collection', value: '/assets/sarees.webp' },
 ];
 
-function VariantImageManager({
-  variant,
-  variantIndex,
-  onUpdateVariant,
-  onRemoveVariant,
-  onUploadPhoto,
-  uploadingTarget,
-  targetPrefix,
-  onUrlError,
-}: {
-  variant: AdminProductVariant;
-  variantIndex: number;
-  onUpdateVariant: (updated: AdminProductVariant) => void;
-  onRemoveVariant: () => void;
-  onUploadPhoto: (e: React.ChangeEvent<HTMLInputElement>, imgIndex: number, varIndex: number) => void;
-  uploadingTarget: any;
-  targetPrefix: 'new-variant' | 'edit-variant';
-  onUrlError: (error: string | null) => void;
-}) {
-  const images = (variant.images && variant.images.length > 0) ? variant.images.slice(0, 3) : ['/assets/saree-emerald.webp'];
-  
-  const validateUrl = (url: string): string | null => {
-    const trimmed = url.trim();
-    if (trimmed.startsWith('blob:') || trimmed.startsWith('data:')) {
-      return 'Please upload the file or paste a permanent image URL. Browser previews (blob: or data:) cannot be saved.';
-    }
-    return null;
-  };
 
-  return (
-    <div style={{ padding: '12px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '4px', background: '#fff', marginBottom: '10px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '8px' }}>
-        <input
-          type="text"
-          placeholder="Colour variant name (e.g. Ruby Red, Mustard Yellow)"
-          value={variant.name}
-          onChange={(e) => onUpdateVariant({ ...variant, name: e.target.value, colour: e.target.value })}
-          style={{ fontWeight: 600, fontSize: '13px', padding: '6px 10px', flex: 1 }}
-        />
-        <button
-          type="button"
-          className="btn outline"
-          style={{ fontSize: '11px', padding: '5px 8px', color: '#b91c1c', borderColor: '#fca5a5' }}
-          onClick={onRemoveVariant}
-        >
-          Remove Variant
-        </button>
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {images.map((imgUrl, idx) => {
-          const isUploadingThis = uploadingTarget?.target === targetPrefix && uploadingTarget?.variantIndex === variantIndex && uploadingTarget?.index === idx;
-          return (
-            <div key={idx} style={{ display: 'flex', gap: '10px', alignItems: 'center', background: '#faf8f5', padding: '8px', borderRadius: '4px' }}>
-              <div style={{ width: '40px', height: '50px', position: 'relative', overflow: 'hidden', borderRadius: '2px', backgroundColor: '#e5dfd4', flexShrink: 0 }}>
-                <img src={imgUrl} alt={`Variant photo ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              </div>
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                  <input
-                    type="file"
-                    id={`${targetPrefix}-${variantIndex}-photo-${idx}`}
-                    style={{ display: 'none' }}
-                    accept="image/*"
-                    onChange={(e) => onUploadPhoto(e, idx, variantIndex)}
-                    disabled={isUploadingThis}
-                  />
-                  <label
-                    htmlFor={`${targetPrefix}-${variantIndex}-photo-${idx}`}
-                    className="btn outline"
-                    style={{ cursor: 'pointer', padding: '3px 8px', fontSize: '11px' }}
-                  >
-                    {isUploadingThis ? 'Optimizing…' : 'Upload Photo'}
-                  </label>
-                  <select
-                    value={IMAGE_PRESETS.some((p) => p.value === imgUrl) ? imgUrl : ''}
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        const updated = [...images];
-                        updated[idx] = e.target.value;
-                        onUpdateVariant({ ...variant, images: updated });
-                      }
-                    }}
-                    style={{ fontSize: '11px', padding: '3px 6px' }}
-                  >
-                    <option value="">Preset sample…</option>
-                    {IMAGE_PRESETS.map((preset) => (
-                      <option key={preset.value} value={preset.value}>{preset.label}</option>
-                    ))}
-                  </select>
-                  {images.length > 1 && (
-                    <button
-                      type="button"
-                      className="btn outline"
-                      style={{ fontSize: '11px', padding: '3px 6px' }}
-                      onClick={() => {
-                        const updated = images.filter((_, i) => i !== idx);
-                        onUpdateVariant({ ...variant, images: updated });
-                      }}
-                    >
-                      Remove
-                    </button>
-                  )}
-                </div>
-                <input
-                  type="text"
-                  placeholder="Or paste image URL"
-                  value={imgUrl}
-                  onChange={(e) => {
-                    const url = e.target.value;
-                    const error = validateUrl(url);
-                    onUrlError(error);
-                    const updated = [...images];
-                    updated[idx] = url;
-                    onUpdateVariant({ ...variant, images: updated });
-                  }}
-                  style={{ fontSize: '11px', padding: '4px 8px' }}
-                />
-              </div>
-            </div>
-          );
-        })}
-
-        {images.length < 3 && (
-          <button
-            type="button"
-            className="btn outline"
-            onClick={() => {
-              const nextPreset = IMAGE_PRESETS[images.length]?.value || '/assets/saree-rose.webp';
-              onUpdateVariant({ ...variant, images: [...images, nextPreset] });
-            }}
-            style={{ alignSelf: 'flex-start', fontSize: '11px', padding: '4px 10px', marginTop: '2px' }}
-          >
-            <Icon name="plus" size={11} /> Add Variant Photo ({images.length}/3)
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
 
 export default function StudioDeskPage() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
@@ -290,16 +151,11 @@ export default function StudioDeskPage() {
     tag: '',
     image: '',
     images: [] as string[],
-    variants: [] as AdminProductVariant[],
     description: '',
   });
 
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [uploadingTarget, setUploadingTarget] = useState<
-    | { target: 'new' | 'edit'; index?: number }
-    | { target: 'new-variant' | 'edit-variant'; variantIndex: number; index?: number }
-    | null
-  >(null);
+  const [uploadingTarget, setUploadingTarget] = useState<{ target: 'new' | 'edit'; index?: number } | null>(null);
   const clearFormAlerts = () => {
     setUploadError(null);
   };
@@ -341,12 +197,8 @@ export default function StudioDeskPage() {
     return null;
   };
 
-  const hasInvalidImageUrls = (images: string[], variants: AdminProductVariant[]): boolean => {
-    const allImages = [...images];
-    for (const variant of variants) {
-      allImages.push(...(variant.images || []));
-    }
-    return allImages.some(img => img.trim().startsWith('blob:') || img.trim().startsWith('data:'));
+  const hasInvalidImageUrls = (images: string[]): boolean => {
+    return images.some((img) => img.trim().startsWith('blob:') || img.trim().startsWith('data:'));
   };
 
   const compressImage = async (file: File): Promise<File> => {
@@ -410,19 +262,14 @@ export default function StudioDeskPage() {
 
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
-    target: 'new' | 'edit' | 'new-variant' | 'edit-variant' = 'new',
-    index?: number,
-    variantIndex?: number
+    target: 'new' | 'edit' = 'new',
+    index?: number
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploadError(null);
-    if (target === 'new-variant' || target === 'edit-variant') {
-      setUploadingTarget({ target, variantIndex: variantIndex ?? 0, index });
-    } else {
-      setUploadingTarget({ target, index });
-    }
+    setUploadingTarget({ target, index });
 
     let processedFile = file;
     try {
@@ -470,35 +317,6 @@ export default function StudioDeskPage() {
               list.push(data.url);
             }
             return { ...prev, images: list, image: list[0] };
-          });
-        } else if (target === 'new-variant' && variantIndex !== undefined) {
-          setNewSaree((prev) => {
-            const vars = [...(prev.variants || [])];
-            if (vars[variantIndex]) {
-              const list = [...(vars[variantIndex].images || [])];
-              if (index !== undefined && index < list.length) {
-                list[index] = data.url;
-              } else if (list.length < 3) {
-                list.push(data.url);
-              }
-              vars[variantIndex] = { ...vars[variantIndex], images: list };
-            }
-            return { ...prev, variants: vars };
-          });
-        } else if (target === 'edit-variant' && variantIndex !== undefined) {
-          setEditingProduct((prev) => {
-            if (!prev) return null;
-            const vars = [...(prev.variants || [])];
-            if (vars[variantIndex]) {
-              const list = [...(vars[variantIndex].images || [])];
-              if (index !== undefined && index < list.length) {
-                list[index] = data.url;
-              } else if (list.length < 3) {
-                list.push(data.url);
-              }
-              vars[variantIndex] = { ...vars[variantIndex], images: list };
-            }
-            return { ...prev, variants: vars };
           });
         }
         showToast('Saree photo uploaded and optimized!');
@@ -699,7 +517,7 @@ export default function StudioDeskPage() {
       showToast('Please wait for photo upload to finish.');
       return;
     }
-    if (hasInvalidImageUrls(editingProduct.images || [editingProduct.image || ''], editingProduct.variants || [])) {
+    if (hasInvalidImageUrls(editingProduct.images || [editingProduct.image || ''])) {
       setUploadError('Please upload the file or paste a permanent image URL. Browser previews (blob: or data:) cannot be saved.');
       showToast('Please upload the file or paste a permanent image URL. Browser previews (blob: or data:) cannot be saved.');
       return;
@@ -710,16 +528,14 @@ export default function StudioDeskPage() {
       const cleanImages = (editingProduct.images && editingProduct.images.length > 0)
         ? editingProduct.images.filter((img) => !img.startsWith('blob:') && !img.startsWith('data:')).slice(0, 3)
         : (editingProduct.image && !editingProduct.image.startsWith('blob:') && !editingProduct.image.startsWith('data:') ? [editingProduct.image] : []);
-      const cleanVariants = (editingProduct.variants || []).map((v) => ({
-        name: v.name.trim(),
-        colour: (v.colour || v.name).trim(),
-        images: (v.images || []).filter((img) => !img.startsWith('blob:') && !img.startsWith('data:')).slice(0, 3),
-      })).filter((v) => v.name.length > 0);
+      // Colour variants are no longer editable in Studio: omit them from the
+      // PATCH so the API leaves any existing variants (and their photos) untouched.
+      const { variants: _existingVariants, ...editableProduct } = editingProduct;
+      void _existingVariants;
       const payload = {
-        ...editingProduct,
+        ...editableProduct,
         images: cleanImages,
         image: cleanImages[0] || (editingProduct.image && !editingProduct.image.startsWith('blob:') ? editingProduct.image : '/assets/saree-emerald.webp'),
-        variants: cleanVariants,
         discountPercentage: editingProduct.discountPercentage !== undefined && editingProduct.discountPercentage !== ''
           ? parseInt(String(editingProduct.discountPercentage), 10)
           : (editingProduct.discountPercentage === '' ? 0 : undefined),
@@ -780,7 +596,7 @@ export default function StudioDeskPage() {
       showToast('Please wait for photo upload to finish.');
       return;
     }
-    if (hasInvalidImageUrls([...(newSaree.images || []), newSaree.image].filter(Boolean), newSaree.variants || [])) {
+    if (hasInvalidImageUrls([...(newSaree.images || []), newSaree.image].filter(Boolean))) {
       setUploadError('Please upload the file or paste a permanent image URL. Browser previews (blob: or data:) cannot be saved.');
       showToast('Please upload the file or paste a permanent image URL. Browser previews (blob: or data:) cannot be saved.');
       return;
@@ -791,16 +607,11 @@ export default function StudioDeskPage() {
       const cleanImages = (newSaree.images && newSaree.images.length > 0)
         ? newSaree.images.filter((img) => !img.startsWith('blob:') && !img.startsWith('data:')).slice(0, 3)
         : (newSaree.image && !newSaree.image.startsWith('blob:') && !newSaree.image.startsWith('data:') ? [newSaree.image] : []);
-      const cleanVariants = (newSaree.variants || []).map((v) => ({
-        name: v.name.trim(),
-        colour: (v.colour || v.name).trim(),
-        images: (v.images || []).filter((img) => !img.startsWith('blob:') && !img.startsWith('data:')).slice(0, 3),
-      })).filter((v) => v.name.length > 0);
       const payload = {
         ...newSaree,
         images: cleanImages,
         image: cleanImages[0] || (newSaree.image && !newSaree.image.startsWith('blob:') ? newSaree.image : '/assets/saree-emerald.webp'),
-        variants: cleanVariants,
+        variants: [],
         discountPercentage: newSaree.discountPercentage !== '' ? parseInt(String(newSaree.discountPercentage), 10) : undefined,
       };
       const res = await adminFetch('/api/admin/products', {
@@ -831,7 +642,6 @@ export default function StudioDeskPage() {
           tag: '',
           image: '',
           images: [],
-          variants: [],
           description: '',
         });
       } else {
@@ -1305,6 +1115,7 @@ export default function StudioDeskPage() {
                   value={newSaree.colour}
                   onChange={(e) => setNewSaree({ ...newSaree, colour: e.target.value })}
                 />
+                <p className="muted" style={{ fontSize: '12px', margin: '4px 0 0' }}>{singleColourHelperText(newSaree.colour, 'will-publish')}</p>
               </label>
 
               <label>
@@ -1485,55 +1296,7 @@ export default function StudioDeskPage() {
               </div>
             </div>
 
-            {/* Colour Variants Manager */}
-            <div style={{ marginTop: '16px', marginBottom: '16px', padding: '14px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '4px', background: '#faf8f5' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <div>
-                  <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 600 }}>Colour Variants (Optional)</h4>
-                  <p className="muted" style={{ margin: '2px 0 0', fontSize: '12px' }}>
-                    Each variant has its own colour name and up to 3 photos.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="btn outline"
-                  style={{ fontSize: '12px', padding: '5px 12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                  onClick={() => {
-                    const current = newSaree.variants || [];
-                    setNewSaree({
-                      ...newSaree,
-                      variants: [...current, { name: '', colour: '', images: ['/assets/saree-rose.webp'] }],
-                    });
-                  }}
-                >
-                  <Icon name="plus" size={12} /> Add Colour Variant
-                </button>
-              </div>
 
-              {(newSaree.variants || []).map((variant, vIdx) => (
-                <VariantImageManager
-                  key={vIdx}
-                  variant={variant}
-                  variantIndex={vIdx}
-                  targetPrefix="new-variant"
-                  uploadingTarget={uploadingTarget}
-                  onUpdateVariant={(updated) => {
-                    const vars = [...(newSaree.variants || [])];
-                    vars[vIdx] = updated;
-                    setNewSaree({ ...newSaree, variants: vars });
-                  }}
-                  onRemoveVariant={() => {
-                    const vars = (newSaree.variants || []).filter((_, i) => i !== vIdx);
-                    setNewSaree({ ...newSaree, variants: vars });
-                  }}
-                  onUploadPhoto={(e, imgIdx, varIdx) => handleFileUpload(e, 'new-variant', imgIdx, varIdx)}
-                  onUrlError={setUploadError}
-                />
-              ))}
-              {(!newSaree.variants || newSaree.variants.length === 0) && (
-                <p className="muted" style={{ fontSize: '12px', margin: 0 }}>{singleColourHelperText(newSaree.colour, 'will-publish')}</p>
-              )}
-            </div>
 
             <div className="admin-form-row">
               <label>
@@ -1867,6 +1630,7 @@ export default function StudioDeskPage() {
                     value={editingProduct.colour}
                     onChange={(e) => setEditingProduct({ ...editingProduct, colour: e.target.value })}
                   />
+                  <p className="muted" style={{ fontSize: '12px', margin: '4px 0 0' }}>{singleColourHelperText(editingProduct.colour, 'is')}</p>
                 </label>
 
                 <label>
@@ -2065,55 +1829,7 @@ export default function StudioDeskPage() {
                 </div>
               </div>
 
-              {/* Colour Variants Manager */}
-              <div style={{ marginTop: '16px', marginBottom: '16px', padding: '14px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '4px', background: '#faf8f5' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                  <div>
-                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 600 }}>Colour Variants (Optional)</h4>
-                    <p className="muted" style={{ margin: '2px 0 0', fontSize: '12px' }}>
-                      Each variant has its own colour name and up to 3 photos.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn outline"
-                    style={{ fontSize: '12px', padding: '5px 12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                    onClick={() => {
-                      const current = editingProduct.variants || [];
-                      setEditingProduct({
-                        ...editingProduct,
-                        variants: [...current, { name: '', colour: '', images: ['/assets/saree-rose.webp'] }],
-                      });
-                    }}
-                  >
-                    <Icon name="plus" size={12} /> Add Colour Variant
-                  </button>
-                </div>
 
-                {(editingProduct.variants || []).map((variant, vIdx) => (
-                  <VariantImageManager
-                    key={vIdx}
-                    variant={variant}
-                    variantIndex={vIdx}
-                    targetPrefix="edit-variant"
-                    uploadingTarget={uploadingTarget}
-                    onUpdateVariant={(updated) => {
-                      const vars = [...(editingProduct.variants || [])];
-                      vars[vIdx] = updated;
-                      setEditingProduct({ ...editingProduct, variants: vars });
-                    }}
-                    onRemoveVariant={() => {
-                      const vars = (editingProduct.variants || []).filter((_, i) => i !== vIdx);
-                      setEditingProduct({ ...editingProduct, variants: vars });
-                    }}
-                    onUploadPhoto={(e, imgIdx, varIdx) => handleFileUpload(e, 'edit-variant', imgIdx, varIdx)}
-                    onUrlError={setUploadError}
-                  />
-                ))}
-                {(!editingProduct.variants || editingProduct.variants.length === 0) && (
-                  <p className="muted" style={{ fontSize: '12px', margin: 0 }}>{singleColourHelperText(editingProduct.colour, 'is')}</p>
-                )}
-              </div>
 
               <div className="admin-form-row">
                 <label>

@@ -389,4 +389,23 @@ test('colour variants model allows up to 3 images per variant and preserves sing
   expect(singleData.product.colour).toBe('Indigo');
 });
 
+test('saving an edited product without a variants field keeps its existing variants unchanged', async () => {
+  const adminCookie = `${ADMIN_SESSION_COOKIE}=${createAdminSession()}`;
+  const existingVariants = [
+    { name: 'Emerald Green', colour: 'Emerald', images: ['/assets/saree-emerald.webp', '/assets/saree-rose.webp'] },
+    { name: 'Ruby Pink', colour: 'Ruby', images: ['/assets/saree-rose.webp'] },
+  ];
+  rows[0] = { ...rows[0], variants: JSON.stringify(existingVariants) };
 
+  // Studio no longer sends variants on edit: the PATCH omits the field entirely
+  const patchReq = new NextRequest('http://localhost/api/admin/products/101', {
+    method: 'PATCH',
+    headers: { cookie: adminCookie, 'content-type': 'application/json' },
+    body: JSON.stringify({ price: 9500, tag: 'Bestseller', colour: 'Emerald' }),
+  });
+  const patchRes = await editProduct(patchReq, { params: Promise.resolve({ id: '101' }) });
+  expect(patchRes.status).toBe(200);
+  const patchData = await patchRes.json();
+  expect(JSON.parse(patchData.product.variants)).toEqual(existingVariants);
+  expect(patchData.product.price).toBe(9500);
+});
