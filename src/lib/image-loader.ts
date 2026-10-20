@@ -8,6 +8,12 @@ const ALLOWED_HOSTS = [
   'upload.wikimedia.org',
 ];
 
+function isAllowedHost(hostname: string): boolean {
+  if (ALLOWED_HOSTS.includes(hostname)) return true;
+  return hostname.endsWith('.firebasestorage.app')
+    || hostname.endsWith('.googleusercontent.com');
+}
+
 type ImageLoaderParams = {
   src: string;
   width: number;
@@ -31,7 +37,7 @@ export function needsUnoptimized(src: string | undefined): boolean {
   
   try {
     const url = new URL(src);
-    return !ALLOWED_HOSTS.includes(url.hostname);
+    return !isAllowedHost(url.hostname);
   } catch {
     return false;
   }

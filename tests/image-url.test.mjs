@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test';
-import { normalizeImageUrl, isValidImageUrl, rejectTemporaryUrls } from '../src/lib/image-url.ts';
+import { normalizeImageUrl, isValidImageUrl, rejectTemporaryUrls, resolveDisplayImageUrl } from '../src/lib/image-url.ts';
 
 describe('Image URL normalization and validation', () => {
 
@@ -50,6 +50,23 @@ describe('Image URL normalization and validation', () => {
     test('returns null for empty strings', () => {
       expect(normalizeImageUrl('')).toBe(null);
       expect(normalizeImageUrl('   ')).toBe(null);
+    });
+  });
+
+  describe('resolveDisplayImageUrl', () => {
+    test('rewrites Drive share links and site-relative paths', () => {
+      expect(resolveDisplayImageUrl('https://drive.google.com/file/d/cartVariantId/view'))
+        .toBe('https://lh3.googleusercontent.com/d/cartVariantId');
+      expect(resolveDisplayImageUrl('assets/maroon.webp')).toBe('/assets/maroon.webp');
+      expect(resolveDisplayImageUrl('./assets/maroon.webp')).toBe('/assets/maroon.webp');
+      expect(resolveDisplayImageUrl('/assets/saree-rose.webp')).toBe('/assets/saree-rose.webp');
+      expect(resolveDisplayImageUrl('//images.unsplash.com/photo-x')).toBe('https://images.unsplash.com/photo-x');
+    });
+
+    test('rejects blob, data, and non-image schemes', () => {
+      expect(resolveDisplayImageUrl('blob:http://localhost/abc')).toBe(null);
+      expect(resolveDisplayImageUrl('data:image/png;base64,abc')).toBe(null);
+      expect(resolveDisplayImageUrl('javascript:alert(1)')).toBe(null);
     });
   });
 

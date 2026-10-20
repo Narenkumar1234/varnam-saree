@@ -3,13 +3,13 @@
 import { DeliveryPolicy } from '@/components/DeliveryPolicy';
 import React from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useStore } from '@/context/store-context';
 import { Icon } from '@/components/Icons';
 import { CouponForm } from '@/components/CouponForm';
 import { OrderTotals } from '@/components/OrderTotals';
-import { needsUnoptimized } from '@/lib/image-loader';
-import { getProductCoverImage } from '@/lib/product-gallery';
+import { ProductThumb } from '@/components/ProductThumb';
+import { QuantityStepper } from '@/components/QuantityStepper';
+import { getCartLineImage } from '@/lib/product-gallery';
 import { OrderLinePrice } from '@/components/OrderLinePrice';
 import { getProductQuantityLimit } from '@/lib/product-quantity';
 import { capitalizeColour } from '@/lib/colour';
@@ -62,18 +62,15 @@ export default function CartPage() {
                 const p = getProductById(item.id);
                 if (!p) return <div className="cart-item" key={item.id}><p>This saree is no longer available.</p><button type="button" onClick={() => handleRemove(item.id)}>Remove</button></div>;
                 const pricedItem = cartQuote.items.find((line) => line.id === item.id);
-                const coverImage = getProductCoverImage(p);
+                const lineImage = getCartLineImage(p);
 
                 return (
                   <div key={item.id} className="cart-item">
                     <Link href={`/product/${p.id}`} className="cart-item-image">
-                      <Image
-                        src={coverImage}
+                      <ProductThumb
+                        src={lineImage}
                         alt={p.name}
-                        fill
                         sizes="(max-width: 700px) 85px, 100px"
-                        style={{ objectFit: 'cover' }}
-                        unoptimized={needsUnoptimized(coverImage)}
                       />
                     </Link>
 
@@ -85,25 +82,14 @@ export default function CartPage() {
                         {p.type} · {capitalizeColour(p.colour)}
                       </p>
                       {p.stock === 0 && <p className="stock-state sold-out">Sold out</p>}
-                      <div className="qty">
-                        <button
-                          type="button"
-                          aria-label="Decrease quantity"
-                          disabled={busyId === item.id}
-                          onClick={() => handleAdjust(item.id, -1)}
-                        >
-                          <Icon name="minus" />
-                        </button>
-                        <span>{item.qty}</span>
-                        <button
-                          type="button"
-                          aria-label="Increase quantity"
-                          disabled={busyId === item.id || item.qty >= getProductQuantityLimit(p)}
-                          onClick={() => handleAdjust(item.id, 1)}
-                        >
-                          <Icon name="plus" />
-                        </button>
-                      </div>
+                      <QuantityStepper
+                        value={item.qty}
+                        onDecrease={() => handleAdjust(item.id, -1)}
+                        onIncrease={() => handleAdjust(item.id, 1)}
+                        decreaseDisabled={busyId === item.id || item.qty <= 1}
+                        increaseDisabled={busyId === item.id || item.qty >= getProductQuantityLimit(p)}
+                        aria-label={`Quantity of ${p.name}`}
+                      />
                       <button
                         className="remove"
                         type="button"

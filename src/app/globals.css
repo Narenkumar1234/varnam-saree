@@ -620,6 +620,10 @@ nav a:hover {
   min-height: 48px;
 }
 
+.card-bag-control .quantity-stepper {
+  width: max-content;
+}
+
 .card-quantity {
   display: grid;
   grid-template-columns: 48px minmax(0, 1fr) 48px;
@@ -653,6 +657,65 @@ nav a:hover {
 .card-quantity .icon {
   width: 18px;
   height: 18px;
+}
+
+.quantity-stepper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  background: transparent;
+  overflow: hidden;
+  box-sizing: border-box;
+  vertical-align: middle;
+}
+
+.quantity-stepper button {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  line-height: 40px;
+  cursor: pointer;
+}
+
+.quantity-stepper button:hover:not(:disabled) {
+  background: #f1ece5;
+}
+
+.quantity-stepper button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.quantity-stepper-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  min-width: 36px;
+  height: 40px;
+  padding: 0;
+  text-align: center;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 40px;
+  box-sizing: border-box;
+}
+
+.quantity-stepper .icon {
+  width: 16px;
+  height: 16px;
 }
 
 .product-action {
@@ -1207,44 +1270,11 @@ nav a:hover {
   align-items: stretch;
 }
 
-.buy-row .qty {
+.buy-row .quantity-stepper {
   grid-column: 1;
   grid-row: 1;
-  display: flex;
-  align-items: center;
-  border: 1px solid var(--line);
-  height: 48px;
-  min-height: 48px;
-  box-sizing: border-box;
+  align-self: center;
   flex-shrink: 0;
-  background: var(--paper);
-}
-
-.buy-row .qty button {
-  border: 0;
-  background: none;
-  width: 36px;
-  min-height: 46px;
-  height: 100%;
-  font-size: 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--ink);
-  cursor: pointer;
-  padding: 0;
-}
-
-.buy-row .qty button:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.buy-row .qty span {
-  min-width: 28px;
-  text-align: center;
-  font-weight: 500;
-  font-size: 14px;
 }
 
 .buy-row .add-bag-btn {
@@ -1311,7 +1341,7 @@ nav a:hover {
     grid-template-columns: auto 1fr 1fr auto;
     grid-template-rows: auto;
   }
-  .buy-row .qty {
+  .buy-row .quantity-stepper {
     grid-column: 1;
     grid-row: 1;
   }
@@ -1444,6 +1474,20 @@ details p {
   background: #f1ece5;
 }
 
+.product-thumb {
+  position: absolute;
+  inset: 0;
+  display: block;
+  background: #f1ece5;
+}
+
+.product-thumb-fallback {
+  position: absolute;
+  inset: 0;
+  display: block;
+  background: #efeae3;
+}
+
 .cart-item-details {
   min-width: 0;
 }
@@ -1453,9 +1497,7 @@ details p {
   font: 20px var(--serif);
 }
 
-.cart-item .qty {
-  display: inline-flex;
-  height: 34px;
+.cart-item .quantity-stepper {
   margin-top: 10px;
 }
 
@@ -2636,15 +2678,8 @@ footer {
     width: 100%;
     max-width: 100%;
   }
-  .buy-row .qty {
-    height: 48px;
-  }
-  .buy-row .qty button {
-    width: 32px;
-  }
-  .buy-row .qty span {
-    min-width: 22px;
-    font-size: 13px;
+  .buy-row .quantity-stepper {
+    align-self: center;
   }
   .buy-row .add-bag-btn {
     height: 48px;

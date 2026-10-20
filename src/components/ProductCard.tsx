@@ -11,6 +11,7 @@ import { ProductPrice } from './ProductPrice';
 import { getProductQuantityLimit } from '@/lib/product-quantity';
 import { getProductDiscountPercentage } from '@/lib/shop-filters';
 import { capitalizeColour } from '@/lib/colour';
+import { QuantityStepper } from '@/components/QuantityStepper';
 import { imageLoader, needsUnoptimized } from '@/lib/image-loader';
 import { getProductCoverImage } from '@/lib/product-gallery';
 
@@ -71,27 +72,16 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
       <div className="product-actions">
         <div className="card-bag-control">
           {qty > 0 ? (
-            <div className="card-quantity" role="group" aria-label={`Quantity of ${product.name} in bag`}>
-              <button
-                type="button"
-                data-step="minus"
-                aria-label={`Remove one ${product.name}`}
-                disabled={isDebouncing}
-                onClick={() => handleAdjust(-1)}
-              >
-                <Icon name="minus" />
-              </button>
-              <span aria-label={`${qty} in bag`}>{qty}</span>
-              <button
-                type="button"
-                data-step="plus"
-                aria-label={`Add one ${product.name}`}
-                disabled={isDebouncing || soldOut || qty >= getProductQuantityLimit(product)}
-                onClick={() => handleAdjust(1)}
-              >
-                <Icon name="plus" />
-              </button>
-            </div>
+            <QuantityStepper
+              value={qty}
+              onDecrease={() => handleAdjust(-1)}
+              onIncrease={() => handleAdjust(1)}
+              decreaseDisabled={isDebouncing}
+              increaseDisabled={isDebouncing || soldOut || qty >= getProductQuantityLimit(product)}
+              decreaseLabel={`Remove one ${product.name}`}
+              increaseLabel={`Add one ${product.name}`}
+              aria-label={`Quantity of ${product.name} in bag`}
+            />
           ) : (
             <button
               className="product-action add-action"
