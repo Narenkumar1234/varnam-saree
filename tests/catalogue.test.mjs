@@ -275,10 +275,10 @@ test('capitalizeColour helper capitalizes first letter of colour', async () => {
   expect(capitalizeColour('')).toBe('');
 });
 
-test('AddressFields phone pattern regex compiles without error', () => {
-  const pattern = '[0-9+ ()\\-]{10,16}';
-  expect(() => new RegExp(pattern)).not.toThrow();
-  const regex = new RegExp(`^${pattern}$`);
+test('AddressFields phone pattern regex compiles without error', async () => {
+  const { INDIAN_MOBILE_PATTERN } = await import('../src/lib/address-validation.ts');
+  expect(() => new RegExp(INDIAN_MOBILE_PATTERN, 'v')).not.toThrow();
+  const regex = new RegExp(`^(?:${INDIAN_MOBILE_PATTERN})$`, 'v');
   expect(regex.test('+91 98765 43210')).toBe(true);
   expect(regex.test('9876543210')).toBe(true);
   expect(regex.test('abc')).toBe(false);

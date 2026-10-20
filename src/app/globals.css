@@ -3137,6 +3137,24 @@ footer {
   color: #065f46;
 }
 
+.admin-payment-label {
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.admin-payment-label.is-unpaid {
+  color: #92400e;
+}
+
+.admin-payment-label.is-authorized {
+  color: #1e40af;
+}
+
+.admin-payment-label.is-paid {
+  color: #065f46;
+}
+
 .admin-toast {
   position: fixed;
   bottom: 24px;

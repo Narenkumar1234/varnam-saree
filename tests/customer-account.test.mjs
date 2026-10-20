@@ -197,7 +197,8 @@ test('actual /account renders sign-in -> verified user page -> sign-in; restore 
   await h.controller.signIn(); viewState = h.controller.getState();
   const signedIn = render();
   expect(signedIn).toContain('Hello, Alice'); expect(signedIn).toContain('alice@example.test');
-  expect(signedIn).toContain('VRN-alice'); expect(signedIn).toContain('My addresses'); expect(signedIn).toContain('Sign out');
+  expect(signedIn).toContain('VRN-alice'); expect(signedIn).toContain('Awaiting payment'); expect(signedIn).not.toContain('· Confirmed');
+  expect(signedIn).toContain('My addresses'); expect(signedIn).toContain('Sign out');
   expect(signedIn).not.toContain('Welcome back'); expect(signedIn).not.toContain('Continue with Google');
   await h.controller.logOut(); viewState = h.controller.getState();
   expect(render()).toContain('Continue with Google'); expect(render()).not.toContain('alice@example.test');

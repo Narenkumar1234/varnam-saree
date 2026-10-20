@@ -1,5 +1,11 @@
 export class AddressValidationError extends Error {}
 
+/** HTML `pattern` values are compiled with the `v` flag; keep these unicode-set safe. */
+export const INDIAN_MOBILE_PATTERN = '(\\+91[ ]?|91[ ]?|0[ ]?)?[6-9]([ ]?[0-9]){9}';
+export const PINCODE_PATTERN = '[0-9]{6}';
+export const INDIAN_MOBILE_PATTERN_MESSAGE = 'Enter a 10-digit mobile number.';
+export const PINCODE_PATTERN_MESSAGE = 'Enter a 6-digit pincode.';
+
 const TEXT_LIMITS = {
   name: 120,
   label: 40,

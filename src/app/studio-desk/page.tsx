@@ -7,6 +7,7 @@ import type { Product } from '@/types';
 import { money, capitalizeColour } from '@/data/products';
 import { Icon } from '@/components/Icons';
 import { readOrderSnapshot } from '@/lib/pricing';
+import { orderPaymentLabel, paymentDisplayStatus } from '@/lib/order-status';
 import { OrderSavings } from '@/components/OrderTotals';
 import { StudioPayment } from '@/components/StudioPayment';
 import { StudioCommerce } from '@/components/StudioCommerce';
@@ -1576,6 +1577,7 @@ export default function StudioDeskPage() {
                 <tbody>
                   {orders.map((o) => {
                     const { items: parsedItems, pricing, payment } = readOrderSnapshot(o.itemsJson);
+                    const paymentState = paymentDisplayStatus(payment);
 
                     return (
                       <tr key={o.id}>
@@ -1627,6 +1629,7 @@ export default function StudioDeskPage() {
                             <option value="Delivered">Delivered</option>
                             <option value="Cancelled">Cancelled</option>
                           </select>
+                          <div className={`admin-payment-label is-${paymentState}`}>{orderPaymentLabel(payment)}</div>
                           <StudioPayment
                             orderId={o.id} total={o.total} customerName={o.customerName}
                             email={o.email} phone={o.phone} payment={payment}
