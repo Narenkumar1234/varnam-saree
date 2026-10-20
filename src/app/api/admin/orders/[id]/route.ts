@@ -17,16 +17,23 @@ import {
 import {
   adminStatusChangeError,
   deriveOrderStatusFromPayment,
+  lookupOrderById,
   normalizeOrderLookupId,
 } from '@/lib/order-status';
 import { notifyAdminsOfOrder } from '@/lib/telegram';
 
 async function findAdminOrder(id: string) {
-  const [exact] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
-  if (exact) return exact;
-  if (id.toLowerCase() === id) return null;
-  const [folded] = await db.select().from(orders).where(sql`lower(${orders.id}) = ${id.toLowerCase()}`).limit(1);
-  return folded ?? null;
+  return lookupOrderById(
+    id,
+    async (exactId) => {
+      const [row] = await db.select().from(orders).where(eq(orders.id, exactId)).limit(1);
+      return row;
+    },
+    async (lowerId) => {
+      const [row] = await db.select().from(orders).where(sql`lower(${orders.id}) = ${lowerId}`).limit(1);
+      return row;
+    },
+  );
 }
 
 export async function GET(

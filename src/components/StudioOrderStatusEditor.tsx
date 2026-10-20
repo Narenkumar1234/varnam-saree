@@ -2,6 +2,7 @@
 
 import { StudioOfflinePayment } from '@/components/StudioOfflinePayment';
 import {
+  adminStatusChangeError,
   normalizeOrderStatus,
   orderPaymentLabel,
   paymentDisplayStatus,
@@ -59,7 +60,13 @@ export function StudioOrderStatusEditor({
         onChange={(event) => { void updateStatus(event.target.value); }}
       >
         {STUDIO_ORDER_STATUSES.map((option) => (
-          <option key={option} value={option}>{option}</option>
+          <option
+            key={option}
+            value={option}
+            disabled={Boolean(adminStatusChangeError(status, option, payment))}
+          >
+            {option}
+          </option>
         ))}
       </select>
       <div className={`admin-payment-label is-${paymentState}`}>{orderPaymentLabel(payment)}</div>

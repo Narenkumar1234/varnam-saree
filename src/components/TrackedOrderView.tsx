@@ -62,7 +62,7 @@ export function TrackedOrderView({ order, onPaid }: Props) {
         <small>Your saree was chosen and hand-inspected in our workshop.</small>
       </div>
       <div className={`track-step${confirmDone ? ' current' : ''}`}>
-        <div className="step-title">2. Confirmed (paid)</div>
+        <div className="step-title">2. Confirmed</div>
         <small>Payment received. We are preparing your saree with care.</small>
       </div>
       <div className={`track-step${deliveredDone ? ' current' : ''}`}>

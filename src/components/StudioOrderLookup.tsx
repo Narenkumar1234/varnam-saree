@@ -7,7 +7,7 @@ import { OrderSavings } from '@/components/OrderTotals';
 import { StudioOrderStatusEditor } from '@/components/StudioOrderStatusEditor';
 import { needsUnoptimized } from '@/lib/image-loader';
 import { getProductCoverImage } from '@/lib/product-gallery';
-import { formatOrderCreatedAtIst, normalizeOrderLookupId } from '@/lib/order-status';
+import { formatOrderCreatedAtIst, normalizeStudioOrderLookupId, studioAdminPaymentDetails } from '@/lib/order-status';
 import { studioOrderLineLabel } from '@/lib/studio-order-filters';
 import { readOrderSnapshot } from '@/lib/pricing';
 import type { Product } from '@/types';
@@ -71,13 +71,14 @@ export function StudioOrderLookup({ products, adminFetch, onUpdated, showToast }
   const [lookedUpId, setLookedUpId] = useState('');
 
   async function loadOrder(rawId: string) {
-    const id = normalizeOrderLookupId(rawId);
+    const id = normalizeStudioOrderLookupId(rawId);
     if (!id) {
       setOrder(null);
       setMissing(false);
       setLookedUpId('');
       return;
     }
+    setInput(id);
     setLoading(true);
     setMissing(false);
     setLookedUpId(id);
@@ -113,6 +114,7 @@ export function StudioOrderLookup({ products, adminFetch, onUpdated, showToast }
   }, []);
 
   const snapshot = order ? readOrderSnapshot(order.itemsJson) : null;
+  const paymentDetails = snapshot ? studioAdminPaymentDetails(snapshot.payment) : null;
 
   return (
     <div className="admin-panel-card">
@@ -205,6 +207,19 @@ export function StudioOrderLookup({ products, adminFetch, onUpdated, showToast }
             <OrderSavings pricing={snapshot.pricing} />
             {snapshot.pricing?.couponCode && (
               <p className="muted">Coupon {snapshot.pricing.couponCode}</p>
+            )}
+          </section>
+
+          <section>
+            <h3>Payment</h3>
+            {paymentDetails && (
+              <dl className="studio-order-payment-details">
+                <div><dt>Status</dt><dd>{paymentDetails.status}</dd></div>
+                {paymentDetails.provider && <div><dt>Method</dt><dd>{paymentDetails.provider}</dd></div>}
+                {paymentDetails.paymentId && <div><dt>Razorpay payment ID</dt><dd>{paymentDetails.paymentId}</dd></div>}
+                {paymentDetails.paidAt && <div><dt>Paid</dt><dd>{paymentDetails.paidAt}</dd></div>}
+                {paymentDetails.note && <div><dt>Note</dt><dd>{paymentDetails.note}</dd></div>}
+              </dl>
             )}
           </section>
 

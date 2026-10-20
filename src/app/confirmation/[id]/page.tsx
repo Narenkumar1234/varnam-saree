@@ -9,6 +9,7 @@ import { Icon } from '@/components/Icons';
 import { OrderTotals } from '@/components/OrderTotals';
 import { OrderLinePrice } from '@/components/OrderLinePrice';
 import { CustomerPayment } from '@/components/CustomerPayment';
+import { isPaidPayment } from '@/lib/order-status';
 import { createWhatsAppOrderUrl } from '@/lib/whatsapp';
 
 function ConfirmationContent({ orderId }: { orderId: string }) {
@@ -46,11 +47,15 @@ function ConfirmationContent({ orderId }: { orderId: string }) {
         <Icon name="check" />
       </span>
       <h1>A beautiful choice, {order.name}.</h1>
-      <p>
-        Your order <strong>{order.id}</strong> is confirmed.
-      </p>
+      {isPaidPayment(order.payment) ? (
+        <p>
+          Your order <strong>{order.id}</strong> is confirmed.
+        </p>
+      ) : (
+        <p>Order placed — awaiting payment</p>
+      )}
 
-      {order.payment?.status === 'paid' ? (
+      {isPaidPayment(order.payment) ? (
         <p style={{ color: 'var(--success, #2e7d32)', fontWeight: 600 }} role="status">✓ Payment confirmed</p>
       ) : (
         <CustomerPayment
@@ -58,6 +63,7 @@ function ConfirmationContent({ orderId }: { orderId: string }) {
           total={order.total}
           customerName={order.name}
           payment={order.payment}
+          idleLabel={order.payment ? 'Retry payment' : 'Pay now'}
           autoStart={autoStartPayment && !order.payment}
           whatsAppUrl={whatsAppUrl}
           onPaid={handlePaid}

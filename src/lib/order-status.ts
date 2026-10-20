@@ -101,6 +101,27 @@ export function normalizeOrderLookupId(value: unknown): string | null {
   return trimmed || null;
 }
 
+/** Studio lookup: trim and uppercase so vrn-… becomes VRN-… before navigation. */
+export function normalizeStudioOrderLookupId(value: unknown): string | null {
+  const id = normalizeOrderLookupId(value);
+  return id ? id.toUpperCase() : null;
+}
+
+/**
+ * Exact id first, then a case-insensitive fallback.
+ * Always try the folded match when exact misses — including all-lowercase input
+ * such as vrn-0692…, which would never hit a VRN-… row on an exact compare.
+ */
+export async function lookupOrderById<T>(
+  id: string,
+  findExact: (id: string) => Promise<T | null | undefined>,
+  findFolded: (lowerId: string) => Promise<T | null | undefined>,
+): Promise<T | null> {
+  const exact = await findExact(id);
+  if (exact) return exact;
+  return (await findFolded(id.toLowerCase())) ?? null;
+}
+
 /** Step 2 (Confirmed / paid) is complete only after a paid, non-cancelled order. */
 export function trackingConfirmStepComplete(status?: string | null, payment?: PaymentStatusSnapshot | null): boolean {
   if (isCancelledOrderStatus(status)) return false;
@@ -174,4 +195,32 @@ export function formatOrderCreatedAtIst(value?: string | Date | null): string {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+export type AdminPaymentDetails = {
+  status: string;
+  provider: string | null;
+  paymentId: string | null;
+  paidAt: string | null;
+  note: string | null;
+};
+
+/** Studio lookup Payment line: status, Razorpay/Offline method, admin payment id, paid date, note. */
+export function studioAdminPaymentDetails(
+  payment?: (PaymentStatusSnapshot & Partial<Pick<OrderPayment, 'paymentId' | 'paidAt' | 'note'>>) | null,
+): AdminPaymentDetails {
+  const status = orderPaymentLabel(payment);
+  let provider: string | null = null;
+  if (payment?.provider === 'razorpay') provider = 'Razorpay';
+  if (payment?.provider === 'offline') {
+    provider = payment.method ? `Offline (${payment.method})` : 'Offline';
+  }
+  const paymentId = payment?.provider === 'razorpay' && typeof payment.paymentId === 'string' && payment.paymentId.trim()
+    ? payment.paymentId.trim()
+    : null;
+  const paidAt = payment?.paidAt ? formatOrderCreatedAtIst(payment.paidAt) || payment.paidAt : null;
+  const note = payment?.provider === 'offline' && typeof payment.note === 'string' && payment.note.trim()
+    ? payment.note.trim()
+    : null;
+  return { status, provider, paymentId, paidAt, note };
 }
