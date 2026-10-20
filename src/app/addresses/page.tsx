@@ -12,7 +12,7 @@ import {
 } from '@/lib/address-storage';
 import type { CustomerAddress } from '@/types';
 
-const blankForm = (): SavedAddress => ({ ...EMPTY_ADDRESS, label: 'Home' });
+const blankForm = (): SavedAddress => ({ ...EMPTY_ADDRESS, label: '' });
 
 export default function AddressesPage() {
   const { showToast } = useStore();
@@ -64,7 +64,7 @@ export default function AddressesPage() {
   };
 
   const startEdit = (address: CustomerAddress) => {
-    setForm({ ...deliveryFromCustomerAddress(address), label: address.label || 'Home' });
+    setForm({ ...deliveryFromCustomerAddress(address), label: address.label || '' });
     setEditingId(address.id);
     setIsDefault(address.isDefault);
     setErrorMessage('');
@@ -182,7 +182,7 @@ export default function AddressesPage() {
 
       <form onSubmit={(event) => void handleSave(event)}>
         <h2 style={{ fontSize: '20px', marginTop: addresses.length ? '28px' : 0 }}>{editingId ? 'Edit address' : 'Add an address'}</h2>
-        <label>Address nickname<input name="label" value={form.label} onChange={(event) => setForm({ ...form, label: event.target.value })} /></label>
+        <label>Address nickname (optional)<input name="label" value={form.label} placeholder="Home / Office" onChange={(event) => setForm({ ...form, label: event.target.value })} /></label>
         <div className="form-grid">
           <AddressFields value={form} onChange={(field, value) => setForm((current) => ({ ...current, [field]: value }))} />
         </div>
@@ -192,7 +192,7 @@ export default function AddressesPage() {
         </label>
         {errorMessage && <p className="coupon-feedback error" role="alert">{errorMessage}</p>}
         <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving…' : editingId ? 'Update address' : 'Save address'}</button>
-        {editingId && <button className="btn outline" type="button" onClick={resetForm} style={{ marginTop: '8px' }}>Cancel edit</button>}
+        <button className="btn outline" type="button" onClick={resetForm} disabled={saving} style={{ marginTop: '8px' }}>Cancel</button>
       </form>
     </div>
   </>;

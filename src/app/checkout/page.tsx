@@ -45,7 +45,7 @@ function CheckoutContent() {
   const [savedAddresses, setSavedAddresses] = useState<CustomerAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<number | 'new'>('new');
   const [saveThisAddress, setSaveThisAddress] = useState(false);
-  const [addressLabel, setAddressLabel] = useState('Home');
+  const [addressLabel, setAddressLabel] = useState('');
 
   const buyNowId = searchParams.get('buyNow');
   const requestedQty = Number(searchParams.get('qty') || '1');
@@ -383,7 +383,7 @@ function CheckoutContent() {
                 {saveThisAddress && (
                   <label style={{ marginTop: '10px', display: 'block' }}>
                     Address nickname
-                    <input name="addressLabel" value={addressLabel} onChange={(event) => setAddressLabel(event.target.value)} />
+                    <input name="addressLabel" value={addressLabel} placeholder="Home / Office" onChange={(event) => setAddressLabel(event.target.value)} />
                   </label>
                 )}
               </div>

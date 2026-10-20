@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { money } from '@/data/products';
 import { OrderSavings } from '@/components/OrderTotals';
 import { useCustomerAccount } from '@/hooks/use-customer-account';
+import { customerFacingOrderStatus } from '@/lib/order-status';
 
 interface AccountViewProps {
   initialSignUp?: boolean;
@@ -92,7 +93,7 @@ export function AccountView({ initialSignUp = false, ordersOnly = false }: Accou
               <div><p role="alert">{ordersError}</p><button className="btn outline" type="button" onClick={retry}>Retry</button></div>
             ) : orders.length ? orders.map((order) => (
               <div key={order.id} className="order-card">
-                <h3>{order.id}{' '}<span className="muted" style={{ fontSize: '11px' }}>· {order.status || 'Confirmed'}</span></h3>
+                <h3>{order.id}{' '}<span className="muted" style={{ fontSize: '11px' }}>· {customerFacingOrderStatus(order.status, order.payment)}</span></h3>
                 <p>{order.date || new Date(order.createdAt || '').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} · {money(order.total)}</p>
                 <OrderSavings pricing={order.pricing} />
                 <Link className="text-link" href={`/track?order=${encodeURIComponent(order.id)}`}>View order & tracking</Link>
