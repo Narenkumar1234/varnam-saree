@@ -99,27 +99,45 @@ export function HeroCarousel() {
 
   const isAutoPlaying = !isPaused && !isTabHidden && !prefersReducedMotion;
 
-  // Touch handlers for mobile swipe
-  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
-  };
+  // Swipe handling. Listeners sit on the whole hero section (the carousel's
+  // parent) so a swipe that starts on the headline/CTA also changes slide.
+  // They are passive and never preventDefault, so taps on buttons/links and
+  // vertical page scrolling keep working.
+  const carouselRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = carouselRef.current;
+    const target: HTMLElement | null = el?.parentElement ?? el;
+    if (!target) return;
 
-  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (touchStartX.current === null || touchStartY.current === null) return;
-    const deltaX = e.changedTouches[0].clientX - touchStartX.current;
-    const deltaY = e.changedTouches[0].clientY - touchStartY.current;
-    touchStartX.current = null;
-    touchStartY.current = null;
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      touchStartX.current = e.touches[0].clientX;
+      touchStartY.current = e.touches[0].clientY;
+    };
 
-    if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY)) {
-      if (deltaX < 0) {
-        nextSlide();
-      } else {
-        prevSlide();
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (touchStartX.current === null || touchStartY.current === null) return;
+      const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+      const deltaY = e.changedTouches[0].clientY - touchStartY.current;
+      touchStartX.current = null;
+      touchStartY.current = null;
+
+      if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY)) {
+        if (deltaX < 0) {
+          nextSlide();
+        } else {
+          prevSlide();
+        }
       }
-    }
-  };
+    };
+
+    target.addEventListener('touchstart', handleTouchStart, { passive: true });
+    target.addEventListener('touchend', handleTouchEnd, { passive: true });
+    return () => {
+      target.removeEventListener('touchstart', handleTouchStart);
+      target.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [nextSlide, prevSlide]);
 
   // Keyboard navigation when carousel or its controls have focus
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -134,6 +152,7 @@ export function HeroCarousel() {
 
   return (
     <div
+      ref={carouselRef}
       className="hero-carousel"
       role="region"
       aria-roledescription="carousel"
@@ -146,8 +165,6 @@ export function HeroCarousel() {
           setIsPaused(false);
         }
       }}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
       onKeyDown={handleKeyDown}
       tabIndex={0}
     >
