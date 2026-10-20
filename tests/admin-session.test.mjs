@@ -234,6 +234,21 @@ test('Telegram failure does not fail an offline paid write', async () => {
   notify.mockRestore();
 });
 
+test('unreadable order snapshot is left untouched and returns 500', async () => {
+  const token = (await login(credentials())).cookies.get(session.ADMIN_SESSION_COOKIE).value;
+  const corrupt = '{not-json';
+  order.itemsJson = corrupt;
+  dbCalls = [];
+  const mark = await orderById.PATCH(
+    request('/api/admin/orders/VRN-admin-test', 'PATCH', { payment: { action: 'mark-offline-paid', method: 'UPI' } }, token),
+    { params: Promise.resolve({ id: order.id }) }
+  );
+  expect(mark.status).toBe(500);
+  expect((await mark.json()).error).toBe('Order data could not be read');
+  expect(order.itemsJson).toBe(corrupt);
+  expect(dbCalls).toEqual(['select']);
+});
+
 test('online Razorpay-paid orders cannot be marked offline or unpaid from Studio', async () => {
   const token = (await login(credentials())).cookies.get(session.ADMIN_SESSION_COOKIE).value;
   const snapshot = JSON.parse(order.itemsJson);

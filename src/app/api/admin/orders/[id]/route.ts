@@ -11,6 +11,7 @@ import {
   offlinePaidRequiredToUndo,
   offlineTelegramPaymentStatus,
   razorpayPaidBlocksOffline,
+  UNREADABLE_ORDER_DATA_ERROR,
   writePaymentSnapshot,
 } from '@/lib/offline-payment';
 import { notifyAdminsOfOrder } from '@/lib/telegram';
@@ -91,8 +92,11 @@ export async function PATCH(
     }
 
     return NextResponse.json({ success: true, order: updated[0] });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to update order:', error);
+    if (error instanceof Error && error.message === UNREADABLE_ORDER_DATA_ERROR) {
+      return NextResponse.json({ error: UNREADABLE_ORDER_DATA_ERROR }, { status: 500 });
+    }
     return NextResponse.json({ error: 'Failed to update order status' }, { status: 500 });
   }
 }

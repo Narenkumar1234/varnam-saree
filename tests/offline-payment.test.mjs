@@ -12,6 +12,7 @@ import {
   offlineTelegramPaymentStatus,
   razorpayPaidBlocksOffline,
   studioPaidLabel,
+  UNREADABLE_ORDER_DATA_ERROR,
   writePaymentSnapshot,
 } from '../src/lib/offline-payment.ts';
 
@@ -48,6 +49,17 @@ test('offline snapshot write preserves items/pricing and records paid metadata',
   const fromLegacyArray = JSON.parse(writePaymentSnapshot(JSON.stringify(items), payment));
   expect(fromLegacyArray.items).toEqual(items);
   expect(fromLegacyArray.payment.status).toBe('paid');
+});
+
+test('unreadable itemsJson throws instead of replacing order lines with an empty array', () => {
+  const payment = createOfflinePaidPayment({
+    method: 'Cash',
+    adminEmail: 'owner@varnam.test',
+    paidAt: '2026-10-20T10:00:00.000Z',
+  });
+  expect(() => writePaymentSnapshot('{not-json', payment)).toThrow(UNREADABLE_ORDER_DATA_ERROR);
+  expect(() => writePaymentSnapshot('{not-json', null)).toThrow(UNREADABLE_ORDER_DATA_ERROR);
+  expect(() => writePaymentSnapshot('null', payment)).toThrow(UNREADABLE_ORDER_DATA_ERROR);
 });
 
 test('razorpay-paid orders cannot be marked offline; only offline paid can be undone', () => {

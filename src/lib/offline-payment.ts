@@ -31,19 +31,24 @@ export function createOfflinePaidPayment(input: {
   };
 }
 
+export const UNREADABLE_ORDER_DATA_ERROR = 'Order data could not be read';
+
 export function writePaymentSnapshot(itemsJson: string, payment: OrderPayment | null): string {
   let raw: unknown;
   try {
     raw = JSON.parse(itemsJson);
   } catch {
-    raw = { version: 1, items: [] };
+    throw new Error(UNREADABLE_ORDER_DATA_ERROR);
   }
 
-  const snapshot: Record<string, unknown> = Array.isArray(raw)
-    ? { version: 1, items: raw }
-    : raw && typeof raw === 'object'
-      ? { ...(raw as Record<string, unknown>) }
-      : { version: 1, items: [] };
+  let snapshot: Record<string, unknown>;
+  if (Array.isArray(raw)) {
+    snapshot = { version: 1, items: raw };
+  } else if (raw && typeof raw === 'object') {
+    snapshot = { ...(raw as Record<string, unknown>) };
+  } else {
+    throw new Error(UNREADABLE_ORDER_DATA_ERROR);
+  }
 
   if (payment == null) {
     delete snapshot.payment;
