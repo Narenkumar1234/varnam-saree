@@ -8,6 +8,7 @@ import { collectionsData } from '@/data/products';
 import { ProductCard } from '@/components/ProductCard';
 import { useStore } from '@/context/store-context';
 import { Icon } from '@/components/Icons';
+import { HeroCarousel } from '@/components/HeroCarousel';
 
 export default function HomePage() {
   const { products } = useStore();
@@ -16,7 +17,7 @@ export default function HomePage() {
   return (
     <>
       <section className="hero">
-        <div className="hero-visual-mobile" aria-hidden="true" />
+        <HeroCarousel />
         <div className="hero-copy">
           <h1>
             Some stories

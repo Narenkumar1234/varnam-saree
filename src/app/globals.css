@@ -252,18 +252,165 @@ nav a:hover {
 
 .hero {
   min-height: clamp(560px, 72vh, 760px);
-  background: #c6b498 url('/assets/timeless-plum.webp') right 6%/cover no-repeat;
+  background-color: #c6b498;
   position: relative;
   display: flex;
   align-items: center;
   padding: 0 5% 0 4.5%;
+  overflow: hidden;
 }
 
 @media (min-width: 1400px) {
   .hero {
     min-height: clamp(620px, 76vh, 840px);
-    background-position: right 4%;
   }
+}
+
+.hero-carousel {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  overflow: hidden;
+  outline: none;
+}
+
+.hero-slides {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hero-slide {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 800ms cubic-bezier(0.4, 0, 0.2, 1), visibility 800ms cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+.hero-slide.is-active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.hero-slide-img {
+  object-fit: cover;
+  /* Subjects sit on the right; keep heads in frame when cover crops vertically */
+  object-position: right 6%;
+}
+
+@media (min-width: 1400px) {
+  .hero-slide-img {
+    object-position: right 4%;
+  }
+}
+
+.hero-carousel:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--gold);
+}
+
+/* Tablet widths: the copy can overlap the models, so soften the left side */
+@media (min-width: 701px) and (max-width: 1100px) {
+  .hero-carousel::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: linear-gradient(90deg, rgba(248, 244, 238, 0.72) 0%, rgba(248, 244, 238, 0.45) 38%, rgba(248, 244, 238, 0) 66%);
+  }
+}
+
+.hero-controls {
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-slide {
+    transition: none !important;
+  }
+}
+
+.hero-carousel-arrow {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--ink);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+  transition: all 200ms ease;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.hero-carousel-arrow:hover {
+  background: #ffffff;
+  transform: scale(1.06);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+
+.hero-carousel-arrow:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.hero-dots {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  background: rgba(28, 25, 23, 0.3);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.hero-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  padding: 0;
+  transition: all 250ms ease;
+}
+
+.hero-dot:hover,
+.hero-dot:focus-visible {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.hero-dot:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.hero-dot.is-active {
+  width: 24px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border-color: #ffffff;
 }
 
 .hero-visual-mobile {
@@ -273,7 +420,7 @@ nav a:hover {
 .hero-copy {
   position: relative;
   max-width: 480px;
-  z-index: 1;
+  z-index: 2;
 }
 
 .eyebrow {
@@ -315,6 +462,7 @@ nav a:hover {
   right: 5%;
   color: var(--ink);
   font-size: 12px;
+  z-index: 2;
 }
 
 .btn {
@@ -2520,13 +2668,30 @@ footer {
     flex-direction: column;
     background: #f8f4ee;
     border-bottom: 1px solid var(--line);
+    overflow: visible;
   }
+  .hero-carousel,
   .hero-visual-mobile {
     display: block;
+    position: relative;
     width: 100%;
     height: 400px;
-    background: url('/assets/timeless-plum.webp') center 22%/cover no-repeat;
     flex-shrink: 0;
+    overflow: hidden;
+    background-color: #c6b498;
+  }
+  .hero-slide-img {
+    object-position: 92% center;
+  }
+  .hero-carousel-arrow {
+    display: none;
+  }
+  .hero-controls {
+    bottom: 16px;
+  }
+  .hero-dots {
+    gap: 6px;
+    padding: 5px 10px;
   }
   .hero-copy {
     padding: 28px 6% 24px;
