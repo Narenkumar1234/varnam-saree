@@ -11,6 +11,7 @@ import { ProductPrice } from './ProductPrice';
 import { getProductQuantityLimit } from '@/lib/product-quantity';
 import { getProductDiscountPercentage } from '@/lib/shop-filters';
 import { capitalizeColour } from '@/lib/colour';
+import { needsUnoptimized } from '@/lib/image-loader';
 
 interface ProductCardProps {
   product: Product;
@@ -55,6 +56,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
             priority={priority}
             className="product-img"
             style={{ objectFit: 'cover', transition: 'filter 0.2s, transform 0.4s' }}
+            unoptimized={needsUnoptimized(product.image)}
           />
         </div>
         <h3>{product.name}</h3>

@@ -12,6 +12,7 @@ import { StudioPayment } from '@/components/StudioPayment';
 import { StudioCommerce } from '@/components/StudioCommerce';
 import { createSavedOrderWhatsAppMessage } from '@/lib/whatsapp';
 import { useStore } from '@/context/store-context';
+import { needsUnoptimized } from '@/lib/image-loader';
 
 type AdminProductVariant = { name: string; colour?: string; images: string[] };
 type AdminProduct = Omit<Product, 'stock' | 'tag'> & {
@@ -101,6 +102,7 @@ function VariantImageManager({
   onUploadPhoto,
   uploadingTarget,
   targetPrefix,
+  onUrlError,
 }: {
   variant: AdminProductVariant;
   variantIndex: number;
@@ -109,8 +111,17 @@ function VariantImageManager({
   onUploadPhoto: (e: React.ChangeEvent<HTMLInputElement>, imgIndex: number, varIndex: number) => void;
   uploadingTarget: any;
   targetPrefix: 'new-variant' | 'edit-variant';
+  onUrlError: (error: string | null) => void;
 }) {
   const images = (variant.images && variant.images.length > 0) ? variant.images.slice(0, 3) : ['/assets/saree-emerald.webp'];
+  
+  const validateUrl = (url: string): string | null => {
+    const trimmed = url.trim();
+    if (trimmed.startsWith('blob:') || trimmed.startsWith('data:')) {
+      return 'Please upload the file or paste a permanent image URL. Browser previews (blob: or data:) cannot be saved.';
+    }
+    return null;
+  };
 
   return (
     <div style={{ padding: '12px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '4px', background: '#fff', marginBottom: '10px' }}>
@@ -192,8 +203,11 @@ function VariantImageManager({
                   placeholder="Or paste image URL"
                   value={imgUrl}
                   onChange={(e) => {
+                    const url = e.target.value;
+                    const error = validateUrl(url);
+                    onUrlError(error);
                     const updated = [...images];
-                    updated[idx] = e.target.value;
+                    updated[idx] = url;
                     onUpdateVariant({ ...variant, images: updated });
                   }}
                   style={{ fontSize: '11px', padding: '4px 8px' }}
@@ -247,14 +261,14 @@ export default function StudioDeskPage() {
   // New Saree Form State
   const [newSaree, setNewSaree] = useState({
     name: '',
-    type: 'Kanchipuram pure silk',
-    collection: 'Silk',
-    price: 7500,
+    type: '',
+    collection: '',
+    price: 0,
     oldPrice: '',
     discountPercentage: '',
-    colour: 'Emerald',
-    stock: 5,
-    tag: 'Handloom certified',
+    colour: '',
+    stock: 0,
+    tag: '',
     image: '/assets/saree-emerald.webp',
     images: ['/assets/saree-emerald.webp'] as string[],
     variants: [] as AdminProductVariant[],
@@ -267,6 +281,73 @@ export default function StudioDeskPage() {
     | { target: 'new-variant' | 'edit-variant'; variantIndex: number; index?: number }
     | null
   >(null);
+
+  const validateImageUrl = (url: string): string | null => {
+    const trimmed = url.trim();
+    if (trimmed.startsWith('blob:') || trimmed.startsWith('data:')) {
+      return 'Please upload the file or paste a permanent image URL. Browser previews (blob: or data:) cannot be saved.';
+    }
+    return null;
+  };
+
+  const compressImage = async (file: File): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image();
+      const objectUrl = URL.createObjectURL(file);
+      
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Canvas not supported'));
+          return;
+        }
+        
+        const maxDimension = 1600;
+        let width = img.width;
+        let height = img.height;
+        
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = (height / width) * maxDimension;
+            width = maxDimension;
+          } else {
+            width = (width / height) * maxDimension;
+            height = maxDimension;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.webp'), {
+                type: 'image/webp',
+                lastModified: Date.now(),
+              });
+              resolve(compressedFile);
+            } else {
+              reject(new Error('Compression failed'));
+            }
+          },
+          'image/webp',
+          0.8
+        );
+      };
+      
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error('Failed to load image'));
+      };
+      
+      img.src = objectUrl;
+    });
+  };
 
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -284,8 +365,15 @@ export default function StudioDeskPage() {
       setUploadingTarget({ target, index });
     }
 
+    let processedFile = file;
+    try {
+      processedFile = await compressImage(file);
+    } catch (compressionError) {
+      console.warn('Client-side compression failed, uploading original:', compressionError);
+    }
+
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file', processedFile);
 
     try {
       const res = await adminFetch('/api/admin/upload', {
@@ -682,14 +770,14 @@ export default function StudioDeskPage() {
         setActiveTab('inventory');
         setNewSaree({
           name: '',
-          type: 'Kanchipuram pure silk',
-          collection: 'Silk',
-          price: 7500,
+          type: '',
+          collection: '',
+          price: 0,
           oldPrice: '',
           discountPercentage: '',
-          colour: 'Emerald',
-          stock: 5,
-          tag: 'Handloom certified',
+          colour: '',
+          stock: 0,
+          tag: '',
           image: '/assets/saree-emerald.webp',
           images: ['/assets/saree-emerald.webp'],
           variants: [],
@@ -914,7 +1002,7 @@ export default function StudioDeskPage() {
                         <td>
                           <div className="admin-prod-cell">
                             <div className="admin-thumb">
-                              <Image src={p.image} alt={p.name} fill sizes="48px" style={{ objectFit: 'cover' }} />
+                              <Image src={p.image} alt={p.name} fill sizes="48px" style={{ objectFit: 'cover' }} unoptimized={needsUnoptimized(p.image)} />
                             </div>
                             <div>
                               <strong>{p.name}</strong>
@@ -1224,7 +1312,7 @@ export default function StudioDeskPage() {
                           fill
                           sizes="64px"
                           style={{ objectFit: 'cover' }}
-                          unoptimized={imgUrl.startsWith('blob:')}
+                          unoptimized={needsUnoptimized(imgUrl)}
                         />
                       </div>
 
@@ -1276,17 +1364,24 @@ export default function StudioDeskPage() {
                           </select>
                         </div>
 
-                        <input
-                          type="text"
-                          placeholder="Or paste image URL"
-                          value={imgUrl}
-                          onChange={(e) => {
-                            const updated = [...newSaree.images];
-                            updated[idx] = e.target.value;
-                            setNewSaree({ ...newSaree, images: updated, image: updated[0] });
-                          }}
-                          style={{ fontSize: '12px', padding: '6px 10px' }}
-                        />
+                <input
+                  type="text"
+                  placeholder="Or paste image URL"
+                  value={imgUrl}
+                  onChange={(e) => {
+                    const url = e.target.value;
+                    const error = validateImageUrl(url);
+                    if (error) {
+                      setUploadError(error);
+                    } else {
+                      setUploadError(null);
+                    }
+                    const updated = [...newSaree.images];
+                    updated[idx] = url;
+                    setNewSaree({ ...newSaree, images: updated, image: updated[0] });
+                  }}
+                  style={{ fontSize: '12px', padding: '6px 10px' }}
+                />
                       </div>
                     </div>
                   </div>
@@ -1361,6 +1456,7 @@ export default function StudioDeskPage() {
                     setNewSaree({ ...newSaree, variants: vars });
                   }}
                   onUploadPhoto={(e, imgIdx, varIdx) => handleFileUpload(e, 'new-variant', imgIdx, varIdx)}
+                  onUrlError={setUploadError}
                 />
               ))}
               {(!newSaree.variants || newSaree.variants.length === 0) && (
@@ -1725,7 +1821,7 @@ export default function StudioDeskPage() {
                             fill
                             sizes="56px"
                             style={{ objectFit: 'cover' }}
-                            unoptimized={imgUrl.startsWith('blob:')}
+                            unoptimized={needsUnoptimized(imgUrl)}
                           />
                         </div>
 
@@ -1786,8 +1882,15 @@ export default function StudioDeskPage() {
                             placeholder="Or paste image URL"
                             value={imgUrl}
                             onChange={(e) => {
+                              const url = e.target.value;
+                              const error = validateImageUrl(url);
+                              if (error) {
+                                setUploadError(error);
+                              } else {
+                                setUploadError(null);
+                              }
                               const currentList = [...(editingProduct.images || [editingProduct.image])];
-                              currentList[idx] = e.target.value;
+                              currentList[idx] = url;
                               setEditingProduct({
                                 ...editingProduct,
                                 images: currentList,
@@ -1875,6 +1978,7 @@ export default function StudioDeskPage() {
                       setEditingProduct({ ...editingProduct, variants: vars });
                     }}
                     onUploadPhoto={(e, imgIdx, varIdx) => handleFileUpload(e, 'edit-variant', imgIdx, varIdx)}
+                    onUrlError={setUploadError}
                   />
                 ))}
                 {(!editingProduct.variants || editingProduct.variants.length === 0) && (
