@@ -35,19 +35,18 @@ export default function ProductDetail({ id }: { id: string }) {
 
   const activeVariant = hasVariants && product?.variants ? (product.variants[selectedVariantIndex] || product.variants[0]) : null;
 
-  const galleryImages = (activeVariant && activeVariant.images && activeVariant.images.length > 0)
-    ? activeVariant.images
-    : (product?.images && product.images.length > 0
-      ? product.images
-      : (product?.image ? [product.image] : []));
+  const mainImages = product?.images && product.images.length > 0 ? product.images : (product?.image ? [product.image] : []);
+  const variantImages = (activeVariant && activeVariant.images && activeVariant.images.length > 0) ? activeVariant.images : [];
+  
+  const galleryImages = hasVariants && variantImages.length > 0
+    ? [...mainImages, ...variantImages]
+    : mainImages;
 
   const [selectedImage, setSelectedImage] = useState<string>(product?.image || '');
 
   useEffect(() => {
-    if (activeVariant && activeVariant.images && activeVariant.images.length > 0) {
-      setSelectedImage(activeVariant.images[0]);
-    } else if (product) {
-      const first = (product.images && product.images.length > 0) ? product.images[0] : product.image;
+    if (product) {
+      const first = galleryImages[0] || product.image;
       setSelectedImage(first);
     }
   }, [product?.id, product?.image, product?.images, selectedVariantIndex]);

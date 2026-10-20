@@ -123,7 +123,13 @@ export function createCustomerAccount(deps: CustomerAccountDependencies, notify:
       if (active && attempt === action) await verify(result.user);
     } catch (error) {
       if (active && attempt === action && !state.profile) {
-        publish({ phase: 'signed-out', error: mapCustomerAuthError(error), canRetryVerification: Boolean(deps.currentUser()) });
+        const code = error && typeof error === 'object' ? (error as { code?: unknown }).code : undefined;
+        // Don't show error message for user-cancelled popups
+        if (code === 'auth/popup-closed-by-user') {
+          publish({ phase: 'signed-out', error: null, canRetryVerification: Boolean(deps.currentUser()) });
+        } else {
+          publish({ phase: 'signed-out', error: mapCustomerAuthError(error), canRetryVerification: Boolean(deps.currentUser()) });
+        }
       }
     } finally { if (active && attempt === action) publish({ signingIn: false }); }
   };

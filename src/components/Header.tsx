@@ -24,7 +24,7 @@ export function Header() {
   const maxProductDiscount = productDiscounts.length > 0 ? Math.max(...productDiscounts) : 0;
   const bestDiscount = Math.max(couponDiscount, maxProductDiscount);
   const hasOffer = bestDiscount > 0;
-  const offersHref = bestDiscount >= 50 ? '/shop?offers=50' : (bestDiscount > 0 ? `/shop?offers=${bestDiscount}` : '/shop?offers=50');
+  const offersHref = bestDiscount > 0 ? `/shop?offers=${bestDiscount}` : '/shop';
   const pathname = usePathname();
 
   // Close menu on navigation
@@ -140,14 +140,16 @@ export function Header() {
           <Link href="/">Home</Link>
           <Link href="/shop">All sarees</Link>
           {collectionLinks.map((collection) => <Link key={collection} href={`/shop?collection=${encodeURIComponent(collection)}`}>{collection}</Link>)}
-          <Link
-            className="offers-nav-link"
-            href={offersHref}
-            aria-label={hasOffer ? `Offers: up to ${bestDiscount}% off` : 'Offers'}
-          >
-            <span>Offers</span>
-            {hasOffer && <span className="offers-nav-badge" aria-hidden="true">{bestDiscount}% OFF</span>}
-          </Link>
+          {hasOffer && (
+            <Link
+              className="offers-nav-link"
+              href={offersHref}
+              aria-label={`Offers: up to ${bestDiscount}% off`}
+            >
+              <span>Offers</span>
+              <span className="offers-nav-badge" aria-hidden="true">{bestDiscount}% OFF</span>
+            </Link>
+          )}
           <Link href="/story">Our story</Link>
           <Link className="mobile-nav-link" href="/account">
             My account
