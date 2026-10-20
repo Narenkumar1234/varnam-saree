@@ -257,6 +257,7 @@ export default function StudioDeskPage() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const stockDebounceTimers = useRef<Map<number, NodeJS.Timeout>>(new Map());
+  const skipEditSaveRef = useRef(false);
 
   // New Saree Form State
   const [newSaree, setNewSaree] = useState({
@@ -276,6 +277,11 @@ export default function StudioDeskPage() {
   });
 
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadingTarget, setUploadingTarget] = useState<
+    | { target: 'new' | 'edit'; index?: number }
+    | { target: 'new-variant' | 'edit-variant'; variantIndex: number; index?: number }
+    | null
+  >(null);
   const clearFormAlerts = () => {
     setUploadError(null);
   };
@@ -288,14 +294,26 @@ export default function StudioDeskPage() {
     setActiveTab('inventory');
   };
   const closeEditForm = () => {
+    skipEditSaveRef.current = true;
     clearFormAlerts();
     setEditingProduct(null);
   };
-  const [uploadingTarget, setUploadingTarget] = useState<
-    | { target: 'new' | 'edit'; index?: number }
-    | { target: 'new-variant' | 'edit-variant'; variantIndex: number; index?: number }
-    | null
-  >(null);
+  const editingProductId = editingProduct?.id ?? null;
+  // Reset shared uploadError when leaving/switching the edit target or tab.
+  // Depend on product id (not the whole object) so typing in the edit form does not clear a live error.
+  useEffect(() => {
+    setUploadError(null);
+  }, [editingProductId, activeTab]);
+  useEffect(() => {
+    if (editingProductId == null) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      closeEditForm();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [editingProductId]);
 
   const validateImageUrl = (url: string): string | null => {
     const trimmed = url.trim();
@@ -664,7 +682,7 @@ export default function StudioDeskPage() {
   // Save Full Product Edits (Price, Collection, Fabric Type, Tag, Stock, etc.)
   const handleEditSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingProduct) return;
+    if (skipEditSaveRef.current || !editingProduct) return;
     if (uploadingTarget !== null) {
       showToast('Please wait for photo upload to finish.');
       return;
@@ -1095,6 +1113,7 @@ export default function StudioDeskPage() {
                                 const initialDisc = p.oldPrice && p.oldPrice > p.price
                                   ? Math.round(((p.oldPrice - p.price) / p.oldPrice) * 100)
                                   : '';
+                                skipEditSaveRef.current = false;
                                 clearFormAlerts();
                                 setEditingProduct({
                                   ...p,
@@ -1627,7 +1646,12 @@ export default function StudioDeskPage() {
 
       {/* EDIT SAREE MODAL */}
       {editingProduct && (
-        <div className="admin-modal-overlay" onClick={closeEditForm}>
+        <div
+          className="admin-modal-overlay"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) closeEditForm();
+          }}
+        >
           <div className="admin-modal-card" onClick={(e) => e.stopPropagation()}>
             <div className="admin-modal-header">
               <div>
@@ -1637,7 +1661,18 @@ export default function StudioDeskPage() {
               <button
                 type="button"
                 className="admin-modal-close"
-                onClick={closeEditForm}
+                aria-label="Close edit form"
+                onMouseDown={(event) => {
+                  // Prevent the focused image URL input from blurring/submitting the form
+                  // before this button's click runs (classic lost-click + implicit submit).
+                  event.preventDefault();
+                  event.stopPropagation();
+                }}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  closeEditForm();
+                }}
               >
                 ✕
               </button>

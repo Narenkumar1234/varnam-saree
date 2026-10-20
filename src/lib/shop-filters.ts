@@ -60,9 +60,19 @@ export function getOffersNav(
   return { visible: false };
 }
 
-/** Shop breadcrumb for `?offers=N` (products with discount >= N). */
+/** Shop breadcrumb/heading for `?offers=N` (products with discount >= N). */
 export function getShopOffersHeading(minDiscount: number): string | null {
   return minDiscount > 0 ? `Offers · ${minDiscount}%+ OFF` : null;
+}
+
+/** Visible shop listing title. Search mode is handled by the search page h1. */
+export function getShopListingHeading(
+  minDiscount: number,
+  collection: string,
+  searchMode = false,
+): string | null {
+  if (searchMode) return null;
+  return getShopOffersHeading(minDiscount) ?? (collection === 'All' ? 'All sarees' : `${collection} sarees`);
 }
 
 export function createShopFilters(priceBounds: PriceRange, collection = 'All'): ShopFilterState {
