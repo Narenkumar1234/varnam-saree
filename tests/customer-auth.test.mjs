@@ -6,7 +6,7 @@ import { PgDialect } from 'drizzle-orm/pg-core';
 // SDK doubles never read a credential file or contact Google. Real ID-token
 // cryptography/revocation is delegated to firebase-admin, with checkRevoked=true.
 const originalEnv = { ...process.env };
-const envKeys = ['GOOGLE_APPLICATION_CREDENTIALS', 'FIREBASE_PROJECT_ID', 'FIREBASE_CLIENT_EMAIL', 'FIREBASE_PRIVATE_KEY', 'FIREBASE_AUTH_EMULATOR_HOST', 'NEXT_PUBLIC_FIREBASE_API_KEY', 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN', 'NEXT_PUBLIC_FIREBASE_PROJECT_ID', 'NEXT_PUBLIC_FIREBASE_APP_ID'];
+const envKeys = ['GOOGLE_APPLICATION_CREDENTIALS', 'FIREBASE_PROJECT_ID', 'FIREBASE_CLIENT_EMAIL', 'FIREBASE_PRIVATE_KEY', 'FIREBASE_AUTH_EMULATOR_HOST', 'NEXT_PUBLIC_FIREBASE_API_KEY', 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN', 'NEXT_PUBLIC_FIREBASE_PROJECT_ID', 'NEXT_PUBLIC_FIREBASE_APP_ID', 'SQL_HOST'];
 let claims, verificationFailure, initializationFailure, verified, initialized, credentialCalls, calls, tables, unavailable;
 mock.module('firebase-admin/app', () => ({
   getApps: () => [],
@@ -17,7 +17,13 @@ mock.module('firebase-admin/app', () => ({
 mock.module('firebase-admin/auth', () => ({ getAuth: () => ({ verifyIdToken: async (...args) => {
   verified.push(args);
   if (verificationFailure) throw Object.assign(new Error('SDK verification failure'), { code: verificationFailure });
-  if (args[0] === 'test-bob-token') return { ...claims, uid: 'firebase-bob', email: 'bob@example.test', name: 'Bob' };
+  // Whitelist of valid test tokens that the mock SDK accepts
+  const validTokens = ['test-alice-token', 'test-bob-token'];
+  const token = args[0];
+  if (!validTokens.includes(token)) {
+    throw Object.assign(new Error('Firebase ID token has invalid signature'), { code: 'auth/invalid-id-token' });
+  }
+  if (token === 'test-bob-token') return { ...claims, uid: 'firebase-bob', email: 'bob@example.test', name: 'Bob' };
   return claims;
 } }) }));
 
@@ -66,6 +72,8 @@ beforeEach(() => {
   process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = 'test-only-project.firebaseapp.com';
   process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = 'test-only-project';
   process.env.NEXT_PUBLIC_FIREBASE_APP_ID = 'test-public-app-id';
+  // Enable database access for tests that require it
+  process.env.SQL_HOST = 'localhost';
   claims = { uid: 'firebase-alice', email: 'alice@example.test', name: 'Alice', email_verified: true, firebase: { sign_in_provider: 'google.com' } };
   verified = []; initialized = []; credentialCalls = []; calls = []; verificationFailure = null; initializationFailure = false; unavailable = false;
   tables = { products: [], coupons: [], site_settings: [], users: [{ id: 1, uid: 'firebase-alice', email: 'alice@example.test', name: 'Alice' }], orders: [
@@ -111,6 +119,30 @@ test('verification outage or invalid credential initialization fails closed with
   verificationFailure = null; initializationFailure = true;
   expect((await history(request('/api/orders', 'GET', undefined, 'untrusted'))).status).toBe(503);
   expect(calls).toHaveLength(0);
+});
+
+test('forged unsigned tokens with alg:none are rejected and never reach the database', async () => {
+  configure();
+  // Construct a forged JWT with alg:none, arbitrary email/sub, and valid-looking claims
+  const header = Buffer.from(JSON.stringify({ alg: 'none', typ: 'JWT' })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify({
+    email: 'attacker@evil.com',
+    sub: 'forged-uid-12345',
+    uid: 'forged-uid-12345',
+    email_verified: true,
+    aud: 'test-only-project',
+    exp: Math.floor(Date.now() / 1000) + 3600,
+    firebase: { sign_in_provider: 'google.com' },
+  })).toString('base64url');
+  const forgedToken = `${header}.${payload}.`;
+  
+  expect((await sync(request('/api/auth/sync', 'POST', {}, forgedToken))).status).toBe(401);
+  expect((await checkout(request('/api/orders', 'POST', { items: item() }, forgedToken))).status).toBe(401);
+  expect((await history(request('/api/orders', 'GET', undefined, forgedToken))).status).toBe(401);
+  // Verify no database access occurred with the forged identity
+  expect(calls).toHaveLength(0);
+  // Verify the SDK was asked to verify the token (and rejected it)
+  expect(verified.length).toBeGreaterThan(0);
 });
 
 test.each([{ email_verified: false }, { email: undefined }, { uid: '' }, { firebase: { sign_in_provider: 'password' } }, { firebase: { sign_in_provider: 'anonymous' } }])('a decoded token without a verified Google identity is rejected: %j', async (overrides) => {
@@ -208,9 +240,9 @@ test.each([
 
 test('missing browser configuration, invalid credentials and a database outage have distinct public codes', async () => {
   configure(); delete process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  expect((await (await sync(request('/api/auth/sync', 'POST', {}, 'test-token'))).json()).code).toBe('CUSTOMER_AUTH_NOT_CONFIGURED');
+  expect((await (await sync(request('/api/auth/sync', 'POST', {}, 'test-alice-token'))).json()).code).toBe('CUSTOMER_AUTH_NOT_CONFIGURED');
   process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = 'test-only-project'; initializationFailure = true;
-  expect((await (await sync(request('/api/auth/sync', 'POST', {}, 'test-token'))).json()).code).toBe('CUSTOMER_AUTH_INVALID_CREDENTIALS');
+  expect((await (await sync(request('/api/auth/sync', 'POST', {}, 'test-alice-token'))).json()).code).toBe('CUSTOMER_AUTH_INVALID_CREDENTIALS');
   initializationFailure = false; unavailable = true;
-  expect((await (await sync(request('/api/auth/sync', 'POST', {}, 'test-token'))).json()).code).toBe('CUSTOMER_ACCOUNT_UNAVAILABLE');
+  expect((await (await sync(request('/api/auth/sync', 'POST', {}, 'test-alice-token'))).json()).code).toBe('CUSTOMER_ACCOUNT_UNAVAILABLE');
 });

@@ -81,6 +81,7 @@ const order = (code, expectedTotal) => orders.POST(req('/api/orders', 'POST', { 
 beforeEach(() => {
   process.env.ADMIN_LOGIN_EMAIL = `${randomBytes(12).toString('hex')}@example.test`;
   process.env.ADMIN_LOGIN_PASSWORD = randomBytes(32).toString('hex');
+  process.env.SQL_HOST = 'localhost';
   tables = {
     coupons: DEFAULT_COUPONS.map((coupon, index) => ({ id: index + 1, ...coupon })),
     site_settings: [...Object.entries(DEFAULT_SETTINGS).map(([key, value]) => ({ key, value: String(value) })), { key: COUPONS_INITIALIZED, value: 'true' }],
@@ -90,7 +91,7 @@ beforeEach(() => {
   failures = new Set(); calls = 0;
 });
 afterAll(() => {
-  for (const key of ['ADMIN_LOGIN_EMAIL', 'ADMIN_LOGIN_PASSWORD']) {
+  for (const key of ['ADMIN_LOGIN_EMAIL', 'ADMIN_LOGIN_PASSWORD', 'SQL_HOST']) {
     if (previousEnv[key] === undefined) delete process.env[key]; else process.env[key] = previousEnv[key];
   }
   mock.restore();

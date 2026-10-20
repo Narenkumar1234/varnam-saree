@@ -43,9 +43,10 @@ beforeEach(() => {
   rows = [sample()]; unavailable = false; savedOrders = []; updates = 0;
   process.env.ADMIN_LOGIN_EMAIL = randomBytes(12).toString('hex') + '@example.test';
   process.env.ADMIN_LOGIN_PASSWORD = randomBytes(32).toString('hex');
+  process.env.SQL_HOST = 'localhost';
 });
 afterAll(() => {
-  for (const key of ['ADMIN_LOGIN_EMAIL', 'ADMIN_LOGIN_PASSWORD']) {
+  for (const key of ['ADMIN_LOGIN_EMAIL', 'ADMIN_LOGIN_PASSWORD', 'SQL_HOST']) {
     if (originalEnv[key] === undefined) delete process.env[key]; else process.env[key] = originalEnv[key];
   }
   mock.restore();

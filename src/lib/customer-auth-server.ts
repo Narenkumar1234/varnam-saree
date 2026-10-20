@@ -1,21 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getCustomerAdminAuth } from '@/lib/firebase-admin';
 import { CustomerAuthError, CUSTOMER_AUTH_MESSAGES, safeAuthReason, type CustomerAuthCode } from '@/lib/customer-auth-errors';
-import { getFirebasePublicConfig } from '@/lib/firebase-config';
 import type { UserProfile } from '@/types';
 
 export { CustomerAuthError };
 export const customerPrivateHeaders = { 'Cache-Control': 'private, no-store', Vary: 'Authorization' };
-
-function parseJwtPayload(token: string): Record<string, unknown> | null {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    return JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf-8'));
-  } catch {
-    return null;
-  }
-}
 
 export async function requireCustomerIdentity(req: Request): Promise<UserProfile> {
   const fail = (code: CustomerAuthCode, status: number, reason?: string): never => {
@@ -31,38 +20,15 @@ export async function requireCustomerIdentity(req: Request): Promise<UserProfile
     const auth = await getCustomerAdminAuth();
     claims = await auth.verifyIdToken(token, true);
   } catch (error: any) {
-    // When server service-account private keys are not configured (e.g. browser-only Vercel),
-    // decode and validate the real Google Firebase ID token directly from its signed JWT payload.
-    const directPayload = parseJwtPayload(token);
-    let expectedProject = '';
-    try {
-      expectedProject = getFirebasePublicConfig().projectId;
-    } catch {}
-
-    const isDirectTokenValid =
-      directPayload &&
-      (!expectedProject || directPayload.aud === expectedProject) &&
-      directPayload.email_verified === true &&
-      typeof directPayload.email === 'string' &&
-      directPayload.email.length > 0 &&
-      (directPayload.user_id || directPayload.sub || directPayload.uid);
-
-    if (isDirectTokenValid) {
-      if (typeof directPayload.exp === 'number' && directPayload.exp * 1000 < Date.now()) {
-        return fail('CUSTOMER_AUTH_TOKEN_REJECTED', 401, 'auth/id-token-expired');
-      }
-      claims = directPayload;
-    } else {
-      if (error instanceof CustomerAuthError) throw error;
-      const code = (error as { code?: string }).code || '';
-      if (['auth/argument-error', 'auth/invalid-argument', 'auth/invalid-id-token', 'auth/id-token-expired', 'auth/id-token-revoked', 'auth/user-disabled', 'auth/user-not-found'].includes(code)) {
-        return fail('CUSTOMER_AUTH_TOKEN_REJECTED', 401, safeAuthReason(error));
-      }
-      if (['app/invalid-credential', 'auth/invalid-credential', 'auth/insufficient-permission', 'auth/project-not-found'].includes(code)) {
-        return fail('CUSTOMER_AUTH_INVALID_CREDENTIALS', 503, safeAuthReason(error));
-      }
-      return fail('CUSTOMER_AUTH_VERIFICATION_UNAVAILABLE', 503, safeAuthReason(error));
+    if (error instanceof CustomerAuthError) throw error;
+    const code = (error as { code?: string }).code || '';
+    if (['auth/argument-error', 'auth/invalid-argument', 'auth/invalid-id-token', 'auth/id-token-expired', 'auth/id-token-revoked', 'auth/user-disabled', 'auth/user-not-found'].includes(code)) {
+      return fail('CUSTOMER_AUTH_TOKEN_REJECTED', 401, safeAuthReason(error));
     }
+    if (['app/invalid-credential', 'auth/invalid-credential', 'auth/insufficient-permission', 'auth/project-not-found'].includes(code)) {
+      return fail('CUSTOMER_AUTH_INVALID_CREDENTIALS', 503, safeAuthReason(error));
+    }
+    return fail('CUSTOMER_AUTH_VERIFICATION_UNAVAILABLE', 503, safeAuthReason(error));
   }
 
   const uid = (claims.uid || claims.user_id || claims.sub) as string;
