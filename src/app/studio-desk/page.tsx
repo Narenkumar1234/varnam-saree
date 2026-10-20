@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Product } from '@/types';
@@ -10,9 +10,16 @@ import { readOrderSnapshot } from '@/lib/pricing';
 import { OrderSavings } from '@/components/OrderTotals';
 import { StudioPayment } from '@/components/StudioPayment';
 import { StudioCommerce } from '@/components/StudioCommerce';
-import { createSavedOrderWhatsAppMessage } from '@/lib/whatsapp';
-import { useStore } from '@/context/store-context';
 import { needsUnoptimized } from '@/lib/image-loader';
+import {
+  STUDIO_ORDER_STATUSES,
+  STUDIO_PAYMENT_FILTERS,
+  countStudioOrdersByPayment,
+  countStudioOrdersByStatus,
+  createStudioOrderFilters,
+  filterStudioOrders,
+  hasActiveStudioOrderFilters,
+} from '@/lib/studio-order-filters';
 
 type AdminProductVariant = { name: string; colour?: string; images: string[] };
 type AdminProduct = Omit<Product, 'stock' | 'tag'> & {
@@ -236,7 +243,6 @@ function VariantImageManager({
 }
 
 export default function StudioDeskPage() {
-  const { openWhatsAppMessage, clearWhatsAppFallback } = useStore();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -248,6 +254,7 @@ export default function StudioDeskPage() {
   const [activeTab, setActiveTab] = useState<'inventory' | 'add' | 'orders' | 'coupons' | 'settings'>('inventory');
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [orders, setOrders] = useState<AdminOrder[]>([]);
+  const [orderFilters, setOrderFilters] = useState(createStudioOrderFilters);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -505,19 +512,11 @@ export default function StudioDeskPage() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const confirmOrderOnWhatsApp = (order: AdminOrder) => {
-    const snapshot = readOrderSnapshot(order.itemsJson);
-    const message = createSavedOrderWhatsAppMessage(
-      { ...order, ...snapshot }, products, window.location.origin
-    );
-    openWhatsAppMessage(message);
-  };
-
   function clearAdminState() {
-    clearWhatsAppFallback();
     setIsAuthenticated(false);
     setProducts([]);
     setOrders([]);
+    setOrderFilters(createStudioOrderFilters());
     setEditingProduct(null);
     setActiveTab('inventory');
     setLoginEmail('');
@@ -850,6 +849,22 @@ export default function StudioDeskPage() {
       showToast('Failed to update status');
     }
   };
+
+  const ordersForFilters = useMemo(
+    () => orders.map((order) => ({
+      ...order,
+      payment: readOrderSnapshot(order.itemsJson).payment,
+    })),
+    [orders]
+  );
+  const filteredOrders = useMemo(
+    () => filterStudioOrders(ordersForFilters, orderFilters),
+    [ordersForFilters, orderFilters]
+  );
+  const statusCounts = useMemo(() => countStudioOrdersByStatus(ordersForFilters), [ordersForFilters]);
+  const paymentCounts = useMemo(() => countStudioOrdersByPayment(ordersForFilters), [ordersForFilters]);
+  const filtersActive = hasActiveStudioOrderFilters(orderFilters);
+  const clearOrderFilters = () => setOrderFilters(createStudioOrderFilters());
 
   // Metrics
   const totalStockPieces = products.reduce((acc, p) => acc + (p.stock || 0), 0);
@@ -1538,7 +1553,7 @@ export default function StudioDeskPage() {
           <div className="admin-panel-header">
             <div>
               <h2>Customer Orders & Dispatch Status</h2>
-              <p className="muted">Pay securely with Razorpay, update delivery status, or confirm an order with Varnam on WhatsApp.</p>
+              <p className="muted">Pay securely with Razorpay or update delivery status for each customer order.</p>
             </div>
             <button type="button" onClick={loadData} className="btn outline" style={{ minHeight: '36px', padding: '6px 14px', fontSize: '12px' }}>
               Refresh
@@ -1553,93 +1568,149 @@ export default function StudioDeskPage() {
               <span className="muted" style={{ fontSize: '12px' }}>Place a test order on the storefront to test live tracking.</span>
             </div>
           ) : (
-            <div className="admin-table-container">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Order ID & Date</th>
-                    <th>Customer</th>
-                    <th>Delivery Location</th>
-                    <th>Items</th>
-                    <th>Total</th>
-                    <th>Status Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orders.map((o) => {
-                    const { items: parsedItems, pricing, payment } = readOrderSnapshot(o.itemsJson);
+            <>
+              <div className="studio-order-filters" aria-label="Filter customer orders">
+                <div className="studio-order-filter-group">
+                  <span className="studio-order-filter-label" id="studio-order-status-filter-label">Status</span>
+                  <div className="studio-order-filter-chips" role="group" aria-labelledby="studio-order-status-filter-label">
+                    {(['All', ...STUDIO_ORDER_STATUSES] as const).map((status) => (
+                      <button
+                        key={status}
+                        type="button"
+                        className={`studio-order-filter-chip${orderFilters.status === status ? ' active' : ''}`}
+                        aria-pressed={orderFilters.status === status}
+                        onClick={() => setOrderFilters((prev) => ({ ...prev, status }))}
+                      >
+                        {status} <span className="studio-order-filter-count">{statusCounts[status]}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-                    return (
-                      <tr key={o.id}>
-                        <td>
-                          <strong>{o.id}</strong>
-                          <div className="muted" style={{ fontSize: '11px' }}>
-                            {new Date(o.createdAt).toLocaleDateString('en-IN', {
-                              day: 'numeric',
-                              month: 'short',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </div>
-                        </td>
-                        <td>
-                          <strong>{o.customerName}</strong>
-                          <div className="muted" style={{ fontSize: '11px' }}>{o.email}</div>
-                          {o.phone && <div className="muted" style={{ fontSize: '11px' }}>{o.phone}</div>}
-                        </td>
-                        <td>
-                          <div style={{ fontSize: '12px', maxWidth: '200px' }}>
-                            {o.address}, {o.city}, {o.state} - {o.pincode}
-                          </div>
-                        </td>
-                        <td>
-                          <div style={{ fontSize: '12px' }}>
-                            {parsedItems.map((item, idx) => (
-                              <div key={idx} style={{ marginBottom: '4px' }}>
-                                Product #{item.id} × {item.qty}
-                                {item.finish && <span className="muted" style={{ fontSize: '10px' }}> ({item.finish})</span>}
-                              </div>
-                            ))}
-                          </div>
-                        </td>
-                        <td>
-                          <strong style={{ color: 'var(--ink)' }}>{money(o.total)}</strong>
-                          <OrderSavings pricing={pricing} />
-                        </td>
-                        <td>
-                          <select
-                            className={`admin-status-select status-${(o.status || 'confirmed').toLowerCase().replace(/\s+/g, '-')}`}
-                            value={o.status || 'Confirmed'}
-                            onChange={(e) => updateOrderStatus(o.id, e.target.value)}
-                          >
-                            <option value="Confirmed">Confirmed</option>
-                            <option value="Handloom Finishing">Handloom Finishing</option>
-                            <option value="Dispatched">Dispatched</option>
-                            <option value="Delivered">Delivered</option>
-                            <option value="Cancelled">Cancelled</option>
-                          </select>
-                          <StudioPayment
-                            orderId={o.id} total={o.total} customerName={o.customerName}
-                            email={o.email} phone={o.phone} payment={payment}
-                            cancelled={o.status?.toLowerCase() === 'cancelled'} onPaid={loadData}
-                          />
-                          <button
-                            type="button"
-                            className="studio-whatsapp order-whatsapp-action"
-                            aria-label={`Confirm order ${o.id} on WhatsApp`}
-                            title="Review the pre-filled message with Varnam on WhatsApp"
-                            onClick={() => confirmOrderOnWhatsApp(o)}
-                          >
-                            <Icon name="whatsapp" size={16} /> Confirm on WhatsApp
-                          </button>
-                        </td>
+                <div className="studio-order-filter-row">
+                  <label className="studio-order-filter-group studio-order-filter-search">
+                    <span className="studio-order-filter-label">Search</span>
+                    <input
+                      type="search"
+                      value={orderFilters.query}
+                      onChange={(e) => setOrderFilters((prev) => ({ ...prev, query: e.target.value }))}
+                      placeholder="Order ID, name, phone or email"
+                      autoComplete="off"
+                    />
+                  </label>
+
+                  <label className="studio-order-filter-group studio-order-payment-filter">
+                    <span className="studio-order-filter-label">Payment</span>
+                    <select
+                      className="studio-order-payment-select"
+                      value={orderFilters.payment}
+                      onChange={(e) => setOrderFilters((prev) => ({
+                        ...prev,
+                        payment: e.target.value as typeof prev.payment,
+                      }))}
+                    >
+                      {STUDIO_PAYMENT_FILTERS.map((payment) => (
+                        <option key={payment} value={payment}>
+                          {payment} ({paymentCounts[payment]})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                {filtersActive && (
+                  <button type="button" className="text-link studio-order-clear-filters" onClick={clearOrderFilters}>
+                    Clear filters
+                  </button>
+                )}
+              </div>
+
+              {filteredOrders.length === 0 ? (
+                <div className="empty" style={{ padding: '40px 20px' }}>
+                  <p>No orders match these filters</p>
+                  <button type="button" className="btn outline" onClick={clearOrderFilters}>
+                    Clear filters
+                  </button>
+                </div>
+              ) : (
+                <div className="admin-table-container">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Order ID & Date</th>
+                        <th>Customer</th>
+                        <th>Delivery Location</th>
+                        <th>Items</th>
+                        <th>Total</th>
+                        <th>Status Action</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    </thead>
+                    <tbody>
+                      {filteredOrders.map((o) => {
+                        const { items: parsedItems, pricing, payment } = readOrderSnapshot(o.itemsJson);
+
+                        return (
+                          <tr key={o.id}>
+                            <td>
+                              <strong>{o.id}</strong>
+                              <div className="muted" style={{ fontSize: '11px' }}>
+                                {new Date(o.createdAt).toLocaleDateString('en-IN', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </div>
+                            </td>
+                            <td>
+                              <strong>{o.customerName}</strong>
+                              <div className="muted" style={{ fontSize: '11px' }}>{o.email}</div>
+                              {o.phone && <div className="muted" style={{ fontSize: '11px' }}>{o.phone}</div>}
+                            </td>
+                            <td>
+                              <div style={{ fontSize: '12px', maxWidth: '200px' }}>
+                                {o.address}, {o.city}, {o.state} - {o.pincode}
+                              </div>
+                            </td>
+                            <td>
+                              <div style={{ fontSize: '12px' }}>
+                                {parsedItems.map((item, idx) => (
+                                  <div key={idx} style={{ marginBottom: '4px' }}>
+                                    Product #{item.id} × {item.qty}
+                                    {item.finish && <span className="muted" style={{ fontSize: '10px' }}> ({item.finish})</span>}
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                            <td>
+                              <strong style={{ color: 'var(--ink)' }}>{money(o.total)}</strong>
+                              <OrderSavings pricing={pricing} />
+                            </td>
+                            <td>
+                              <select
+                                className={`admin-status-select status-${(o.status || 'confirmed').toLowerCase().replace(/\s+/g, '-')}`}
+                                value={o.status || 'Confirmed'}
+                                onChange={(e) => updateOrderStatus(o.id, e.target.value)}
+                              >
+                                {STUDIO_ORDER_STATUSES.map((status) => (
+                                  <option key={status} value={status}>{status}</option>
+                                ))}
+                              </select>
+                              <StudioPayment
+                                orderId={o.id} total={o.total} customerName={o.customerName}
+                                email={o.email} phone={o.phone} payment={payment}
+                                cancelled={o.status?.toLowerCase() === 'cancelled'} onPaid={loadData}
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
