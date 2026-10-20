@@ -6,6 +6,8 @@ import { NextRequest } from 'next/server';
 const mode = process.argv[2];
 assert.ok(['verification-import', 'account-storage-import'].includes(mode));
 const sensitive = 'TEST_ONLY_PRIVATE_KEY_TOKEN_AND_SQL_PASSWORD_DO_NOT_LOG';
+// Set SQL_HOST so the sync route attempts database import
+process.env.SQL_HOST = 'localhost';
 if (mode === 'verification-import') {
   mock.module('../src/lib/customer-auth-server.ts', () => {
     throw Object.assign(new Error(sensitive), { code: 'ERR_MODULE_NOT_FOUND' });
