@@ -12,12 +12,14 @@ import { CouponForm } from '@/components/CouponForm';
 import { OrderTotals } from '@/components/OrderTotals';
 import { OrderLinePrice } from '@/components/OrderLinePrice';
 import { AddressFields } from '@/components/AddressFields';
-import { ADDRESS_FIELDS, readSavedAddress } from '@/lib/address-storage';
+import { ADDRESS_FIELDS, customerAddressPayload, deliveryFromCustomerAddress, markAddressMigrated, readSavedAddress, shouldMigrateBrowserAddress } from '@/lib/address-storage';
 import { formatWhatsAppOrderMessage } from '@/lib/whatsapp';
-import type { DeliveryAddress } from '@/types';
+import type { CustomerAddress, DeliveryAddress } from '@/types';
 import { loadRazorpayCheckout } from '@/components/StudioPayment';
 import { money } from '@/data/products';
 import { createWhatsAppOrderUrl } from '@/lib/whatsapp';
+import { useCustomerAccount } from '@/hooks/use-customer-account';
+import { customerAuthHeaders } from '@/lib/customer-auth-headers';
 
 async function razorpayRequest(endpoint: string, body: unknown) {
   const response = await fetch(`/api/payments/razorpay/${endpoint}`, {
@@ -39,6 +41,11 @@ function CheckoutContent() {
   const [paymentMessage, setPaymentMessage] = useState('');
   const [placedOrderId, setPlacedOrderId] = useState<string | null>(null);
   const savedTotal = useRef(0);
+  const { profile } = useCustomerAccount();
+  const [savedAddresses, setSavedAddresses] = useState<CustomerAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<number | 'new'>('new');
+  const [saveThisAddress, setSaveThisAddress] = useState(false);
+  const [addressLabel, setAddressLabel] = useState('Home');
 
   const buyNowId = searchParams.get('buyNow');
   const requestedQty = Number(searchParams.get('qty') || '1');
@@ -64,6 +71,7 @@ function CheckoutContent() {
     phone: '',
     address: '',
     apartment: '',
+    landmark: '',
     city: '',
     pin: '',
     state: '',
@@ -71,13 +79,48 @@ function CheckoutContent() {
   });
 
   useEffect(() => {
-    const saved = readSavedAddress();
-    if (saved) setFormData((current) => {
-      const next = { ...current };
-      for (const field of ADDRESS_FIELDS) if (!next[field]) next[field] = saved[field];
-      return next;
-    });
-  }, []);
+    if (profile?.email) {
+      setFormData((current) => current.email ? current : { ...current, email: profile.email });
+    }
+  }, [profile?.email]);
+
+  useEffect(() => {
+    if (!profile) {
+      const saved = readSavedAddress();
+      if (saved) setFormData((current) => {
+        const next = { ...current };
+        for (const field of ADDRESS_FIELDS) if (!next[field]) next[field] = saved[field];
+        return next;
+      });
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const headers = await customerAuthHeaders();
+        const pending = shouldMigrateBrowserAddress(profile.uid);
+        if (pending && pending.address && pending.pin && pending.phone) {
+          const migrate = await fetch('/api/addresses', {
+            method: 'POST', headers: { 'Content-Type': 'application/json', ...headers },
+            body: JSON.stringify(customerAddressPayload({ ...pending, label: pending.label || 'Home' }, { isDefault: true })),
+          });
+          if (migrate.ok) markAddressMigrated(profile.uid);
+        } else {
+          markAddressMigrated(profile.uid);
+        }
+        const response = await fetch('/api/addresses', { headers, cache: 'no-store' });
+        const data = await response.json().catch(() => null);
+        if (cancelled || !response.ok || !Array.isArray(data?.addresses)) return;
+        setSavedAddresses(data.addresses);
+        const preferred = data.addresses.find((address: CustomerAddress) => address.isDefault) || data.addresses[0];
+        if (preferred) {
+          setSelectedAddressId(preferred.id);
+          setFormData((current) => ({ ...current, ...deliveryFromCustomerAddress(preferred), email: current.email || profile.email }));
+        }
+      } catch { /* Guest-style checkout remains available if the address book cannot load. */ }
+    })();
+    return () => { cancelled = true; };
+  }, [profile]);
 
   const updateAddress = (field: keyof DeliveryAddress, value: string) => setFormData((current) => ({ ...current, [field]: value }));
 
@@ -151,7 +194,11 @@ function CheckoutContent() {
     setSubmitError(null);
     try {
       const orderId = await placeOrder(
-        { ...formData, address: `${formData.address} ${formData.apartment}`.trim() },
+        {
+          ...formData,
+          saveAddress: Boolean(profile) && saveThisAddress,
+          addressLabel,
+        },
         buyNowProduct ? checkoutItems : undefined
       );
 
@@ -234,6 +281,7 @@ function CheckoutContent() {
     const fullAddress = [
       formData.address,
       formData.apartment,
+      formData.landmark,
       formData.city,
       formData.state,
       formData.pin,
@@ -269,6 +317,35 @@ function CheckoutContent() {
         <div className="cart-layout">
           <form id="checkoutForm" onSubmit={handleSubmit}>
             <h2>Contact &amp; delivery</h2>
+            {profile && savedAddresses.length > 0 && (
+              <div className="saved-address-picker">
+                <h3 style={{ marginTop: 0 }}>Saved addresses</h3>
+                {savedAddresses.map((address) => (
+                  <label key={address.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '8px' }}>
+                    <input
+                      type="radio"
+                      name="saved-address"
+                      checked={selectedAddressId === address.id}
+                      onChange={() => {
+                        setSelectedAddressId(address.id);
+                        setFormData((current) => ({ ...current, ...deliveryFromCustomerAddress(address) }));
+                      }}
+                    />
+                    <span>
+                      <strong>{address.label || 'Saved address'}</strong>
+                      {address.isDefault ? ' · Default' : ''}
+                      <span className="muted" style={{ display: 'block', fontSize: '12px' }}>
+                        {address.line1}{address.line2 ? `, ${address.line2}` : ''}, {address.city} {address.pincode}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input type="radio" name="saved-address" checked={selectedAddressId === 'new'} onChange={() => setSelectedAddressId('new')} />
+                  Use a different address
+                </label>
+              </div>
+            )}
             <div className="form-grid">
               <AddressFields value={formData} onChange={updateAddress} fields={['first', 'last']} />
 
@@ -283,18 +360,7 @@ function CheckoutContent() {
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 />
               </label>
-              <AddressFields value={formData} onChange={updateAddress} fields={['phone', 'address']} />
-
-              <label className="wide">
-                Apartment, landmark (optional)
-                <input
-                  name="apartment"
-                  autoComplete="address-line2"
-                  value={formData.apartment}
-                  onChange={(e) => setFormData({ ...formData, apartment: e.target.value })}
-                />
-              </label>
-              <AddressFields value={formData} onChange={updateAddress} fields={['city', 'pin', 'state']} />
+              <AddressFields value={formData} onChange={updateAddress} fields={['phone', 'address', 'apartment', 'landmark', 'city', 'pin', 'state']} />
 
               <label>
                 Country
@@ -308,6 +374,20 @@ function CheckoutContent() {
                 </select>
               </label>
             </div>
+            {profile && (
+              <div style={{ marginTop: '16px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input type="checkbox" checked={saveThisAddress} onChange={(event) => setSaveThisAddress(event.target.checked)} />
+                  Save this address to my account
+                </label>
+                {saveThisAddress && (
+                  <label style={{ marginTop: '10px', display: 'block' }}>
+                    Address nickname
+                    <input name="addressLabel" value={addressLabel} onChange={(event) => setAddressLabel(event.target.value)} />
+                  </label>
+                )}
+              </div>
+            )}
 
             <h3>Delivery method</h3>
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
