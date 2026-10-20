@@ -12,6 +12,7 @@ import { getProductQuantityLimit } from '@/lib/product-quantity';
 import { getProductDiscountPercentage } from '@/lib/shop-filters';
 import { capitalizeColour } from '@/lib/colour';
 import { needsUnoptimized } from '@/lib/image-loader';
+import { getProductCoverImage } from '@/lib/product-gallery';
 
 interface ProductCardProps {
   product: Product;
@@ -29,6 +30,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
   const qty = cartItem?.qty || 0;
   const discountPct = getProductDiscountPercentage(product);
 
+  const coverImage = getProductCoverImage(product);
   const [isDebouncing, setIsDebouncing] = useState(false);
 
   const handleAdjust = (delta: number) => {
@@ -49,14 +51,14 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
       <Link href={`/product/${product.id}`} className="product-link">
         <div className="fabric-container" style={{ position: 'relative', width: '100%', aspectRatio: '4/5', overflow: 'hidden', backgroundColor: '#e5dfd4' }}>
           <Image
-            src={product.image}
+            src={coverImage}
             alt={`${capitalizeColour(product.colour)} saree — ${product.name}`}
             fill
             sizes="(max-width: 700px) 50vw, (max-width: 1000px) 33vw, 25vw"
             priority={priority}
             className="product-img"
             style={{ objectFit: 'cover', transition: 'filter 0.2s, transform 0.4s' }}
-            unoptimized={needsUnoptimized(product.image)}
+            unoptimized={needsUnoptimized(coverImage)}
           />
         </div>
         <h3>{product.name}</h3>

@@ -9,6 +9,7 @@ import { Icon } from '@/components/Icons';
 import { CouponForm } from '@/components/CouponForm';
 import { OrderTotals } from '@/components/OrderTotals';
 import { needsUnoptimized } from '@/lib/image-loader';
+import { getProductCoverImage } from '@/lib/product-gallery';
 import { OrderLinePrice } from '@/components/OrderLinePrice';
 import { getProductQuantityLimit } from '@/lib/product-quantity';
 import { capitalizeColour } from '@/lib/colour';
@@ -61,17 +62,18 @@ export default function CartPage() {
                 const p = getProductById(item.id);
                 if (!p) return <div className="cart-item" key={item.id}><p>This saree is no longer available.</p><button type="button" onClick={() => handleRemove(item.id)}>Remove</button></div>;
                 const pricedItem = cartQuote.items.find((line) => line.id === item.id);
+                const coverImage = getProductCoverImage(p);
 
                 return (
                   <div key={item.id} className="cart-item">
                     <Link href={`/product/${p.id}`} className="cart-item-image">
                       <Image
-                        src={p.image}
+                        src={coverImage}
                         alt={p.name}
                         fill
                         sizes="(max-width: 700px) 85px, 100px"
                         style={{ objectFit: 'cover' }}
-                        unoptimized={needsUnoptimized(p.image)}
+                        unoptimized={needsUnoptimized(coverImage)}
                       />
                     </Link>
 
@@ -81,8 +83,6 @@ export default function CartPage() {
                       </h3>
                       <p className="meta muted">
                         {p.type} · {capitalizeColour(p.colour)}
-                        <br />
-                        {item.finish || 'Unstitched blouse · included'}
                       </p>
                       {p.stock === 0 && <p className="stock-state sold-out">Sold out</p>}
                       <div className="qty">

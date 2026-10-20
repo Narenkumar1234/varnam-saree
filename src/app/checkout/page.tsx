@@ -49,7 +49,6 @@ function CheckoutContent() {
 
   const buyNowId = searchParams.get('buyNow');
   const requestedQty = Number(searchParams.get('qty') || '1');
-  const buyNowFinish = searchParams.get('finish') || 'Unstitched blouse · included';
 
   const buyNowProduct = buyNowId ? getProductById(parseInt(buyNowId, 10)) : null;
   const buyNowQty = requestedQty;
@@ -58,7 +57,7 @@ function CheckoutContent() {
 
   // Single-item direct checkout if buyNow is provided, otherwise full cart
   const checkoutItems: CartItem[] = buyNowProduct
-    ? [{ id: buyNowProduct.id, qty: buyNowQty, finish: buyNowFinish }]
+    ? [{ id: buyNowProduct.id, qty: buyNowQty }]
     : buyNowId ? [] : cart;
 
   const { quote: checkoutQuote, error: quoteError } = previewOrderQuote(checkoutItems, couponCode, products, commerce);

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import type { Product } from '@/types';
+import { getProductCoverImage } from '@/lib/product-gallery';
 import { getSiteUrl } from '@/lib/site-url';
 
 export function productMetadata(product: Product): Metadata {
@@ -11,8 +12,8 @@ export function productMetadata(product: Product): Metadata {
     alternates: { canonical: url },
     openGraph: {
       title, description, url, siteName: 'Varnam', type: 'website',
-      images: [{ url: product.image, alt: product.name }],
+      images: [{ url: getProductCoverImage(product), alt: product.name }],
     },
-    twitter: { card: 'summary_large_image', title, description, images: [product.image] },
+    twitter: { card: 'summary_large_image', title, description, images: [getProductCoverImage(product)] },
   };
 }

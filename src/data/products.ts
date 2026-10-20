@@ -20,6 +20,7 @@ export const fallbackProducts: Product[] = [
     colour: 'Emerald',
     tag: 'Bestseller',
     image: '/assets/saree-emerald.webp',
+    images: ['/assets/saree-emerald.webp', '/assets/saree-rose.webp', '/assets/saree-indigo.webp'],
   },
   {
     id: 2,
@@ -187,7 +188,7 @@ export const faqs = [
   ],
   [
     'Does the saree include a blouse piece?',
-    'Our sample catalogue includes an unstitched blouse piece. Each product screen lists its dimensions and finishing options.',
+    'Every saree includes an unstitched blouse piece. Varnam does not offer blouse stitching.',
   ],
   [
     'How do I care for silk sarees?',

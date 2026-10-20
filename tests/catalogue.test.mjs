@@ -206,6 +206,17 @@ test('existing single-image products work in catalogue without requiring images 
   expect(catalogue.products[0].images).toBeUndefined();
 });
 
+test('catalogue cover uses Studio images[0] even when the main image column is stale', async () => {
+  rows = [{
+    ...sample(),
+    image: '/assets/saree-rose.webp',
+    images: JSON.stringify(['/assets/saree-ivory.webp', '/assets/saree-emerald.webp']),
+  }];
+  const catalogue = await getCatalogue();
+  expect(catalogue.products[0].images[0]).toBe('/assets/saree-ivory.webp');
+  expect(catalogue.products[0].image).toBe('/assets/saree-ivory.webp');
+});
+
 test('% of offers filter correctly filters products by discount range (10%+, 25%+, 50%+)', () => {
   const products = [
     { ...sample(), id: 1, price: 9000, oldPrice: 10000 }, // 10% discount

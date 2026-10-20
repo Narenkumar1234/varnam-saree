@@ -8,10 +8,10 @@ Responsive luxury Indian saree storefront migrated to **Next.js 15 (App Router)*
   - Home (`/`): Heritage campaign hero, curated collections, loved products, heritage courtyard story band, brand philosophy.
   - Catalogue / Shop (`/shop`): Database catalogue, collection and colour filters, min–max price slider, sold-out states, 4-way sorting (Featured, Price Low/High, Newest arrivals), progressive reveal with accessible "Load more".
   - Mobile Filter Bottom-Sheet: Native modal drawer with drag grip, live match count, draft selection, and reset/apply actions.
-  - Product Details (`/product/[id]`): High-res optimized image, colour swatches, blouse finishing selection, quantity controls, WhatsApp order pre-filled generator, delivery pincode estimator, care guidelines, and recommended sarees.
+  - Product Details (`/product/[id]`): High-res optimized image gallery, colour swatches, unstitched blouse note, quantity controls, WhatsApp order pre-filled generator, delivery pincode estimator, care guidelines, and recommended sarees.
   - Search (`/search`): Instant search across saree names, weaves, and colours.
   - Wishlist (`/wishlist`): Save favourites with persistent browser storage and one-click removal.
-  - Bag & Cart (`/cart`): Stepper controls, finishing notes, WELCOME10 coupon calculations, free delivery on orders above ₹2,999, direct WhatsApp bag ordering, stock validation, and database-priced checkout flow.
+  - Bag & Cart (`/cart`): Stepper controls, WELCOME10 coupon calculations, free delivery on orders above ₹2,999, direct WhatsApp bag ordering, stock validation, and database-priced checkout flow.
   - Demo Checkout (`/checkout`): Contact and delivery form, Indian state and pincode validation, transparent demo order placement.
   - Confirmation (`/confirmation/[id]`): Verified demo order summary and order tracking link.
   - Tracking (`/track`): Order lookup with 3-stage visual progress timeline.

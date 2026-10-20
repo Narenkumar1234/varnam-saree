@@ -22,7 +22,6 @@ export default function ProductDetail({ id }: { id: string }) {
   const quantityLimit = product ? getProductQuantityLimit(product) : 1;
 
   const [qty, setQty] = useState(1);
-  const [finish, setFinish] = useState('Unstitched blouse · included');
   const [pincode, setPincode] = useState('');
   const [pinMessage, setPinMessage] = useState('');
 
@@ -68,7 +67,7 @@ export default function ProductDetail({ id }: { id: string }) {
   const handleAddToCart = () => {
     if (soldOut || isAdding) return;
     setIsAdding(true);
-    addToCart(product.id, qty, finish);
+    addToCart(product.id, qty);
     setTimeout(() => setIsAdding(false), 300);
   };
 
@@ -90,77 +89,54 @@ export default function ProductDetail({ id }: { id: string }) {
 
         <div className="detail">
           <div className="product-gallery">
-            <div
-              style={{
-                position: 'relative',
-                width: '100%',
-                aspectRatio: '4/5',
-                overflow: 'hidden',
-                backgroundColor: '#e5dfd4',
-              }}
-            >
-              <Image
-                key={currentImage}
-                src={currentImage}
-                alt={product.name}
-                fill
-                priority
-                sizes="(max-width: 700px) 100vw, 50vw"
-                style={{ objectFit: 'cover' }}
-                loader={imageLoader}
-                unoptimized={needsUnoptimized(currentImage)}
-              />
-            </div>
-
-            {galleryImages.length > 1 && (
-              <div
-                className="gallery-thumbnails"
-                role="tablist"
-                aria-label={`${product.name} image gallery`}
-                style={{
-                  display: 'flex',
-                  gap: '12px',
-                  marginTop: '14px',
-                }}
-              >
-                {galleryImages.map((img, idx) => {
-                  const isCurrent = idx === currentImageIndex;
-                  return (
-                    <button
-                      key={img}
-                      type="button"
-                      role="tab"
-                      aria-selected={isCurrent}
-                      aria-label={`View photo ${idx + 1} of ${product.name}`}
-                      onClick={() => setSelectedImageIndex(idx)}
-                      style={{
-                        position: 'relative',
-                        width: '74px',
-                        aspectRatio: '4/5',
-                        overflow: 'hidden',
-                        borderRadius: '2px',
-                        border: isCurrent ? '2px solid var(--ink, #1f1d1d)' : '1px solid rgba(0,0,0,0.15)',
-                        backgroundColor: '#e5dfd4',
-                        cursor: 'pointer',
-                        padding: 0,
-                        opacity: isCurrent ? 1 : 0.65,
-                        transition: 'opacity 0.2s, border-color 0.2s',
-                      }}
-                    >
-                      <Image
-                        src={img}
-                        alt={`${product.name} thumbnail ${idx + 1}`}
-                        fill
-                        sizes="74px"
-                        style={{ objectFit: 'cover' }}
-                        loader={imageLoader}
-                        unoptimized={needsUnoptimized(img)}
-                      />
-                    </button>
-                  );
-                })}
+            <div className="product-gallery-stage">
+              <div className="product-gallery-main">
+                <Image
+                  key={currentImage}
+                  src={currentImage}
+                  alt={product.name}
+                  fill
+                  priority
+                  sizes="(max-width: 700px) 100vw, 50vw"
+                  style={{ objectFit: 'cover' }}
+                  loader={imageLoader}
+                  unoptimized={needsUnoptimized(currentImage)}
+                />
               </div>
-            )}
+
+              {galleryImages.length > 1 && (
+                <div
+                  className="gallery-thumbnails"
+                  role="tablist"
+                  aria-label={`${product.name} image gallery`}
+                >
+                  {galleryImages.map((img, idx) => {
+                    const isCurrent = idx === currentImageIndex;
+                    return (
+                      <button
+                        key={img}
+                        type="button"
+                        role="tab"
+                        className={`gallery-thumb${isCurrent ? ' is-active' : ''}`}
+                        aria-selected={isCurrent}
+                        aria-label={`View photo ${idx + 1} of ${product.name}`}
+                        onClick={() => setSelectedImageIndex(idx)}
+                      >
+                        <Image
+                          src={img}
+                          alt={`${product.name} thumbnail ${idx + 1}`}
+                          fill
+                          sizes="72px"
+                          style={{ objectFit: 'cover' }}
+                          loader={imageLoader}
+                          unoptimized={needsUnoptimized(img)}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
           <div>
@@ -221,13 +197,7 @@ export default function ProductDetail({ id }: { id: string }) {
               </div>
             )}
 
-            <label>
-              Choose finishing
-              <select value={finish} onChange={(e) => setFinish(e.target.value)}>
-                <option value="Unstitched blouse · included">Unstitched blouse · included</option>
-                <option value="Fall & edging · included">Fall & edging · included</option>
-              </select>
-            </label>
+            <p className="blouse-note">Includes unstitched blouse piece</p>
 
             <div className="buy-row">
               <div className="qty">
@@ -260,7 +230,7 @@ export default function ProductDetail({ id }: { id: string }) {
                 disabled={soldOut}
                 onClick={() =>
                   router.push(
-                    `/checkout?buyNow=${product.id}&qty=${qty}&finish=${encodeURIComponent(finish)}`
+                    `/checkout?buyNow=${product.id}&qty=${qty}`
                   )
                 }
               >
@@ -282,7 +252,7 @@ export default function ProductDetail({ id }: { id: string }) {
               className="whatsapp-order product-whatsapp"
               type="button"
               disabled={soldOut}
-              onClick={() => orderProductOnWhatsApp(product.id, qty, finish)}
+              onClick={() => orderProductOnWhatsApp(product.id, qty)}
             >
               <Icon name="whatsapp" /> Order this saree on WhatsApp
             </button>
