@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useStore } from '@/context/store-context';
 import { TrackedOrderView } from '@/components/TrackedOrderView';
-import { loadTrackedOrder, type TrackedOrder } from '@/lib/order-lookup';
+import { loadTrackedOrder, shouldUpdateLocalOrderPayment, type TrackedOrder } from '@/lib/order-lookup';
 
 function TrackContent() {
   const searchParams = useSearchParams();
@@ -53,9 +53,9 @@ function TrackContent() {
   };
 
   const currentLookup = lookup?.id === searchedId ? lookup : null;
-  const loading = Boolean(searchedId && !localOrder && (!currentLookup || currentLookup.status === 'loading'));
-  const lookupError = currentLookup?.status === 'error';
-  const order: TrackedOrder | undefined = localOrder || currentLookup?.order;
+  const order = currentLookup?.status === 'found' ? currentLookup.order : localOrder;
+  const loading = Boolean(searchedId && !order && (!currentLookup || currentLookup.status === 'loading'));
+  const lookupError = Boolean(currentLookup?.status === 'error' && !order);
 
   return (
     <>
@@ -95,7 +95,7 @@ function TrackContent() {
             ) : order ? (
               <TrackedOrderView
                 order={{ ...order, name: localOrder?.name }}
-                onPaid={localOrder ? () => updateOrderPayment(order.id, {
+                onPaid={shouldUpdateLocalOrderPayment(localOrder, order.payment) ? () => updateOrderPayment(order.id, {
                   provider: 'razorpay', status: 'paid',
                   razorpayOrderId: '', amount: order.total * 100, currency: 'INR',
                 }) : undefined}

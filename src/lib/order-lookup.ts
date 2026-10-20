@@ -1,6 +1,6 @@
 import type { Order, OrderPayment, OrderPricing } from '@/types';
 import { readOrderSnapshot } from '@/lib/pricing';
-import { publicPaymentSnapshot, type PaymentStatusSnapshot } from '@/lib/order-status';
+import { paymentDisplayStatus, publicPaymentSnapshot, type PaymentStatusSnapshot } from '@/lib/order-status';
 
 export type TrackedOrder = Pick<Order, 'id' | 'total'> & {
   pricing?: OrderPricing;
@@ -41,6 +41,22 @@ export function toPublicTrackedOrder(order: TrackableOrderRecord): TrackedOrder 
   if (typeof order.status === 'string' && order.status.trim()) tracked.status = order.status;
   if (payment) tracked.payment = payment;
   return tracked;
+}
+
+/** Prefer a completed server lookup; keep a same-browser checkout snapshot only as placeholder/fallback. */
+export function resolveDisplayedTrackedOrder<T>(
+  currentLookup: { status?: string; order?: T } | null | undefined,
+  localOrder?: T | null,
+): T | undefined {
+  return currentLookup?.status === 'found' ? currentLookup.order : localOrder ?? undefined;
+}
+
+/** Local Razorpay onPaid is only for unpaid checkouts — never overwrite an already-paid server snapshot. */
+export function shouldUpdateLocalOrderPayment(
+  localOrder: unknown,
+  payment?: PaymentStatusSnapshot | null,
+): boolean {
+  return Boolean(localOrder) && paymentDisplayStatus(payment) !== 'paid';
 }
 
 // Only a confirmed 404 means "not found". Transport, server, and malformed
