@@ -39,7 +39,7 @@ export default function ProductDetail({ id }: { id: string }) {
   const variantImages = (activeVariant && activeVariant.images && activeVariant.images.length > 0) ? activeVariant.images : [];
   
   const galleryImages = hasVariants && variantImages.length > 0
-    ? [...mainImages, ...variantImages]
+    ? [...variantImages, ...mainImages.filter(img => !variantImages.includes(img))]
     : mainImages;
 
   const [selectedImage, setSelectedImage] = useState<string>(product?.image || '');
@@ -49,7 +49,7 @@ export default function ProductDetail({ id }: { id: string }) {
       const first = galleryImages[0] || product.image;
       setSelectedImage(first);
     }
-  }, [product?.id, product?.image, product?.images, selectedVariantIndex]);
+  }, [product?.id, product?.image, product?.images, selectedVariantIndex, galleryImages]);
 
   if (!product) {
     return (
