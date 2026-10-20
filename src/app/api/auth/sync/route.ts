@@ -13,9 +13,9 @@ export async function POST(req: NextRequest) {
     const profile = await requireCustomerIdentity(req);
     stage = 'account-storage-import';
 
-    // In production without a database configured (e.g. initial Vercel setup), skip DB safely.
-    const isDbConfigured = Boolean(process.env.SQL_HOST || process.env.NODE_ENV === 'test');
-    if (isDbConfigured) {
+    // Account storage is required; only an explicit local demo (never production) skips it.
+    const { localDemoModeEnabled } = await import('@/lib/local-demo-mode');
+    if (!localDemoModeEnabled()) {
       const [{ db }, { users }] = await Promise.all([import('@/db'), import('@/db/schema')]);
       stage = 'account-storage';
       await db.insert(users).values(profile).onConflictDoUpdate({
