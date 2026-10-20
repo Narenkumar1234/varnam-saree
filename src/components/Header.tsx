@@ -8,7 +8,7 @@ import { useStore } from '@/context/store-context';
 import { Icon } from './Icons';
 import { renderMarquee } from '@/lib/commerce';
 import { validateCoupon } from '@/lib/coupons';
-import { getProductDiscountPercentage } from '@/lib/shop-filters';
+import { getMaxProductDiscount, getOffersNav } from '@/lib/shop-filters';
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -19,12 +19,7 @@ export function Header() {
   const { totalBagCount, commerce, products } = useStore();
   const collectionLinks = [...new Set(products.map((product) => product.collection))].filter(Boolean).slice(0, 3);
   const couponOffer = commerce.coupons.filter((coupon) => validateCoupon(coupon.code, commerce.coupons, Number.MAX_SAFE_INTEGER).valid).sort((a, b) => b.percentage - a.percentage)[0];
-  const couponDiscount = couponOffer?.percentage || 0;
-  const productDiscounts = (products || []).map(getProductDiscountPercentage).filter((pct) => pct > 0);
-  const maxProductDiscount = productDiscounts.length > 0 ? Math.max(...productDiscounts) : 0;
-  const bestDiscount = Math.max(couponDiscount, maxProductDiscount);
-  const hasOffer = bestDiscount > 0;
-  const offersHref = bestDiscount > 0 ? `/shop?offers=${bestDiscount}` : '/shop';
+  const offersNav = getOffersNav(getMaxProductDiscount(products || []), couponOffer || null);
   const pathname = usePathname();
 
   // Close menu on navigation
@@ -140,14 +135,14 @@ export function Header() {
           <Link href="/">Home</Link>
           <Link href="/shop">All sarees</Link>
           {collectionLinks.map((collection) => <Link key={collection} href={`/shop?collection=${encodeURIComponent(collection)}`}>{collection}</Link>)}
-          {hasOffer && (
+          {offersNav.visible && (
             <Link
               className="offers-nav-link"
-              href={offersHref}
-              aria-label={`Offers: up to ${bestDiscount}% off`}
+              href={offersNav.href}
+              aria-label={offersNav.ariaLabel}
             >
               <span>Offers</span>
-              <span className="offers-nav-badge" aria-hidden="true">{bestDiscount}% OFF</span>
+              {offersNav.badge && <span className="offers-nav-badge" aria-hidden="true">{offersNav.badge}</span>}
             </Link>
           )}
           <Link href="/story">Our story</Link>

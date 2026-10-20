@@ -28,6 +28,43 @@ export function getProductDiscountPercentage(product: Product): number {
   return 0;
 }
 
+export function getMaxProductDiscount(catalogue: Product[]): number {
+  const discounts = (catalogue || []).map(getProductDiscountPercentage).filter((pct) => pct > 0);
+  return discounts.length > 0 ? Math.max(...discounts) : 0;
+}
+
+export type OffersNav =
+  | { visible: false }
+  | { visible: true; href: string; badge: string | null; ariaLabel: string };
+
+export function getOffersNav(
+  maxProductDiscount: number,
+  coupon?: { code: string; percentage: number } | null
+): OffersNav {
+  if (maxProductDiscount > 0) {
+    return {
+      visible: true,
+      href: `/shop?offers=${maxProductDiscount}`,
+      badge: `up to ${maxProductDiscount}% OFF`,
+      ariaLabel: `Offers: up to ${maxProductDiscount}% off`,
+    };
+  }
+  if (coupon && coupon.percentage > 0) {
+    return {
+      visible: true,
+      href: '/shop',
+      badge: `${coupon.code} ${coupon.percentage}% OFF`,
+      ariaLabel: `Offers: ${coupon.code} ${coupon.percentage}% off`,
+    };
+  }
+  return { visible: false };
+}
+
+/** Shop breadcrumb for `?offers=N` (products with discount >= N). */
+export function getShopOffersHeading(minDiscount: number): string | null {
+  return minDiscount > 0 ? `Offers · ${minDiscount}%+ OFF` : null;
+}
+
 export function createShopFilters(priceBounds: PriceRange, collection = 'All'): ShopFilterState {
   return { collection, colours: [], priceRange: { ...priceBounds }, minDiscount: 0 };
 }
