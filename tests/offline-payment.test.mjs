@@ -1,17 +1,17 @@
 import { expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import {
-  customerFacingOrderStatus,
-  paymentDisplayStatus,
-  studioPaidLabel,
-} from '../src/lib/order-status.ts';
+import { customerFacingOrderStatus, paymentDisplayStatus, publicPaymentSnapshot } from '../src/lib/order-status.ts';
+import { toPublicTrackedOrder } from '../src/lib/order-lookup.ts';
+import { formatOrderAdminMessage } from '../src/lib/telegram.ts';
 import {
   createOfflinePaidPayment,
   isOfflinePaymentMethod,
   normalizeOfflinePaymentNote,
   offlinePaidRequiredToUndo,
+  offlineTelegramPaymentStatus,
   razorpayPaidBlocksOffline,
+  studioPaidLabel,
   writePaymentSnapshot,
 } from '../src/lib/offline-payment.ts';
 
@@ -75,12 +75,33 @@ test('offline method and note validation', () => {
 });
 
 test('customer helpers treat offline-paid orders as paid', () => {
-  expect(paymentDisplayStatus({ provider: 'offline', status: 'paid', method: 'Cash' })).toBe('Paid');
-  expect(customerFacingOrderStatus('Handloom Finishing')).toBe('Handloom Finishing');
-  expect(customerFacingOrderStatus('')).toBe('Confirmed');
+  const offlinePaid = { provider: 'offline', status: 'paid', method: 'Cash', note: 'secret', adminEmail: 'owner@varnam.test' };
+  expect(paymentDisplayStatus(offlinePaid)).toBe('paid');
+  expect(customerFacingOrderStatus('Handloom Finishing', offlinePaid)).toBe('Handloom Finishing');
+  expect(customerFacingOrderStatus('Confirmed', offlinePaid)).toBe('Confirmed');
+  expect(customerFacingOrderStatus('')).toBe('Awaiting payment');
   expect(studioPaidLabel({ provider: 'offline', status: 'paid', method: 'UPI' })).toBe('Paid · Offline (UPI)');
   expect(studioPaidLabel({ provider: 'razorpay', status: 'paid' })).toBe('Paid · Razorpay');
   expect(studioPaidLabel({ provider: 'razorpay', status: 'pending' })).toBeNull();
+  expect(publicPaymentSnapshot(offlinePaid)).toEqual({ status: 'paid' });
+  expect(Object.keys(publicPaymentSnapshot(offlinePaid))).toEqual(['status']);
+  expect(offlineTelegramPaymentStatus('UPI')).toBe('paid (offline UPI)');
+  const publicOrder = toPublicTrackedOrder({
+    id: 'VRN-1042',
+    total: 2500,
+    status: 'Confirmed',
+    itemsJson: writePaymentSnapshot(JSON.stringify({ version: 1, items, pricing }), offlinePaid),
+  });
+  expect(publicOrder.payment).toEqual({ status: 'paid' });
+  expect(JSON.stringify(publicOrder)).not.toContain('adminEmail');
+  expect(JSON.stringify(publicOrder)).not.toContain('secret');
+  expect(formatOrderAdminMessage({
+    id: 'VRN-1042',
+    total: 2500,
+    customerName: 'Meera',
+    email: 'meera@example.com',
+    paymentStatus: 'paid (offline UPI)',
+  })).toContain('paid (offline UPI)');
 });
 
 test('Studio offline payment UI has confirm and unpaid actions, not Razorpay checkout', async () => {
@@ -109,17 +130,14 @@ test('Studio offline payment UI has confirm and unpaid actions, not Razorpay che
 });
 
 test('customer order surfaces use shared paid/status helpers', () => {
-  const files = [
-    '../src/components/AccountView.tsx',
-    '../src/app/track/page.tsx',
-    '../src/app/orders/page.tsx',
-  ];
-  const account = readFileSync(fileURLToPath(new URL(files[0], import.meta.url)), 'utf8');
-  const track = readFileSync(fileURLToPath(new URL(files[1], import.meta.url)), 'utf8');
-  const orders = readFileSync(fileURLToPath(new URL(files[2], import.meta.url)), 'utf8');
-  expect(account).toContain('customerFacingOrderStatus');
-  expect(account).toContain('paymentDisplayStatus');
-  expect(track).toContain('customerFacingOrderStatus');
-  expect(track).toContain('paymentDisplayStatus');
+  const account = readFileSync(fileURLToPath(new URL('../src/components/AccountView.tsx', import.meta.url)), 'utf8');
+  const trackView = readFileSync(fileURLToPath(new URL('../src/components/TrackedOrderView.tsx', import.meta.url)), 'utf8');
+  const orders = readFileSync(fileURLToPath(new URL('../src/app/orders/page.tsx', import.meta.url)), 'utf8');
+  const lookup = readFileSync(fileURLToPath(new URL('../src/lib/order-lookup.ts', import.meta.url)), 'utf8');
+  expect(account).toContain('customerFacingOrderStatus(order.status, order.payment)');
+  expect(trackView).toContain('customerFacingOrderStatus');
+  expect(trackView).toContain('paymentDisplayStatus');
   expect(orders).toContain('AccountView');
+  expect(lookup).toContain('publicPaymentSnapshot');
+  expect(lookup).toContain('toPublicTrackedOrder');
 });

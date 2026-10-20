@@ -2,8 +2,12 @@
 
 import { useState } from 'react';
 import type { OfflinePaymentMethod, OrderPayment } from '@/types';
-import { isOfflinePaid, isRazorpayPaid, studioPaidLabel } from '@/lib/order-status';
-import { OFFLINE_PAYMENT_METHODS } from '@/lib/offline-payment';
+import {
+  OFFLINE_PAYMENT_METHODS,
+  isOfflinePaid,
+  isRazorpayPaid,
+  studioPaidLabel,
+} from '@/lib/offline-payment';
 
 interface Props {
   orderId: string;

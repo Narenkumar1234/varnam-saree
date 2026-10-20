@@ -100,9 +100,28 @@ export interface DeliveryAddress {
   last: string;
   phone: string;
   address: string;
+  apartment: string;
+  landmark: string;
   city: string;
   pin: string;
   state: string;
+}
+
+export interface CustomerAddress {
+  id: number;
+  label: string | null;
+  fullName: string;
+  phone: string;
+  line1: string;
+  line2: string | null;
+  landmark: string | null;
+  city: string;
+  state: string;
+  pincode: string;
+  country: string;
+  isDefault: boolean;
+  createdAt?: string | Date | null;
+  updatedAt?: string | Date | null;
 }
 
 export interface PriceRange {

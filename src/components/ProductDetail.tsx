@@ -10,8 +10,10 @@ import { useStore } from '@/context/store-context';
 import { ProductCard } from '@/components/ProductCard';
 import { Icon } from '@/components/Icons';
 import { ProductPrice } from '@/components/ProductPrice';
+import { PINCODE_PATTERN, PINCODE_PATTERN_MESSAGE } from '@/lib/address-validation';
 import { getProductQuantityLimit } from '@/lib/product-quantity';
-import { needsUnoptimized } from '@/lib/image-loader';
+import { imageLoader, needsUnoptimized } from '@/lib/image-loader';
+import { buildProductGalleryImages, clampGalleryIndex } from '@/lib/product-gallery';
 
 export default function ProductDetail({ id }: { id: string }) {
   const router = useRouter();
@@ -35,23 +37,15 @@ export default function ProductDetail({ id }: { id: string }) {
 
   const activeVariant = hasVariants && product?.variants ? (product.variants[selectedVariantIndex] || product.variants[0]) : null;
 
-  const mainImages = product?.images && product.images.length > 0 ? product.images : (product?.image ? [product.image] : []);
-  const variantImages = (activeVariant && activeVariant.images && activeVariant.images.length > 0) ? activeVariant.images : [];
-  const galleryImages = hasVariants && variantImages.length > 0
-    ? [...variantImages, ...mainImages.filter(img => !variantImages.includes(img))]
-    : mainImages;
-  const galleryKey = galleryImages.join('|');
-
-  const [selectedImage, setSelectedImage] = useState<string>(product?.image || '');
+  const galleryImages = buildProductGalleryImages(product, selectedVariantIndex);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   useEffect(() => {
-    if (product) {
-      const first = galleryImages[0] || product.image;
-      setSelectedImage(first);
-    }
-    // galleryKey serializes galleryImages so this does not reset on every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- product identity and gallery contents are captured by product?.id + galleryKey
-  }, [product?.id, selectedVariantIndex, galleryKey]);
+    setSelectedImageIndex(0);
+  }, [product?.id, selectedVariantIndex]);
+
+  const currentImageIndex = clampGalleryIndex(selectedImageIndex, galleryImages.length);
+  const currentImage = galleryImages[currentImageIndex] || product?.image || '';
 
   if (!product) {
     return (
@@ -83,7 +77,7 @@ export default function ProductDetail({ id }: { id: string }) {
     if (pincode.length === 6) {
       setPinMessage('Demo estimate: delivery in 5–7 business days.');
     } else {
-      setPinMessage('Please enter a valid 6-digit pincode.');
+      setPinMessage(PINCODE_PATTERN_MESSAGE);
     }
   };
 
@@ -106,13 +100,15 @@ export default function ProductDetail({ id }: { id: string }) {
               }}
             >
               <Image
-                src={selectedImage || product.image}
+                key={currentImage}
+                src={currentImage}
                 alt={product.name}
                 fill
                 priority
                 sizes="(max-width: 700px) 100vw, 50vw"
                 style={{ objectFit: 'cover' }}
-                unoptimized={needsUnoptimized(selectedImage || product.image)}
+                loader={imageLoader}
+                unoptimized={needsUnoptimized(currentImage)}
               />
             </div>
 
@@ -128,15 +124,15 @@ export default function ProductDetail({ id }: { id: string }) {
                 }}
               >
                 {galleryImages.map((img, idx) => {
-                  const isCurrent = (selectedImage || product.image) === img;
+                  const isCurrent = idx === currentImageIndex;
                   return (
                     <button
-                      key={idx}
+                      key={img}
                       type="button"
                       role="tab"
                       aria-selected={isCurrent}
                       aria-label={`View photo ${idx + 1} of ${product.name}`}
-                      onClick={() => setSelectedImage(img)}
+                      onClick={() => setSelectedImageIndex(idx)}
                       style={{
                         position: 'relative',
                         width: '74px',
@@ -157,6 +153,7 @@ export default function ProductDetail({ id }: { id: string }) {
                         fill
                         sizes="74px"
                         style={{ objectFit: 'cover' }}
+                        loader={imageLoader}
                         unoptimized={needsUnoptimized(img)}
                       />
                     </button>
@@ -204,9 +201,7 @@ export default function ProductDetail({ id }: { id: string }) {
                       }}
                       onClick={() => {
                         setSelectedVariantIndex(idx);
-                        if (v.images && v.images.length > 0) {
-                          setSelectedImage(v.images[0]);
-                        }
+                        setSelectedImageIndex(0);
                       }}
                     />
                   );
@@ -302,8 +297,9 @@ export default function ProductDetail({ id }: { id: string }) {
                 <input
                   id="pin"
                   inputMode="numeric"
-                  pattern="[0-9]{6}"
+                  pattern={PINCODE_PATTERN}
                   maxLength={6}
+                  title={PINCODE_PATTERN_MESSAGE}
                   placeholder="6-digit pincode"
                   value={pincode}
                   onChange={(e) => setPincode(e.target.value)}

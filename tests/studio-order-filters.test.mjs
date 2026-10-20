@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { paymentDisplayStatus } from '../src/lib/order-status.ts';
+import { orderPaymentLabel, paymentDisplayStatus } from '../src/lib/order-status.ts';
 import {
   STUDIO_ORDER_STATUSES,
   STUDIO_PAYMENT_FILTERS,
@@ -11,6 +11,7 @@ import {
   filterStudioOrders,
   hasActiveStudioOrderFilters,
   normalizeStudioOrderStatus,
+  studioOrderPaymentLabel,
 } from '../src/lib/studio-order-filters.ts';
 
 function order(overrides = {}) {
@@ -61,13 +62,14 @@ const catalogue = [
   }),
 ];
 
-test('paymentDisplayStatus maps Razorpay and offline states to shared labels', () => {
-  expect(paymentDisplayStatus({ status: 'paid' })).toBe('Paid');
-  expect(paymentDisplayStatus({ status: 'paid', provider: 'offline' })).toBe('Paid');
-  expect(paymentDisplayStatus({ status: 'authorized' })).toBe('Payment processing');
-  expect(paymentDisplayStatus({ status: 'pending' })).toBe('Awaiting payment');
-  expect(paymentDisplayStatus(null)).toBe('Awaiting payment');
-  expect(paymentDisplayStatus(undefined)).toBe('Awaiting payment');
+test('Studio payment filters reuse main orderPaymentLabel values', () => {
+  expect(paymentDisplayStatus({ status: 'paid' })).toBe('paid');
+  expect(paymentDisplayStatus({ status: 'paid', provider: 'offline' })).toBe('paid');
+  expect(studioOrderPaymentLabel({ status: 'paid' })).toBe('Paid');
+  expect(studioOrderPaymentLabel({ status: 'authorized' })).toBe('Payment processing');
+  expect(studioOrderPaymentLabel({ status: 'pending' })).toBe('Awaiting payment');
+  expect(studioOrderPaymentLabel(null)).toBe('Awaiting payment');
+  expect(orderPaymentLabel(undefined)).toBe('Awaiting payment');
 });
 
 test('status chips use the Studio dropdown values and count empty status as Confirmed', () => {

@@ -9,9 +9,11 @@ import {
   isOfflinePaymentMethod,
   normalizeOfflinePaymentNote,
   offlinePaidRequiredToUndo,
+  offlineTelegramPaymentStatus,
   razorpayPaidBlocksOffline,
   writePaymentSnapshot,
 } from '@/lib/offline-payment';
+import { notifyAdminsOfOrder } from '@/lib/telegram';
 
 export async function PATCH(
   req: NextRequest,
@@ -75,6 +77,17 @@ export async function PATCH(
 
     if (updated.length === 0) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    }
+
+    if (paymentAction?.action === 'mark-offline-paid' && isOfflinePaymentMethod(paymentAction.method)) {
+      try {
+        await notifyAdminsOfOrder({
+          ...updated[0],
+          paymentStatus: offlineTelegramPaymentStatus(paymentAction.method),
+        });
+      } catch {
+        // Telegram is best-effort and must never fail the Studio payment write.
+      }
     }
 
     return NextResponse.json({ success: true, order: updated[0] });

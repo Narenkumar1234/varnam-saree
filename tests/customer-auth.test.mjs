@@ -41,6 +41,7 @@ mock.module('../src/db/index.ts', () => ({ db: {
     const query = { where: (condition) => { filter = dialect.sqlToQuery(condition).params[0]; return query; }, limit: (value) => { cap = value; return query; }, orderBy: () => query, then: (resolve, reject) => read().then(resolve, reject) };
     return query;
   } }),
+  update: () => ({ set: () => ({ where: async () => { calls.push({ action: 'update' }); return []; } }) }),
   insert: (table) => ({ values: (input) => {
     const name = getTableName(table);
     const save = async () => {
@@ -64,6 +65,7 @@ function request(path, method = 'GET', body, token) {
 }
 const configure = () => { process.env.GOOGLE_APPLICATION_CREDENTIALS = '/test-only/not-a-real-credential.json'; };
 const item = () => [{ id: fallbackProducts[0].id, qty: 1, finish: 'Included' }];
+const delivery = { customerName: 'Alice', email: 'alice@example.test', phone: '9876543210', address: '12 Rose Street', city: 'Chennai', state: 'Tamil Nadu', pincode: '600001' };
 
 beforeEach(() => {
   for (const key of envKeys) delete process.env[key];
@@ -189,7 +191,7 @@ test('unavailable user storage never produces a successful synced profile', asyn
 });
 
 test('guest checkout still works without Firebase configuration and cannot link a forged UID to an account', async () => {
-  const response = await checkout(request('/api/orders', 'POST', { email: 'guest@example.test', uid: 'firebase-alice', items: item(), couponCode: 'OFFER50' }));
+  const response = await checkout(request('/api/orders', 'POST', { ...delivery, email: 'guest@example.test', uid: 'firebase-alice', items: item(), couponCode: 'OFFER50' }));
   expect(response.status).toBe(200); const { order } = await response.json();
   expect(order.userId).toBeNull(); expect(order.email).toBe('guest@example.test'); expect(order.pricing.couponCode).toBe('OFFER50');
   expect(verified).toHaveLength(0); expect(calls.some((call) => call.table === 'users')).toBe(false);
@@ -197,7 +199,7 @@ test('guest checkout still works without Firebase configuration and cannot link 
 
 test('an optional authenticated order association uses token UID, never a posted UID; invalid tokens cannot submit orders', async () => {
   configure();
-  const response = await checkout(request('/api/orders', 'POST', { uid: 'firebase-bob', email: 'alice@example.test', items: item() }, 'test-alice-token'));
+  const response = await checkout(request('/api/orders', 'POST', { uid: 'firebase-bob', email: 'alice@example.test', items: item(), ...delivery }, 'test-alice-token'));
   expect(response.status).toBe(200); expect((await response.json()).order.userId).toBe(1);
   expect(calls.find((call) => call.table === 'users').filter).toBe('firebase-alice');
   calls = []; verificationFailure = 'auth/invalid-id-token';

@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeEach, expect, mock, test } from 'bun:test';
 import { DEFAULT_SETTINGS } from '../src/lib/commerce.ts';
 import { deliveryPolicyText } from '../src/lib/delivery-policy.ts';
 import { getSiteUrl } from '../src/lib/site-url.ts';
-import { loadTrackedOrder } from '../src/lib/order-lookup.ts';
+import { loadTrackedOrder, toPublicTrackedOrder } from '../src/lib/order-lookup.ts';
 
 const originalSiteUrl = process.env.SITE_URL;
 const originalFetch = globalThis.fetch;
@@ -94,6 +94,32 @@ test('tracking success preserves order details and supplies no-store caching, UR
     return Response.json({ order });
   };
   expect(await loadTrackedOrder(id, controller.signal)).toEqual(order);
+});
+
+test('tracking lookup keeps payment status and strips Razorpay ids, signatures and itemsJson', async () => {
+  const id = 'VRN-pay';
+  const secretPayment = {
+    provider: 'razorpay', status: 'pending', razorpayOrderId: 'order_secret',
+    amount: 400000, currency: 'INR', paymentId: 'pay_secret', razorpay_signature: 'sig_secret',
+  };
+  globalThis.fetch = async () => Response.json({
+    order: {
+      id, total: 4000, status: 'Confirmed', createdAt: '2026-10-20T00:00:00Z',
+      email: 'hidden@example.test', itemsJson: JSON.stringify({ payment: secretPayment }),
+      payment: secretPayment, razorpay_signature: 'sig_secret',
+    },
+  });
+  const tracked = await loadTrackedOrder(id);
+  expect(tracked).toEqual({ id, total: 4000, createdAt: '2026-10-20T00:00:00Z', status: 'Confirmed', payment: { status: 'pending' } });
+  expect(JSON.stringify(tracked)).not.toContain('order_secret');
+  expect(JSON.stringify(tracked)).not.toContain('pay_secret');
+  expect(JSON.stringify(tracked)).not.toContain('sig_secret');
+  expect(JSON.stringify(tracked)).not.toContain('hidden@example.test');
+  expect(tracked).not.toHaveProperty('itemsJson');
+  expect(toPublicTrackedOrder({
+    id, total: 4000, status: 'Confirmed',
+    itemsJson: JSON.stringify({ version: 1, items: [], pricing: { subtotal: 4000, discountAmount: 0, shipping: 0, total: 4000 }, payment: secretPayment }),
+  }).payment).toEqual({ status: 'pending' });
 });
 
 test('delivery policy formats standalone and embedded text with exactly the caller-owned punctuation', () => {

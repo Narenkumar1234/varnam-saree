@@ -1,4 +1,4 @@
-import { beforeEach, afterAll, expect, mock, test } from 'bun:test';
+import { beforeEach, afterAll, expect, mock, spyOn, test } from 'bun:test';
 import { randomBytes, createHmac } from 'node:crypto';
 import { readdir, readFile, unlink } from 'node:fs/promises';
 import path from 'node:path';
@@ -33,6 +33,7 @@ const products = await import('../src/app/api/admin/products/route.ts');
 const productById = await import('../src/app/api/admin/products/[id]/route.ts');
 const orders = await import('../src/app/api/admin/orders/route.ts');
 const orderById = await import('../src/app/api/admin/orders/[id]/route.ts');
+const telegram = await import('../src/lib/telegram.ts');
 const upload = await import('../src/app/api/admin/upload/route.ts');
 const publicOrders = await import('../src/app/api/orders/route.ts');
 const cookie = (token) => `${session.ADMIN_SESSION_COOKIE}=${token}`;
@@ -180,12 +181,17 @@ test('valid session permits inventory listing, create/edit/stock/delete, and dis
 });
 
 test('admin can record and undo an offline payment on the order snapshot', async () => {
+  const notices = [];
+  const notify = spyOn(telegram, 'notifyAdminsOfOrder').mockImplementation(async (notice) => { notices.push(notice); });
   const token = (await login(credentials())).cookies.get(session.ADMIN_SESSION_COOKIE).value;
   const mark = await orderById.PATCH(
     request('/api/admin/orders/VRN-admin-test', 'PATCH', { payment: { action: 'mark-offline-paid', method: 'UPI', note: 'GPay 8821' } }, token),
     { params: Promise.resolve({ id: order.id }) }
   );
   expect(mark.status).toBe(200);
+  expect(notices).toHaveLength(1);
+  expect(notices[0].paymentStatus).toBe('paid (offline UPI)');
+  notify.mockRestore();
   const saved = JSON.parse(order.itemsJson);
   expect(saved.items).toHaveLength(1);
   expect(saved.pricing.total).toBe(2500);
@@ -213,6 +219,19 @@ test('admin can record and undo an offline payment on the order snapshot', async
   expect(undo.status).toBe(200);
   expect(JSON.parse(order.itemsJson).payment).toBeUndefined();
   expect(JSON.parse(order.itemsJson).items).toHaveLength(1);
+  expect(notices).toHaveLength(1);
+});
+
+test('Telegram failure does not fail an offline paid write', async () => {
+  const notify = spyOn(telegram, 'notifyAdminsOfOrder').mockImplementation(async () => { throw new Error('telegram down'); });
+  const token = (await login(credentials())).cookies.get(session.ADMIN_SESSION_COOKIE).value;
+  const mark = await orderById.PATCH(
+    request('/api/admin/orders/VRN-admin-test', 'PATCH', { payment: { action: 'mark-offline-paid', method: 'Cash' } }, token),
+    { params: Promise.resolve({ id: order.id }) }
+  );
+  expect(mark.status).toBe(200);
+  expect(JSON.parse(order.itemsJson).payment).toMatchObject({ provider: 'offline', method: 'Cash', status: 'paid' });
+  notify.mockRestore();
 });
 
 test('online Razorpay-paid orders cannot be marked offline or unpaid from Studio', async () => {

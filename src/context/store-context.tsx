@@ -6,6 +6,7 @@ import { money } from '@/data/products';
 import { validateCoupon, type CouponValidation } from '@/lib/coupons';
 import { quoteFromCatalogue, previewOrderQuote, parseOrderItems } from '@/lib/pricing';
 import { DEFAULT_COMMERCE, type CommerceConfig } from '@/lib/commerce';
+import { customerAuthHeaders } from '@/lib/customer-auth-headers';
 import { createProductWhatsAppMessage, createWhatsAppOrderUrl, formatWhatsAppOrderMessage, openWhatsAppOrder } from '@/lib/whatsapp';
 
 interface StoreContextType {
@@ -31,7 +32,11 @@ interface StoreContextType {
   applyCoupon: (code: string, subtotal?: number) => CouponValidation;
   removeCoupon: () => void;
   placeOrder: (
-    details: { first: string; last: string; email: string; phone: string; address: string; city: string; state: string; pin: string },
+    details: {
+      first: string; last: string; email: string; phone: string; address: string;
+      apartment?: string; landmark?: string; city: string; state: string; pin: string;
+      saveAddress?: boolean; addressLabel?: string; saveAsDefault?: boolean;
+    },
     customItems?: CartItem[]
   ) => Promise<string>;
   updateOrderPayment: (orderId: string, payment: OrderPayment) => void;
@@ -205,7 +210,11 @@ export function StoreProvider({ children, initialProducts, initialCommerce = DEF
   const removeCoupon = () => setCouponCode(null);
 
   const placeOrder = async (
-    details: { first: string; last: string; email: string; phone: string; address: string; city: string; state: string; pin: string },
+    details: {
+      first: string; last: string; email: string; phone: string; address: string;
+      apartment?: string; landmark?: string; city: string; state: string; pin: string;
+      saveAddress?: boolean; addressLabel?: string; saveAsDefault?: boolean;
+    },
     customItems?: CartItem[]
   ) => {
     const id = 'VRN-' + crypto.randomUUID();
@@ -217,19 +226,24 @@ export function StoreProvider({ children, initialProducts, initialCommerce = DEF
     if (displayedQuote.pricing.total !== latestQuote.pricing.total) throw new Error('Prices have changed. Please review the updated total and place your order again.');
     const response = await fetch('/api/orders', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await customerAuthHeaders()) },
       body: JSON.stringify({
         id,
         customerName: `${details.first} ${details.last}`.trim(),
         email: details.email,
         phone: details.phone,
         address: details.address,
+        apartment: details.apartment,
+        landmark: details.landmark,
         city: details.city,
         state: details.state,
         pincode: details.pin,
         items: orderItems,
         couponCode,
         expectedTotal: latestQuote.pricing.total,
+        saveAddress: details.saveAddress === true,
+        addressLabel: details.addressLabel,
+        saveAsDefault: details.saveAsDefault === true,
       }),
     });
     const data = await response.json().catch(() => null);

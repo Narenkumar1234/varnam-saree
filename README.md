@@ -45,7 +45,7 @@ Fresh setup (Bun is used for database scripts and tests):
 1. Run `bun install --frozen-lockfile`.
 2. Copy `.env.example` to `.env.local` and configure `SQL_HOST`, `SQL_PORT` (default 5432), `SQL_DB_NAME`, `SQL_USER`, and `SQL_PASSWORD`. The password may be blank only if your PostgreSQL instance permits passwordless local authentication. Set `SQL_SSL=true` if your provider requires TLS with a trusted certificate; it defaults to false.
 3. Optionally configure `SQL_ADMIN_USER` and `SQL_ADMIN_PASSWORD` for migrations and seeding. Otherwise those scripts use the application SQL identity. The application identity must be able to read/write the store tables, and the setup identity must be able to create tables/sequences/constraints.
-4. Run `bun run db:setup` (or `bun run db:migrate` followed by `bun run db:seed`). The committed Drizzle migrations create `products`, `users`, `orders`, `wishlists`, `coupons`, and `site_settings`. The baseline leaves existing matching tables/data intact; it does not repair an incompatible pre-existing schema. Check the schema and back up an existing database before adopting the baseline.
+4. Run `bun run db:setup` (or `bun run db:migrate` followed by `bun run db:seed`). The committed Drizzle migrations create `products`, `users`, `orders`, `wishlists`, `coupons`, `site_settings`, and `customer_addresses`, and add optional `users.phone` plus order shipping snapshot columns. The baseline leaves existing matching tables/data intact; it does not repair an incompatible pre-existing schema. Check the schema and back up an existing database before adopting the baseline.
 5. The seed loads the eight current sample sarees with stable IDs 1–8 and an initial stock of 5 each. It skips existing IDs, preserves Studio edits on reruns, and advances the sequence so a new Studio product receives a fresh ID. Update stock to your actual inventory in Studio.
 6. Configure the admin and optional Razorpay variables described below, then run `bun run dev` or `bun run build` and `bun run start`.
 
@@ -115,9 +115,11 @@ Official references: [Firebase Admin setup](https://firebase.google.com/docs/adm
 
 ## Saved addresses and mobile controls
 
-`varnam-address` now stores one JSON object with checkout fields `first`, `last`, `phone`, `address`, `city`, `pin`, and `state`, plus the address nickname in `label`. The shared storage reader migrates old free-form text into the address line (combining line breaks) without guessing names, city, state, or pincode. It also moves the old `varnam-address-label` nickname into the record. The Addresses page and checkout share the same field controls and validation.
+Signed-in customers store delivery addresses in Postgres (`customer_addresses`), not in the browser. `GET`/`POST /api/addresses` and `PATCH`/`DELETE /api/addresses/[id]` require a verified Firebase Google ID token and only return or change that user's rows. The first address becomes the default; later defaults unset the previous one (also enforced with a partial unique index). `/addresses` lists, edits, deletes, and sets a default. Checkout preselects the default, lets the customer pick another saved address, and can save a new one with **Save this address to my account**. Guests still enter an address that is stored only on the order snapshot.
 
-Checkout loads saved address fields when opened and leaves email, apartment and country fields as before. Without a saved address, guest checkout starts blank and remains available without sign-in. Checkout edits are not automatically saved to the browser; use Save address on the Addresses page. Storage failures leave manual checkout usable and show an error if an address save fails.
+Orders keep the original `customer_name` / `phone` / `address` / `city` / `state` / `pincode` columns and add a shipping snapshot (`shipping_full_name`, `shipping_phone`, `shipping_line1`, `shipping_line2`, `shipping_landmark`, `shipping_city`, `shipping_state`, `shipping_pincode`) so older rows stay readable. The server rejects checkout unless the mobile number is a 10-digit Indian number (it accepts `+91` / `91` / a leading `0`) and the pincode is 6 digits. `users.phone` is optional and is updated from a saved address or a signed-in order.
+
+A one-time migration copies a previous `varnam-address` localStorage record into the account on first signed-in load of checkout or `/addresses`, then clears it. Guest checkout can still prefill from leftover browser storage. After pulling this change, run `bun run db:migrate` to apply `0004_customer_addresses`.
 
 At the mobile breakpoint (850px), the navigation drawer is a labelled modal dialog. Focus stays inside it until a link, Close menu or Escape closes it; background content is inert, and focus returns to the toggle. Desktop navigation keeps its normal navigation semantics. The mobile benefits strip wraps all four items with 13px text. Price sliders expose labelled, associated visible outputs and current currency values as they move.
 
@@ -181,4 +183,15 @@ Payment state and references are stored alongside the existing price snapshot in
 Before accepting real payments, test a successful payment, Checkout dismissal/failure, verification retry, a late capture via webhook, and duplicate webhook delivery using your Razorpay Test-mode account. Run `bun run test:payments`, `bun run lint`, and `bun run build`. Test-mode and live transactions require configured keys and a reachable database/webhook.
 
 Official references: [Standard Checkout integration](https://razorpay.com/docs/payments/payment-gateway/web-integration/standard/integration-steps/) and [webhook validation](https://razorpay.com/docs/webhooks/validate-test/).
+
+## Telegram admin order alerts
+
+When a customer places an order, the server can notify Studio admins on Telegram. This is best-effort: missing configuration is a warning-only no-op, and a slow Telegram API is aborted after about 3 seconds so checkout is not held open. The token never ships to the browser.
+
+Set these server-only variables (blank placeholders are in `.env.example`):
+
+- `TELEGRAM_BOT_TOKEN`: bot token from [@BotFather](https://t.me/BotFather).
+- `TELEGRAM_ADMIN_CHAT_IDS`: comma-separated chat ids (group ids may be negative). Send the bot a message first, then read the chat id from `getUpdates`.
+
+A pending-payment message is sent when checkout creates an unpaid order (WhatsApp / pay-later). A paid message is sent only on the first transition to a captured Razorpay payment (Checkout verify or `payment.captured` webhook — not both). The text includes the order id, payment status, customer, email, phone, full delivery snapshot, items, coupon/discount, total in ₹, and a Studio link (`/studio-desk`). User-supplied fields are HTML-escaped. Run `bun test tests/telegram.test.mjs` with the rest of the suite.
 

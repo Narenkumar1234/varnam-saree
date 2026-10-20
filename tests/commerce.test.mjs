@@ -76,7 +76,8 @@ const req = (path, method = 'GET', body, authenticated = true, extra = {}) => ne
   ...(body === undefined ? {} : { body: JSON.stringify(body) }),
 });
 const context = (id) => ({ params: Promise.resolve({ id: String(id) }) });
-const order = (code, expectedTotal) => orders.POST(req('/api/orders', 'POST', { id: 'test-order', items, couponCode: code, expectedTotal }));
+const delivery = { customerName: 'Test Customer', email: 'customer@example.test', phone: '9876543210', address: '12 Rose Street', city: 'Chennai', state: 'Tamil Nadu', pincode: '600001' };
+const order = (code, expectedTotal) => orders.POST(req('/api/orders', 'POST', { id: 'test-order', items, couponCode: code, expectedTotal, ...delivery }));
 
 beforeEach(() => {
   process.env.ADMIN_LOGIN_EMAIL = `${randomBytes(12).toString('hex')}@example.test`;

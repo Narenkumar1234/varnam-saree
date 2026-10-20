@@ -7,6 +7,7 @@ import type { Product } from '@/types';
 import { money, capitalizeColour } from '@/data/products';
 import { Icon } from '@/components/Icons';
 import { readOrderSnapshot } from '@/lib/pricing';
+import { orderPaymentLabel, paymentDisplayStatus } from '@/lib/order-status';
 import { OrderSavings } from '@/components/OrderTotals';
 import { StudioOfflinePayment } from '@/components/StudioOfflinePayment';
 import { StudioCommerce } from '@/components/StudioCommerce';
@@ -86,6 +87,14 @@ interface AdminOrder {
   city: string;
   state: string;
   pincode: string;
+  shippingFullName?: string | null;
+  shippingPhone?: string | null;
+  shippingLine1?: string | null;
+  shippingLine2?: string | null;
+  shippingLandmark?: string | null;
+  shippingCity?: string | null;
+  shippingState?: string | null;
+  shippingPincode?: string | null;
   total: number;
   status: string;
   itemsJson: string;
@@ -1648,6 +1657,7 @@ export default function StudioDeskPage() {
                     <tbody>
                       {filteredOrders.map((o) => {
                         const { items: parsedItems, pricing, payment } = readOrderSnapshot(o.itemsJson);
+                        const paymentState = paymentDisplayStatus(payment);
 
                         return (
                           <tr key={o.id}>
@@ -1670,7 +1680,7 @@ export default function StudioDeskPage() {
                             </td>
                             <td>
                               <div style={{ fontSize: '12px', maxWidth: '200px' }}>
-                                {o.address}, {o.city}, {o.state} - {o.pincode}
+                                {[o.shippingLine1 || o.address, o.shippingLine2, o.shippingLandmark, `${o.shippingCity || o.city}, ${o.shippingState || o.state} - ${o.shippingPincode || o.pincode}`].filter(Boolean).join(', ')}
                               </div>
                             </td>
                             <td>
@@ -1697,6 +1707,7 @@ export default function StudioDeskPage() {
                                   <option key={status} value={status}>{status}</option>
                                 ))}
                               </select>
+                              <div className={`admin-payment-label is-${paymentState}`}>{orderPaymentLabel(payment)}</div>
                               <StudioOfflinePayment
                                 orderId={o.id}
                                 payment={payment}

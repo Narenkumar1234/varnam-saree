@@ -1571,6 +1571,67 @@ form h3 {
   font-size: 12px;
 }
 
+.saved-address-list {
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.saved-address-card {
+  border: 1px solid var(--line);
+  padding: 14px;
+  text-align: left;
+}
+
+.saved-address-card p {
+  text-align: left;
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+
+.saved-address-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.saved-address-picker {
+  margin: 0 0 22px;
+  padding: 14px;
+  border: 1px solid var(--line);
+}
+
+.track-step {
+  padding: 10px 0 10px 14px;
+  border-left: 2px solid var(--line);
+  opacity: 0.55;
+}
+
+.track-step.current {
+  opacity: 1;
+  border-left-color: var(--gold);
+}
+
+.track-payment-banner {
+  margin: 16px 0 8px;
+  font-weight: 600;
+}
+
+.track-payment-banner.is-unpaid {
+  color: #92400e;
+}
+
+.track-payment-banner.is-authorized {
+  color: #1e40af;
+}
+
+.track-payment-banner.is-cancelled {
+  color: #9f1239;
+}
+
 .tabs {
   display: flex;
   justify-content: center;
@@ -3215,6 +3276,24 @@ footer {
 
 .admin-status-select.status-delivered {
   border-color: #10b981;
+  color: #065f46;
+}
+
+.admin-payment-label {
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.admin-payment-label.is-unpaid {
+  color: #92400e;
+}
+
+.admin-payment-label.is-authorized {
+  color: #1e40af;
+}
+
+.admin-payment-label.is-paid {
   color: #065f46;
 }
 

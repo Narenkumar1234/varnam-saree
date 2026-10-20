@@ -65,3 +65,23 @@ export function offlinePaidRequiredToUndo(payment?: Pick<OrderPayment, 'provider
   }
   return null;
 }
+
+export function isRazorpayPaid(payment?: Pick<OrderPayment, 'provider' | 'status'> | null): boolean {
+  return payment?.provider === 'razorpay' && payment.status === 'paid';
+}
+
+export function isOfflinePaid(payment?: Pick<OrderPayment, 'provider' | 'status'> | null): boolean {
+  return payment?.provider === 'offline' && payment.status === 'paid';
+}
+
+export function studioPaidLabel(payment?: OrderPayment | null): string | null {
+  if (payment?.status !== 'paid') return null;
+  if (payment.provider === 'offline') {
+    return payment.method ? `Paid · Offline (${payment.method})` : 'Paid · Offline';
+  }
+  return 'Paid · Razorpay';
+}
+
+export function offlineTelegramPaymentStatus(method: OfflinePaymentMethod): `paid (offline ${OfflinePaymentMethod})` {
+  return `paid (offline ${method})`;
+}

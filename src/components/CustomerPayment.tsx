@@ -28,14 +28,16 @@ interface Props {
   customerName: string;
   email?: string;
   phone?: string;
-  payment?: OrderPayment;
+  payment?: Pick<OrderPayment, 'status'> & Partial<OrderPayment>;
   /** Immediately open the Razorpay modal after mount. */
   autoStart?: boolean;
   whatsAppUrl?: string | null;
   onPaid?: () => void;
+  /** Idle unpaid button label. Checkout keeps the default “Pay ₹… online”. */
+  idleLabel?: string;
 }
 
-export function CustomerPayment({ orderId, total, customerName, email, phone, payment, autoStart, whatsAppUrl, onPaid }: Props) {
+export function CustomerPayment({ orderId, total, customerName, email, phone, payment, autoStart, whatsAppUrl, onPaid, idleLabel }: Props) {
   const [busy, setBusy] = useState(false);
   const [paid, setPaid] = useState(payment?.status === 'paid');
   const [processing, setProcessing] = useState(payment?.status === 'authorized');
@@ -154,7 +156,7 @@ export function CustomerPayment({ orderId, total, customerName, email, phone, pa
   return (
     <div id="customer-payment" style={{ textAlign: 'center', margin: '20px 0' }}>
       <button type="button" className="btn" disabled={busy} onClick={() => void pay()} style={{ width: '100%', maxWidth: '360px' }}>
-        {busy ? 'Please wait…' : proof ? 'Retry payment verification' : processing ? 'Check payment status' : `Pay ${money(total)} online`}
+        {busy ? 'Please wait…' : proof ? 'Retry payment verification' : processing ? 'Check payment status' : (idleLabel || `Pay ${money(total)} online`)}
       </button>
       {message && <p className={`coupon-feedback${isError ? ' error' : ''}`} role={isError ? 'alert' : 'status'} style={{ marginTop: '12px' }}>{message}</p>}
       <div style={{ marginTop: '16px' }}>

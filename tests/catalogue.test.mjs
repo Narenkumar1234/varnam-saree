@@ -38,6 +38,7 @@ const { PATCH: editProduct } = await import('../src/app/api/admin/products/[id]/
 const { createAdminSession, ADMIN_SESSION_COOKIE } = await import('../src/lib/admin-session.ts');
 const { filterShopProducts, getShopFilterOptions, createShopFilters } = await import('../src/lib/shop-filters.ts');
 const items = [{ id: 101, qty: 1, finish: 'Included' }];
+const delivery = { customerName: 'Test Customer', email: 'customer@example.test', phone: '9876543210', address: '12 Rose Street', city: 'Chennai', state: 'Tamil Nadu', pincode: '600001' };
 
 beforeEach(() => {
   rows = [sample()]; unavailable = false; savedOrders = []; updates = 0;
@@ -118,10 +119,13 @@ test('unknown fallback stock is supported; coupons, delivery threshold and round
 });
 
 test('order API ignores client prices, saves current DB prices, and preserves the purchase snapshot', async () => {
-  const req = new NextRequest('http://localhost/api/orders', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ items, total: 1, couponCode: 'OFFER50' }) });
+  const req = new NextRequest('http://localhost/api/orders', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ items, total: 1, couponCode: 'OFFER50', ...delivery }) });
   const response = await submitOrder(req);
   expect(response.status).toBe(200);
   expect(savedOrders[0].total).toBe(2000);
+  expect(savedOrders[0].shippingLine1).toBe('12 Rose Street');
+  expect(savedOrders[0].shippingPincode).toBe('600001');
+  expect(savedOrders[0].shippingPhone).toBe('9876543210');
   rows[0].price = 9000;
   expect(readOrderSnapshot(savedOrders[0].itemsJson).items[0].unitPrice).toBe(4000);
 });
@@ -271,10 +275,10 @@ test('capitalizeColour helper capitalizes first letter of colour', async () => {
   expect(capitalizeColour('')).toBe('');
 });
 
-test('AddressFields phone pattern regex compiles without error', () => {
-  const pattern = '[0-9+ ()\\-]{10,16}';
-  expect(() => new RegExp(pattern)).not.toThrow();
-  const regex = new RegExp(`^${pattern}$`);
+test('AddressFields phone pattern regex compiles without error', async () => {
+  const { INDIAN_MOBILE_PATTERN } = await import('../src/lib/address-validation.ts');
+  expect(() => new RegExp(INDIAN_MOBILE_PATTERN, 'v')).not.toThrow();
+  const regex = new RegExp(`^(?:${INDIAN_MOBILE_PATTERN})$`, 'v');
   expect(regex.test('+91 98765 43210')).toBe(true);
   expect(regex.test('9876543210')).toBe(true);
   expect(regex.test('abc')).toBe(false);

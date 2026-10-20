@@ -1,4 +1,4 @@
-import { paymentDisplayStatus, type PaymentDisplayStatus } from '@/lib/order-status';
+import { orderPaymentLabel, type PaymentStatusSnapshot } from '@/lib/order-status';
 
 export const STUDIO_ORDER_STATUSES = [
   'Confirmed',
@@ -25,7 +25,7 @@ export interface StudioOrderFilterable {
   email: string;
   phone?: string | null;
   status?: string | null;
-  payment?: { status?: string | null } | null;
+  payment?: PaymentStatusSnapshot | null;
 }
 
 export interface StudioOrderFilters {
@@ -50,8 +50,8 @@ export function normalizeStudioOrderStatus(status?: string | null): string {
 
 export function studioOrderPaymentLabel(
   payment?: StudioOrderFilterable['payment']
-): PaymentDisplayStatus {
-  return paymentDisplayStatus(payment);
+): Exclude<StudioPaymentFilter, 'All'> {
+  return orderPaymentLabel(payment) as Exclude<StudioPaymentFilter, 'All'>;
 }
 
 function matchesStudioOrderQuery(order: StudioOrderFilterable, query: string): boolean {
