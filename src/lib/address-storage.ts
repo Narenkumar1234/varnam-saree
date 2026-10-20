@@ -104,6 +104,10 @@ export function shouldMigrateBrowserAddress(uid: string, storage: AddressStorage
   } catch { return null; }
 }
 
+export function isAddressFormOpen(savedCount: number, adding: boolean, editing = false): boolean {
+  return savedCount === 0 || adding || editing;
+}
+
 export function saveAddress(saved: SavedAddress, storage: AddressStorage | null = browserStorage()): boolean {
   if (!storage) return false;
   try {

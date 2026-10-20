@@ -7,8 +7,8 @@ import { AddressFields } from '@/components/AddressFields';
 import { useCustomerAccount } from '@/hooks/use-customer-account';
 import { customerAuthHeaders } from '@/lib/customer-auth-headers';
 import {
-  EMPTY_ADDRESS, customerAddressPayload, deliveryFromCustomerAddress, markAddressMigrated,
-  shouldMigrateBrowserAddress, type SavedAddress,
+  EMPTY_ADDRESS, customerAddressPayload, deliveryFromCustomerAddress, isAddressFormOpen,
+  markAddressMigrated, shouldMigrateBrowserAddress, type SavedAddress,
 } from '@/lib/address-storage';
 import type { CustomerAddress } from '@/types';
 
@@ -24,6 +24,7 @@ export default function AddressesPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [adding, setAdding] = useState(false);
 
   const loadAddresses = useCallback(async () => {
     if (!profile) return;
@@ -61,6 +62,15 @@ export default function AddressesPage() {
     setEditingId(null);
     setIsDefault(false);
     setErrorMessage('');
+    setAdding(false);
+  };
+
+  const startAdd = () => {
+    setForm(blankForm());
+    setEditingId(null);
+    setIsDefault(false);
+    setErrorMessage('');
+    setAdding(true);
   };
 
   const startEdit = (address: CustomerAddress) => {
@@ -68,6 +78,7 @@ export default function AddressesPage() {
     setEditingId(address.id);
     setIsDefault(address.isDefault);
     setErrorMessage('');
+    setAdding(false);
   };
 
   const handleSave = async (event: React.FormEvent) => {
@@ -180,6 +191,11 @@ export default function AddressesPage() {
         </ul>
       )}
 
+      {!loading && !isAddressFormOpen(addresses.length, adding, editingId != null) && (
+        <button type="button" className="btn" onClick={startAdd}>Add address</button>
+      )}
+
+      {!loading && isAddressFormOpen(addresses.length, adding, editingId != null) && (
       <form onSubmit={(event) => void handleSave(event)}>
         <h2 style={{ fontSize: '20px', marginTop: addresses.length ? '28px' : 0 }}>{editingId ? 'Edit address' : 'Add an address'}</h2>
         <label>Address nickname (optional)<input name="label" value={form.label} placeholder="Home / Office" onChange={(event) => setForm({ ...form, label: event.target.value })} /></label>
@@ -194,6 +210,7 @@ export default function AddressesPage() {
         <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving…' : editingId ? 'Update address' : 'Save address'}</button>
         <button className="btn outline" type="button" onClick={resetForm} disabled={saving} style={{ marginTop: '8px' }}>Cancel</button>
       </form>
+      )}
     </div>
   </>;
 }
