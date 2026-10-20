@@ -4,6 +4,10 @@ import { orders } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { toPublicTrackedOrder } from '@/lib/order-lookup';
 
+export const dynamic = 'force-dynamic';
+
+const noStore = { 'Cache-Control': 'no-store' };
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -13,15 +17,15 @@ export async function GET(
     const found = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
 
     if (found.length === 0) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Order not found' }, { status: 404, headers: noStore });
     }
 
-    return NextResponse.json({ order: toPublicTrackedOrder(found[0]) });
+    return NextResponse.json({ order: toPublicTrackedOrder(found[0]) }, { headers: noStore });
   } catch (error: any) {
     console.error('Failed to lookup order in database:', error);
     return NextResponse.json(
       { error: 'Failed to lookup order' },
-      { status: 500 }
+      { status: 500, headers: noStore }
     );
   }
 }

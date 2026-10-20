@@ -7,7 +7,8 @@ import type { Product } from '@/types';
 import { money, capitalizeColour } from '@/data/products';
 import { Icon } from '@/components/Icons';
 import { readOrderSnapshot } from '@/lib/pricing';
-import { orderPaymentLabel, paymentDisplayStatus } from '@/lib/order-status';
+import { isCancelledOrderStatus, orderPaymentLabel, paymentDisplayStatus } from '@/lib/order-status';
+import { singleColourHelperText } from '@/lib/product-input';
 import { OrderSavings } from '@/components/OrderTotals';
 import { StudioOfflinePayment } from '@/components/StudioOfflinePayment';
 import { StudioCommerce } from '@/components/StudioCommerce';
@@ -21,6 +22,8 @@ import {
   createStudioOrderFilters,
   filterStudioOrders,
   hasActiveStudioOrderFilters,
+  studioOrderLineLabel,
+  sumStudioPaidRevenue,
 } from '@/lib/studio-order-filters';
 
 type AdminProductVariant = { name: string; colour?: string; images: string[] };
@@ -878,7 +881,7 @@ export default function StudioDeskPage() {
 
   // Metrics
   const totalStockPieces = products.reduce((acc, p) => acc + (p.stock || 0), 0);
-  const totalRevenue = orders.reduce((acc, o) => acc + (o.total || 0), 0);
+  const totalRevenue = sumStudioPaidRevenue(ordersForFilters);
   const lowStockCount = products.filter((p) => p.stock <= 2).length;
 
   // LOGIN SCREEN
@@ -1527,7 +1530,7 @@ export default function StudioDeskPage() {
                 />
               ))}
               {(!newSaree.variants || newSaree.variants.length === 0) && (
-                <p className="muted" style={{ fontSize: '12px', margin: 0 }}>No variants added. This saree will be published as a single colour ({newSaree.colour}).</p>
+                <p className="muted" style={{ fontSize: '12px', margin: 0 }}>{singleColourHelperText(newSaree.colour, 'will-publish')}</p>
               )}
             </div>
 
@@ -1686,12 +1689,24 @@ export default function StudioDeskPage() {
                               </div>
                             </td>
                             <td>
-                              <div style={{ fontSize: '12px' }}>
-                                {parsedItems.map((item, idx) => (
-                                  <div key={idx} style={{ marginBottom: '4px' }}>
-                                    Product #{item.id} × {item.qty}
-                                  </div>
-                                ))}
+                              <div className="studio-order-items">
+                                {parsedItems.map((item, idx) => {
+                                  const product = products.find((entry) => entry.id === item.id);
+                                  const name = studioOrderLineLabel(item, product);
+                                  const cover = product
+                                    ? getProductCoverImage({ image: product.image, images: parseProductImages(product.images, product.image) })
+                                    : null;
+                                  return (
+                                    <div key={idx} className="studio-order-item">
+                                      {cover && (
+                                        <div className="studio-order-item-thumb">
+                                          <Image src={cover} alt={name} fill sizes="28px" style={{ objectFit: 'cover' }} unoptimized={needsUnoptimized(cover)} />
+                                        </div>
+                                      )}
+                                      <span>{name} × {item.qty}</span>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </td>
                             <td>
@@ -1712,6 +1727,7 @@ export default function StudioDeskPage() {
                               <StudioOfflinePayment
                                 orderId={o.id}
                                 payment={payment}
+                                cancelled={isCancelledOrderStatus(o.status)}
                                 adminFetch={adminFetch}
                                 onUpdated={loadData}
                               />
@@ -2123,7 +2139,7 @@ export default function StudioDeskPage() {
                   />
                 ))}
                 {(!editingProduct.variants || editingProduct.variants.length === 0) && (
-                  <p className="muted" style={{ fontSize: '12px', margin: 0 }}>No variants added. This saree is a single colour ({editingProduct.colour}).</p>
+                  <p className="muted" style={{ fontSize: '12px', margin: 0 }}>{singleColourHelperText(editingProduct.colour, 'is')}</p>
                 )}
               </div>
 

@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { configuredAdminEmail, requireAdminSession } from '@/lib/admin-session';
 import { readOrderSnapshot } from '@/lib/order-pricing';
 import {
+  cancelledOrderBlocksOffline,
   createOfflinePaidPayment,
   isOfflinePaymentMethod,
   normalizeOfflinePaymentNote,
@@ -43,6 +44,8 @@ export async function PATCH(
 
       const current = readOrderSnapshot(order.itemsJson).payment;
       if (paymentAction.action === 'mark-offline-paid') {
+        const cancelled = cancelledOrderBlocksOffline(status || order.status);
+        if (cancelled) return NextResponse.json({ error: cancelled }, { status: 409 });
         const blocked = razorpayPaidBlocksOffline(current);
         if (blocked) return NextResponse.json({ error: blocked }, { status: 409 });
         if (!isOfflinePaymentMethod(paymentAction.method)) {

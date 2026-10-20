@@ -12,11 +12,12 @@ import {
 interface Props {
   orderId: string;
   payment?: OrderPayment;
+  cancelled?: boolean;
   adminFetch: (url: string, options?: RequestInit) => Promise<Response>;
   onUpdated: () => void;
 }
 
-export function StudioOfflinePayment({ orderId, payment, adminFetch, onUpdated }: Props) {
+export function StudioOfflinePayment({ orderId, payment, cancelled, adminFetch, onUpdated }: Props) {
   const [confirming, setConfirming] = useState(false);
   const [method, setMethod] = useState<OfflinePaymentMethod>('Cash');
   const [note, setNote] = useState('');
@@ -82,6 +83,8 @@ export function StudioOfflinePayment({ orderId, payment, adminFetch, onUpdated }
       </div>
     );
   }
+
+  if (cancelled) return null;
 
   if (!confirming) {
     return (

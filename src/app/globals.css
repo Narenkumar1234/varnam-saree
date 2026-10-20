@@ -1720,6 +1720,10 @@ form h3 {
   color: #1e40af;
 }
 
+.track-payment-banner.is-paid {
+  color: #065f46;
+}
+
 .track-payment-banner.is-cancelled {
   color: #9f1239;
 }
@@ -3051,6 +3055,28 @@ footer {
   position: relative;
   width: 44px;
   height: 55px;
+  flex-shrink: 0;
+  border-radius: 2px;
+  overflow: hidden;
+  background: #eee;
+}
+
+.studio-order-items {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.studio-order-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.studio-order-item-thumb {
+  position: relative;
+  width: 28px;
+  height: 36px;
   flex-shrink: 0;
   border-radius: 2px;
   overflow: hidden;

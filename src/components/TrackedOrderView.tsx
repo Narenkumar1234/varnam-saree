@@ -6,6 +6,7 @@ import { money } from '@/data/products';
 import type { TrackedOrder } from '@/lib/order-lookup';
 import {
   customerFacingOrderStatus,
+  customerPaymentLabel,
   paymentDisplayStatus,
   trackingConfirmStepComplete,
 } from '@/lib/order-status';
@@ -38,11 +39,9 @@ export function TrackedOrderView({ order, onPaid }: Props) {
           })}
       </p>
 
-      {(payState !== 'paid' || cancelled) && (
-        <p role="status" className={`track-payment-banner is-${cancelled ? 'cancelled' : payState}`}>
-          {facing}
-        </p>
-      )}
+      <p role="status" className={`track-payment-banner is-${cancelled ? 'cancelled' : payState}`}>
+        {cancelled ? facing : customerPaymentLabel(order.payment)}
+      </p>
 
       {!cancelled && payState !== 'paid' && (
         <CustomerPayment

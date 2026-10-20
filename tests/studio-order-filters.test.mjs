@@ -11,7 +11,10 @@ import {
   filterStudioOrders,
   hasActiveStudioOrderFilters,
   normalizeStudioOrderStatus,
+  studioOrderCountsTowardRevenue,
+  studioOrderLineLabel,
   studioOrderPaymentLabel,
+  sumStudioPaidRevenue,
 } from '../src/lib/studio-order-filters.ts';
 
 function order(overrides = {}) {
@@ -166,8 +169,36 @@ test('Studio orders UI keeps the status dropdown values and drops WhatsApp confi
   expect(source).not.toContain('StudioPayment');
   expect(source).not.toContain('Pay ${money(total)} with Razorpay');
   expect(source).toContain('StudioOfflinePayment');
+  expect(source).toContain('cancelled={isCancelledOrderStatus(o.status)}');
   expect(source).toContain('getProductCoverImage');
+  expect(source).toContain('studioOrderLineLabel');
+  expect(source).toContain('sumStudioPaidRevenue');
+  expect(source).not.toContain('Product #{item.id} × {item.qty}');
   expect(source).not.toContain('item.finish');
+});
+
+test('Studio revenue counts only paid non-cancelled orders', () => {
+  const withTotals = [
+    order({ id: 'VRN-unpaid', total: 1000, payment: null }),
+    order({ id: 'VRN-razorpay', total: 2000, payment: { status: 'paid', provider: 'razorpay' } }),
+    order({ id: 'VRN-offline', total: 3000, payment: { status: 'paid', provider: 'offline', method: 'UPI' } }),
+    order({ id: 'VRN-processing', total: 4000, payment: { status: 'authorized' } }),
+    order({ id: 'VRN-cancelled-paid', total: 5000, status: 'Cancelled', payment: { status: 'paid' } }),
+    order({ id: 'VRN-cancelled-unpaid', total: 6000, status: 'Cancelled', payment: null }),
+  ];
+  expect(studioOrderCountsTowardRevenue(withTotals[0])).toBe(false);
+  expect(studioOrderCountsTowardRevenue(withTotals[1])).toBe(true);
+  expect(studioOrderCountsTowardRevenue(withTotals[2])).toBe(true);
+  expect(studioOrderCountsTowardRevenue(withTotals[3])).toBe(false);
+  expect(studioOrderCountsTowardRevenue(withTotals[4])).toBe(false);
+  expect(sumStudioPaidRevenue(withTotals)).toBe(5000);
+});
+
+test('Studio order lines prefer the saved saree name, then catalogue, then product number', () => {
+  expect(studioOrderLineLabel({ id: 4, name: 'Mayil emerald silk saree' }, { name: 'Other' })).toBe('Mayil emerald silk saree');
+  expect(studioOrderLineLabel({ id: 4, qty: 1 }, { name: 'Gulabi rose Banarasi saree' })).toBe('Gulabi rose Banarasi saree');
+  expect(studioOrderLineLabel({ id: 4, name: '  ' }, null)).toBe('Product #4');
+  expect(studioOrderLineLabel({ id: 4 }, undefined)).toBe('Product #4');
 });
 
 test('active-filter helper ignores blank search text', () => {

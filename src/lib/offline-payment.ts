@@ -57,6 +57,13 @@ export function writePaymentSnapshot(itemsJson: string, payment: OrderPayment | 
   return JSON.stringify({ ...snapshot, payment });
 }
 
+export function cancelledOrderBlocksOffline(status?: string | null): string | null {
+  if ((status || '').trim().toLowerCase() === 'cancelled') {
+    return 'Cancelled orders cannot be marked as paid.';
+  }
+  return null;
+}
+
 export function razorpayPaidBlocksOffline(payment?: Pick<OrderPayment, 'provider' | 'status'> | null): string | null {
   if (payment?.provider === 'razorpay' && payment.status === 'paid') {
     return 'This order is already paid online and cannot be marked as offline paid.';

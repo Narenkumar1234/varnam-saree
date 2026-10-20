@@ -25,15 +25,23 @@ function TrackContent() {
 
   useEffect(() => {
     if (!searchedId) { setLookup(null); return; }
-    if (localOrder) { setLookup({ id: searchedId, status: 'found', order: localOrder }); return; }
     const controller = new AbortController();
-    setLookup({ id: searchedId, status: 'loading' });
+    // Show a same-browser checkout snapshot immediately, then replace it with
+    // GET /api/orders/[id] so Studio offline payments are reflected.
+    if (localOrder) setLookup({ id: searchedId, status: 'found', order: localOrder });
+    else setLookup({ id: searchedId, status: 'loading' });
     loadTrackedOrder(searchedId, controller.signal)
       .then((order) => {
-        if (!controller.signal.aborted) setLookup(order ? { id: searchedId, status: 'found', order } : { id: searchedId, status: 'not-found' });
+        if (controller.signal.aborted) return;
+        if (order) {
+          setLookup({ id: searchedId, status: 'found', order });
+          return;
+        }
+        if (!localOrder) setLookup({ id: searchedId, status: 'not-found' });
       })
       .catch(() => {
-        if (!controller.signal.aborted) setLookup({ id: searchedId, status: 'error' });
+        if (controller.signal.aborted) return;
+        if (!localOrder) setLookup({ id: searchedId, status: 'error' });
       });
     return () => controller.abort();
   }, [searchedId, localOrder, attempt]);
