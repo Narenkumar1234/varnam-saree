@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { COLOUR_HEX_MAP, capitalizeColour } from '@/data/products';
+import { capitalizeColour, resolveColourHex } from '@/lib/colour';
 import { useStore } from '@/context/store-context';
 import { ProductCard } from '@/components/ProductCard';
 import { Icon } from '@/components/Icons';
@@ -74,7 +74,7 @@ export default function ProductDetail({ id }: { id: string }) {
   const handleCheckPin = (e: React.FormEvent) => {
     e.preventDefault();
     if (pincode.length === 6) {
-      setPinMessage('Demo estimate: delivery in 5–7 business days.');
+      setPinMessage('Estimated delivery in 5–7 business days.');
     } else {
       setPinMessage(PINCODE_PATTERN_MESSAGE);
     }
@@ -169,9 +169,10 @@ export default function ProductDetail({ id }: { id: string }) {
                       role="radio"
                       aria-checked={isCurrent}
                       aria-label={`Select ${capitalizeColour(varName)} variant`}
+                      title={capitalizeColour(varName)}
                       className={`swatch ${isCurrent ? 'selected' : ''}`}
                       style={{
-                        background: COLOUR_HEX_MAP[capitalizeColour(varName)] || COLOUR_HEX_MAP[varName] || '#d8d0c8',
+                        background: resolveColourHex(varName, v.hex),
                         cursor: 'pointer',
                         border: isCurrent ? '2px solid var(--ink, #1f1d1d)' : '1px solid rgba(0,0,0,0.2)',
                       }}
@@ -190,7 +191,8 @@ export default function ProductDetail({ id }: { id: string }) {
                     key={x.id}
                     href={`/product/${x.id}`}
                     className={`swatch ${x.colour === product.colour ? 'selected' : ''}`}
-                    style={{ background: COLOUR_HEX_MAP[capitalizeColour(x.colour)] || COLOUR_HEX_MAP[x.colour] || '#d8d0c8' }}
+                    style={{ background: resolveColourHex(x.colour) }}
+                    title={capitalizeColour(x.colour)}
                     aria-label={`View ${capitalizeColour(x.colour)} saree`}
                   />
                 ))}

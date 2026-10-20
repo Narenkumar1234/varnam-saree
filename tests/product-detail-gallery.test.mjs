@@ -4,6 +4,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { DEFAULT_COMMERCE } from '../src/lib/commerce.ts';
 import { imageLoader, needsUnoptimized } from '../src/lib/image-loader.ts';
+import { resolveColourHex } from '../src/lib/colour.ts';
 import {
   buildProductGalleryImages,
   clampGalleryIndex,
@@ -101,8 +102,11 @@ test('image loader keeps Firebase %2F and token query inside the url param', () 
   expect(parsed.searchParams.get('alt')).toBe(null);
   expect(href).toContain(encodeURIComponent(FIREBASE));
   expect(needsUnoptimized(FIREBASE)).toBe(false);
-  expect(needsUnoptimized(WIKIMEDIA)).toBe(true);
+  expect(needsUnoptimized(WIKIMEDIA)).toBe(false);
+  expect(needsUnoptimized(UNSPLASH)).toBe(false);
   expect(needsUnoptimized(GOLD)).toBe(false);
+  expect(imageLoader({ src: WIKIMEDIA, width: 400 }).includes(encodeURIComponent(WIKIMEDIA))).toBe(true);
+  expect(imageLoader({ src: UNSPLASH, width: 400 }).includes(encodeURIComponent(UNSPLASH))).toBe(true);
 });
 
 test('ProductDetail thumbs and main image share the gallery builder and selected index', () => {
@@ -148,7 +152,11 @@ mock.module('../src/context/store-context.tsx', () => ({
     commerce: DEFAULT_COMMERCE,
   }),
 }));
-mock.module('next/navigation', () => ({ useRouter: () => ({ push: () => {} }) }));
+mock.module('next/navigation', () => ({
+  useRouter: () => ({ push: () => {}, replace: () => {} }),
+  usePathname: () => '/product/10',
+  useSearchParams: () => new URLSearchParams(),
+}));
 mock.module('next/image', () => ({
   default: ({ alt, src }) => createElement('img', { alt, src }),
 }));
@@ -170,6 +178,11 @@ test('rendered gallery uses one array: main image is index 0 and thumbs stay in 
   expect(markup).toContain('View photo 3 of QA gallery saree');
   expect(markup).toContain('Includes unstitched blouse piece');
   expect(markup).not.toContain('Choose finishing');
+  expect(resolveColourHex('Maroon')).not.toBe(resolveColourHex('Gold'));
+  expect(markup).toContain(resolveColourHex('Maroon'));
+  expect(markup).toContain(resolveColourHex('Gold'));
+  expect(markup).toContain('title="Maroon"');
+  expect(markup).toContain('title="Gold"');
 });
 
 test('desktop gallery places a vertical thumbnail rail to the right of the main image', () => {

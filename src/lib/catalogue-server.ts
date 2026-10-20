@@ -26,6 +26,7 @@ export async function getCatalogue(): Promise<Catalogue> {
                 .map((v: any) => ({
                   name: String(v.name || v.colour || '').trim(),
                   colour: String(v.colour || v.name || '').trim(),
+                  ...(typeof v.hex === 'string' && v.hex.trim() ? { hex: v.hex.trim() } : {}),
                   images: normalizeProductImages(v.images).slice(0, 3),
                 }));
             }

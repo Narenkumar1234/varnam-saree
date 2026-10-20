@@ -1,12 +1,5 @@
 import { Product } from '@/types';
-export { capitalizeColour } from '@/lib/colour';
-
-export const COLOUR_HEX_MAP: Record<string, string> = {
-  Emerald: '#2e6252',
-  Rose: '#bb7c8f',
-  Indigo: '#323d69',
-  Ivory: '#ded2ad',
-};
+export { capitalizeColour, COLOUR_HEX_MAP, resolveColourHex, NEUTRAL_SWATCH_HEX } from '@/lib/colour';
 
 export const fallbackProducts: Product[] = [
   {

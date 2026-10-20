@@ -23,7 +23,10 @@ export const metadata: Metadata = {
     images: ['/assets/varnam-logo.png'],
   },
   icons: {
-    icon: '/assets/favicon.svg',
+    icon: [
+      { url: '/favicon.ico', sizes: '32x32' },
+      { url: '/icon.svg', type: 'image/svg+xml' },
+    ],
   },
 };
 

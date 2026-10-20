@@ -11,7 +11,7 @@ import { ProductPrice } from './ProductPrice';
 import { getProductQuantityLimit } from '@/lib/product-quantity';
 import { getProductDiscountPercentage } from '@/lib/shop-filters';
 import { capitalizeColour } from '@/lib/colour';
-import { needsUnoptimized } from '@/lib/image-loader';
+import { imageLoader, needsUnoptimized } from '@/lib/image-loader';
 import { getProductCoverImage } from '@/lib/product-gallery';
 
 interface ProductCardProps {
@@ -58,6 +58,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
             priority={priority}
             className="product-img"
             style={{ objectFit: 'cover', transition: 'filter 0.2s, transform 0.4s' }}
+            loader={imageLoader}
             unoptimized={needsUnoptimized(coverImage)}
           />
         </div>

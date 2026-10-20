@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
-import { COLOUR_HEX_MAP, capitalizeColour } from '@/data/products';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { capitalizeColour, resolveColourHex } from '@/lib/colour';
 import { useStore } from '@/context/store-context';
 import { ProductCard } from '@/components/ProductCard';
 import { Icon } from '@/components/Icons';
@@ -18,13 +18,14 @@ interface SareeListingProps {
 export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
   const { products } = useStore();
   const { collections: collectionOptions, priceBounds } = useMemo(() => getShopFilterOptions(products), [products]);
-  const colourOptions = [...new Set(products.map((p) => capitalizeColour(p.colour)))].map((colour) => [colour, COLOUR_HEX_MAP[colour] || '#d8d0c8']);
+  const colourOptions = [...new Set(products.map((p) => capitalizeColour(p.colour)))].map((colour) => [colour, resolveColourHex(colour)]);
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const initialCollection = searchParams.get('collection');
   const initialOffers = searchParams.get('offers') || searchParams.get('discount');
   const initialDiscount = initialOffers ? (parseInt(initialOffers, 10) || 50) : 0;
 
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') ?? '');
   const [filters, setFilters] = useState<ShopFilterState>(() => ({
     ...createShopFilters(
       priceBounds,
@@ -35,10 +36,20 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
     minDiscount: initialDiscount,
   }));
 
+  const persistSearchQuery = useCallback((value: string) => {
+    setSearchQuery(value);
+    if (!initialSearchMode) return;
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) params.set('q', value);
+    else params.delete('q');
+    const query = params.toString();
+    const nextUrl = query ? `${pathname}?${query}` : pathname;
+    window.history.replaceState(window.history.state, '', nextUrl);
+  }, [initialSearchMode, pathname, searchParams]);
+
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetDraft, setSheetDraft] = useState<ShopFilterState>(filters);
   const [sortOption, setSortOption] = useState<'featured' | 'low' | 'high' | 'new'>('featured');
-  const [visibleCount, setVisibleCount] = useState<number>(6);
 
   // Refresh slider bounds when live prices change, preserving a user's selection.
   const previousBounds = React.useRef(priceBounds);
@@ -64,8 +75,12 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
       collection: c && collectionOptions.includes(c) ? c : (!initialSearchMode || !collectionOptions.includes(prev.collection) ? 'All' : prev.collection),
       minDiscount: discountVal,
     }));
-    setVisibleCount(6);
   }, [searchParams, initialSearchMode, collectionOptions.join('\0')]);
+
+  const urlQuery = searchParams.get('q') ?? '';
+  useEffect(() => {
+    setSearchQuery(urlQuery);
+  }, [urlQuery]);
 
   // Compute matching products combining query + filters
   const filteredProducts = useMemo(
@@ -83,8 +98,6 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
     }
     return list;
   }, [filteredProducts, sortOption]);
-
-  const displayedProducts = sortedProducts.slice(0, visibleCount);
 
   // Active filter count
   const activeFilterCount =
@@ -107,7 +120,7 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
 
   const resetFilters = () => {
     setFilters(createShopFilters(priceBounds));
-    setVisibleCount(6);
+    persistSearchQuery('');
   };
 
   const handleOpenSheet = () => {
@@ -127,7 +140,6 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
       priceRange: { ...sheetDraft.priceRange },
       minDiscount: sheetDraft.minDiscount || 0,
     });
-    setVisibleCount(6);
     setSheetOpen(false);
   };
 
@@ -166,10 +178,7 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
               placeholder="Try silk, emerald, cotton, banarasi…"
               autoFocus
               value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setVisibleCount(6);
-              }}
+              onChange={(e) => persistSearchQuery(e.target.value)}
             />
             <button type="submit" aria-label="Search">
               <Icon name="search" />
@@ -194,7 +203,6 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
                     checked={filters.collection === c}
                     onChange={() => {
                       setFilters((prev) => ({ ...prev, collection: c }));
-                      setVisibleCount(6);
                     }}
                   />
                   <span>{c === 'All' ? 'All sarees' : `${c} sarees`}</span>
@@ -222,7 +230,6 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
                           ? [...prev.colours, colName]
                           : prev.colours.filter((c) => c !== colName),
                       }));
-                      setVisibleCount(6);
                     }}
                   />
                   <span className="filter-colour" style={{ background: hex }} aria-hidden="true" />
@@ -239,7 +246,6 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
               value={filters.priceRange}
               onChange={(priceRange) => {
                 setFilters((prev) => ({ ...prev, priceRange }));
-                setVisibleCount(6);
               }}
             />
           </fieldset>
@@ -257,7 +263,6 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
                     checked={(filters.minDiscount || 0) === opt.value}
                     onChange={() => {
                       setFilters((prev) => ({ ...prev, minDiscount: opt.value }));
-                      setVisibleCount(6);
                     }}
                   />
                   <span>{opt.label}</span>
@@ -312,9 +317,9 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
           </div>
 
           {/* Product Cards Grid */}
-          {displayedProducts.length > 0 ? (
+          {sortedProducts.length > 0 ? (
             <div className="products" id="shopResults">
-              {displayedProducts.map((p, idx) => (
+              {sortedProducts.map((p, idx) => (
                 <ProductCard key={p.id} product={p} priority={idx < 4} />
               ))}
             </div>
@@ -329,25 +334,9 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
               <button
                 className="btn"
                 type="button"
-                onClick={() => {
-                  setSearchQuery('');
-                  resetFilters();
-                }}
+                onClick={resetFilters}
               >
                 Clear all filters
-              </button>
-            </div>
-          )}
-
-          {/* Load More Button (Unified for both catalogue and search) */}
-          {sortedProducts.length > displayedProducts.length && (
-            <div className="shop-pagination" id="shopPagination">
-              <button
-                className="load-more"
-                type="button"
-                onClick={() => setVisibleCount((prev) => prev + 6)}
-              >
-                Load more <Icon name="arrow-right" />
               </button>
             </div>
           )}

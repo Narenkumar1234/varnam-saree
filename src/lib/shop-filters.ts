@@ -1,4 +1,5 @@
 import type { PriceRange, Product, ShopFilterState } from '@/types';
+import { productMatchesQuery } from '@/lib/search-query';
 
 export function getShopFilterOptions(catalogue: Product[]) {
   const prices = catalogue.map((product) => product.price);
@@ -84,12 +85,8 @@ export function filterShopProducts(
   filters: ShopFilterState,
   query = ''
 ): Product[] {
-  const search = query.trim().toLowerCase();
-
   return catalogue.filter((product) => {
-    const matchesQuery = !search ||
-      `${product.name} ${product.type} ${product.collection} ${product.colour}`
-        .toLowerCase().includes(search);
+    const matchesQuery = productMatchesQuery(product, query);
     const matchesCollection = filters.collection === 'All' ||
       product.collection === filters.collection;
     const matchesColour = !filters.colours.length ||
