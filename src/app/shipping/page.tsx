@@ -19,8 +19,8 @@ export default function ShippingPage() {
         <h2>Returns & exchanges</h2>
         <p>
           Please contact Varnam within 7 days of delivery to discuss a return or exchange. Sarees
-          must be unworn and unwashed, with tags and original packaging. Custom finishing is
-          excluded except for defects. Contact us to confirm return shipping costs and refund timelines.
+          must be unworn and unwashed, with tags and original packaging. Contact us to confirm
+          return shipping costs and refund timelines.
         </p>
 
         <h2>Need a hand?</h2>

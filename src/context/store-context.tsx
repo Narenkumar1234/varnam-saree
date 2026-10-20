@@ -25,7 +25,7 @@ interface StoreContextType {
   cartQuote: OrderQuote;
   toastMessage: string | null;
   totalBagCount: number;
-  addToCart: (id: number, qty?: number, finish?: string) => void;
+  addToCart: (id: number, qty?: number) => void;
   adjustCardQuantity: (id: number, delta: number) => void;
   removeItem: (id: number) => void;
   toggleWish: (id: number) => void;
@@ -42,7 +42,7 @@ interface StoreContextType {
   updateOrderPayment: (orderId: string, payment: OrderPayment) => void;
   clearDemo: () => void;
   showToast: (msg: string) => void;
-  orderProductOnWhatsApp: (id: number, qty?: number, finish?: string) => void;
+  orderProductOnWhatsApp: (id: number, qty?: number) => void;
   orderCartOnWhatsApp: () => void;
   getOrderById: (id: string) => Order | undefined;
 }
@@ -161,9 +161,9 @@ export function StoreProvider({ children, initialProducts, initialCommerce = DEF
 
   const { quote: cartQuote, error: cartError } = useMemo(() => previewOrderQuote(cart, couponCode, products, commerce), [cart, couponCode, products, commerce]);
 
-  const addToCart = (id: number, qty = 1, finish = 'Unstitched blouse · included') => {
+  const addToCart = (id: number, qty = 1) => {
     const current = cart.find((item) => item.id === id);
-    const next = current ? cart.map((item) => item.id === id ? { ...item, qty: item.qty + qty, finish } : item) : [...cart, { id, qty, finish }];
+    const next = current ? cart.map((item) => item.id === id ? { ...item, qty: item.qty + qty } : item) : [...cart, { id, qty }];
     try { quoteFromCatalogue(next, null, products, true, commerce); }
     catch (error) { showToast(error instanceof Error ? error.message : 'This saree is unavailable.'); return; }
     setCart(next);
@@ -301,13 +301,13 @@ export function StoreProvider({ children, initialProducts, initialCommerce = DEF
     }
   };
 
-  const orderProductOnWhatsApp = (id: number, qty = 1, finish = 'Unstitched blouse · included') => {
+  const orderProductOnWhatsApp = (id: number, qty = 1) => {
     const product = getProductById(id);
     if (!product) return;
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     try {
-      const { pricing } = quoteFromCatalogue([{ id, qty, finish }], couponCode, products, true, commerce);
-      openWhatsAppMessage(createProductWhatsAppMessage(product, { quantity: qty, finish, origin, pricing }));
+      const { pricing } = quoteFromCatalogue([{ id, qty }], couponCode, products, true, commerce);
+      openWhatsAppMessage(createProductWhatsAppMessage(product, { quantity: qty, origin, pricing }));
     } catch (error) { showToast(error instanceof Error ? error.message : 'This saree is unavailable.'); }
   };
 

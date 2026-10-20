@@ -2,7 +2,8 @@ import { afterEach, expect, test } from 'bun:test';
 import { VARNAM_CONFIG } from '../src/data/products.ts';
 import { createProductWhatsAppMessage, createWhatsAppOrderUrl, openWhatsAppOrder } from '../src/lib/whatsapp.ts';
 import { getProductQuantityLimit, UNKNOWN_STOCK_MAX_QUANTITY } from '../src/lib/product-quantity.ts';
-import { previewOrderQuote, quoteFromCatalogue } from '../src/lib/pricing.ts';
+import { parseOrderItems, previewOrderQuote, quoteFromCatalogue, readOrderSnapshot } from '../src/lib/pricing.ts';
+import { readFileSync } from 'node:fs';
 
 const previousWindow = globalThis.window;
 const previousNumber = VARNAM_CONFIG.whatsappNumber;
@@ -22,6 +23,8 @@ test('WhatsApp uses synchronous same-tab navigation with the exact encoded messa
   expect(new URL(assigned[0]).searchParams.get('text')).toBe(message);
   expect(message).toContain('மயில் & Rose saree × 2');
   expect(message).toContain('Product total: ₹8,000');
+  expect(message).not.toContain('Finishing:');
+  expect(message).not.toContain('Fall & edging');
 });
 
 test('failed navigation, SSR and an unconfigured number report failure instead of claiming a window opened', () => {
@@ -63,4 +66,33 @@ test('invalid quantities, bad prices and oversized quotations produce a safe pre
   const overflow = previewOrderQuote([line(2)], null, [{ ...product, price: 2_000_000_000, stock: 2 }]);
   expect(overflow.error).toContain('quantity is too large');
   expect(overflow.quote.pricing.total).toBe(0);
+});
+
+test('orders and bags still load when old stitching fields are missing or not a string', () => {
+  expect(parseOrderItems([{ id: 1, qty: 2 }])).toEqual([{ id: 1, qty: 2 }]);
+  expect(parseOrderItems([{ id: 1, qty: 2, finish: { bust: 36, waist: 30 } }])).toEqual([{ id: 1, qty: 2 }]);
+  expect(quoteFromCatalogue([{ id: 1, qty: 1 }], null, [product]).items[0].finish).toBeUndefined();
+  expect(quoteFromCatalogue([{ id: 1, qty: 1, finish: 'Included' }], null, [product]).items[0].finish).toBe('Included');
+  expect(quoteFromCatalogue([{ id: 1, qty: 1, finish: { bust: 36 } }], null, [product]).pricing.total).toBe(4000);
+
+  const legacy = readOrderSnapshot(JSON.stringify({
+    version: 1,
+    items: [{ id: 1, qty: 1, name: 'Silk', finish: { measurements: { bust: 36 } }, total: 4000 }],
+    pricing: { subtotal: 4000, discountAmount: 0, shipping: 0, total: 4000 },
+  }));
+  expect(legacy.items[0].finish).toBeUndefined();
+  expect(legacy.items[0].total).toBe(4000);
+});
+
+test('product, bag and checkout no longer offer blouse stitching', () => {
+  const detail = readFileSync(new URL('../src/components/ProductDetail.tsx', import.meta.url), 'utf8');
+  const cart = readFileSync(new URL('../src/app/cart/page.tsx', import.meta.url), 'utf8');
+  const checkout = readFileSync(new URL('../src/app/checkout/page.tsx', import.meta.url), 'utf8');
+  expect(detail).toContain('Includes unstitched blouse piece');
+  expect(detail).not.toContain('Choose finishing');
+  expect(detail).not.toContain('Fall & edging');
+  expect(cart).not.toContain('Unstitched blouse');
+  expect(cart).not.toContain('item.finish');
+  expect(checkout).not.toContain('buyNowFinish');
+  expect(checkout).not.toContain("searchParams.get('finish')");
 });

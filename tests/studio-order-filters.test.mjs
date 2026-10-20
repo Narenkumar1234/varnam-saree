@@ -166,6 +166,8 @@ test('Studio orders UI keeps the status dropdown values and drops WhatsApp confi
   expect(source).not.toContain('StudioPayment');
   expect(source).not.toContain('Pay ${money(total)} with Razorpay');
   expect(source).toContain('StudioOfflinePayment');
+  expect(source).toContain('getProductCoverImage');
+  expect(source).not.toContain('item.finish');
 });
 
 test('active-filter helper ignores blank search text', () => {
