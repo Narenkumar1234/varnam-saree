@@ -12,6 +12,7 @@ import { StudioPayment } from '@/components/StudioPayment';
 import { StudioCommerce } from '@/components/StudioCommerce';
 import { createSavedOrderWhatsAppMessage } from '@/lib/whatsapp';
 import { useStore } from '@/context/store-context';
+import { needsUnoptimized } from '@/lib/image-loader';
 
 type AdminProductVariant = { name: string; colour?: string; images: string[] };
 type AdminProduct = Omit<Product, 'stock' | 'tag'> & {
@@ -1001,7 +1002,7 @@ export default function StudioDeskPage() {
                         <td>
                           <div className="admin-prod-cell">
                             <div className="admin-thumb">
-                              <Image src={p.image} alt={p.name} fill sizes="48px" style={{ objectFit: 'cover' }} />
+                              <Image src={p.image} alt={p.name} fill sizes="48px" style={{ objectFit: 'cover' }} unoptimized={needsUnoptimized(p.image)} />
                             </div>
                             <div>
                               <strong>{p.name}</strong>
@@ -1311,7 +1312,7 @@ export default function StudioDeskPage() {
                           fill
                           sizes="64px"
                           style={{ objectFit: 'cover' }}
-                          unoptimized={imgUrl.startsWith('blob:')}
+                          unoptimized={needsUnoptimized(imgUrl)}
                         />
                       </div>
 
@@ -1820,7 +1821,7 @@ export default function StudioDeskPage() {
                             fill
                             sizes="56px"
                             style={{ objectFit: 'cover' }}
-                            unoptimized={imgUrl.startsWith('blob:')}
+                            unoptimized={needsUnoptimized(imgUrl)}
                           />
                         </div>
 

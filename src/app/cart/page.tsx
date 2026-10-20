@@ -8,6 +8,7 @@ import { useStore } from '@/context/store-context';
 import { Icon } from '@/components/Icons';
 import { CouponForm } from '@/components/CouponForm';
 import { OrderTotals } from '@/components/OrderTotals';
+import { needsUnoptimized } from '@/lib/image-loader';
 import { OrderLinePrice } from '@/components/OrderLinePrice';
 import { getProductQuantityLimit } from '@/lib/product-quantity';
 import { capitalizeColour } from '@/lib/colour';
@@ -70,6 +71,7 @@ export default function CartPage() {
                         fill
                         sizes="(max-width: 700px) 85px, 100px"
                         style={{ objectFit: 'cover' }}
+                        unoptimized={needsUnoptimized(p.image)}
                       />
                     </Link>
 

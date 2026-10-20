@@ -5,8 +5,8 @@ const ALLOWED_HOSTS = [
   'drive.google.com',
 ];
 
-export function needsUnoptimized(src: string): boolean {
-  if (src.startsWith('/')) return false;
+export function needsUnoptimized(src: string | undefined): boolean {
+  if (!src || src.startsWith('/')) return false;
   
   try {
     const url = new URL(src);

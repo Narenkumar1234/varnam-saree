@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import { requireAdminSession } from '@/lib/admin-session';
 
@@ -36,15 +37,6 @@ async function getFirebaseStorage() {
     console.error('Firebase Storage initialization failed:', err);
     throw err;
   }
-}
-
-function generateDownloadToken(): string {
-  return Array.from({ length: 36 }, (_, i) => 
-    i === 8 || i === 13 || i === 18 || i === 23 ? '-' :
-    i === 14 ? '4' :
-    i === 19 ? ((Math.random() * 4) | 8).toString(16) :
-    ((Math.random() * 16) | 0).toString(16)
-  ).join('');
 }
 
 export async function POST(req: NextRequest) {
@@ -98,7 +90,7 @@ export async function POST(req: NextRequest) {
       const bucket = storage.bucket();
       const filePath = `products/${webpName}`;
       const fileRef = bucket.file(filePath);
-      const downloadToken = generateDownloadToken();
+      const downloadToken = randomUUID();
 
       await fileRef.save(processedBuffer, {
         metadata: {
