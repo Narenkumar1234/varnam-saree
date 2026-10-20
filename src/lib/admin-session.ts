@@ -21,6 +21,10 @@ export function adminLoginConfigured(): boolean {
   return configuration() !== null;
 }
 
+export function configuredAdminEmail(): string | null {
+  return configuration()?.email.trim() ?? null;
+}
+
 export function validAdminCredentials(email: unknown, password: unknown): boolean {
   const config = configuration();
   if (!config || typeof email !== 'string' || typeof password !== 'string' || email.length > 4096 || password.length > 4096) return false;

@@ -38,15 +38,20 @@ export interface Order {
   payment?: OrderPayment;
 }
 
+export type OfflinePaymentMethod = 'Cash' | 'UPI' | 'Bank transfer' | 'Other';
+
 export interface OrderPayment {
-  provider: 'razorpay';
+  provider: 'razorpay' | 'offline';
   status: 'pending' | 'authorized' | 'paid';
-  razorpayOrderId: string;
+  razorpayOrderId?: string;
   /** Amount in paise, including the saved coupon discount and shipping. */
-  amount: number;
-  currency: 'INR';
+  amount?: number;
+  currency?: 'INR';
   paymentId?: string;
   paidAt?: string;
+  method?: OfflinePaymentMethod;
+  note?: string;
+  adminEmail?: string;
 }
 
 export interface OrderItem extends CartItem {

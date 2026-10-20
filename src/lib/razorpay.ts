@@ -58,14 +58,14 @@ export async function createCheckout(orderId: string) {
   return db.transaction(async (tx) => {
     const order = await lockedOrder(tx, orderId);
     const saved = readOrderSnapshot(order.itemsJson).payment;
-    if (saved?.status === 'paid') return { status: 'paid' as const };
+    if (saved?.status === 'paid' || saved?.provider === 'offline') return { status: 'paid' as const };
     const amount = assertPayable(order);
     if (saved && (saved.amount !== amount || saved.currency !== 'INR')) {
       throw new PaymentError('The saved payment total does not match this order. Please contact Varnam.', 409);
     }
     // A lock serializes double-clicks and concurrent requests. Never make a second
     // gateway order when the first one can still be paid or is awaiting capture.
-    const remote = saved
+    const remote = saved?.razorpayOrderId
       ? await client.orders.fetch(saved.razorpayOrderId)
       : await client.orders.create({ amount, currency: 'INR', receipt: createHash('sha256').update(order.id).digest('hex').slice(0, 40), notes: { localOrderId: order.id } });
     if (Number(remote.amount) !== amount || remote.currency !== 'INR') throw new PaymentError('Payment total mismatch.', 409);
@@ -83,7 +83,7 @@ export interface CheckoutProof { orderId: string; razorpay_order_id: string; raz
 
 async function recordPayment(tx: Transaction, order: SavedOrder, paymentId: string, client: Razorpay) {
   const saved = readOrderSnapshot(order.itemsJson).payment;
-  if (!saved) throw new PaymentError('Start the payment from this order first.', 409);
+  if (!saved?.razorpayOrderId) throw new PaymentError('Start the payment from this order first.', 409);
   const paid = await client.payments.fetch(paymentId);
   if (paid.order_id !== saved.razorpayOrderId || Number(paid.amount) !== saved.amount ||
       saved.amount !== amountInPaise(order.total) || paid.currency !== 'INR') {
@@ -135,7 +135,9 @@ export async function receiveWebhook(rawBody: string, signature: string) {
   if (typeof orderId !== 'string') return;
   const outcome = await db.transaction(async (tx) => {
     const order = await lockedOrder(tx, orderId);
-    if (readOrderSnapshot(order.itemsJson).payment?.razorpayOrderId !== payment.order_id) {
+    const saved = readOrderSnapshot(order.itemsJson).payment;
+    if (saved?.status === 'paid') return { recordedPaid: false as const, order };
+    if (saved?.razorpayOrderId !== payment.order_id) {
       throw new PaymentError('Payment order mismatch.', 409);
     }
     const result = await recordPayment(tx, order, payment.id, client);
