@@ -110,7 +110,7 @@ test('tracking lookup keeps payment status and strips Razorpay ids, signatures a
     },
   });
   const tracked = await loadTrackedOrder(id);
-  expect(tracked).toEqual({ id, total: 4000, createdAt: '2026-10-20T00:00:00Z', status: 'Confirmed', payment: { status: 'pending' } });
+  expect(tracked).toEqual({ id, total: 4000, createdAt: '2026-10-20T00:00:00Z', status: 'Confirmed', payment: { status: 'pending', provider: 'razorpay' } });
   expect(JSON.stringify(tracked)).not.toContain('order_secret');
   expect(JSON.stringify(tracked)).not.toContain('pay_secret');
   expect(JSON.stringify(tracked)).not.toContain('sig_secret');
@@ -119,7 +119,7 @@ test('tracking lookup keeps payment status and strips Razorpay ids, signatures a
   expect(toPublicTrackedOrder({
     id, total: 4000, status: 'Confirmed',
     itemsJson: JSON.stringify({ version: 1, items: [], pricing: { subtotal: 4000, discountAmount: 0, shipping: 0, total: 4000 }, payment: secretPayment }),
-  }).payment).toEqual({ status: 'pending' });
+  }).payment).toEqual({ status: 'pending', provider: 'razorpay' });
 });
 
 test('delivery policy formats standalone and embedded text with exactly the caller-owned punctuation', () => {

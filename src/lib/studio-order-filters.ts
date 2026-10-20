@@ -1,4 +1,4 @@
-import { orderPaymentLabel, type PaymentStatusSnapshot } from '@/lib/order-status';
+import { isCancelledOrderStatus, orderPaymentLabel, paymentDisplayStatus, type PaymentStatusSnapshot } from '@/lib/order-status';
 
 export const STUDIO_ORDER_STATUSES = [
   'Confirmed',
@@ -26,6 +26,7 @@ export interface StudioOrderFilterable {
   phone?: string | null;
   status?: string | null;
   payment?: PaymentStatusSnapshot | null;
+  total?: number | null;
 }
 
 export interface StudioOrderFilters {
@@ -110,4 +111,29 @@ export function countStudioOrdersByPayment(
   }
 
   return counts;
+}
+
+/** Revenue tile: Razorpay or offline paid, excluding cancelled orders. */
+export function studioOrderCountsTowardRevenue(order: Pick<StudioOrderFilterable, 'status' | 'payment'>): boolean {
+  if (isCancelledOrderStatus(order.status)) return false;
+  return paymentDisplayStatus(order.payment) === 'paid';
+}
+
+export function sumStudioPaidRevenue(orders: Array<Pick<StudioOrderFilterable, 'status' | 'payment' | 'total'>>): number {
+  return orders.reduce((sum, order) => {
+    if (!studioOrderCountsTowardRevenue(order)) return sum;
+    const total = order.total;
+    return sum + (typeof total === 'number' && Number.isFinite(total) ? total : 0);
+  }, 0);
+}
+
+export function studioOrderLineLabel(
+  item: { id: number; name?: string | null },
+  product?: { name?: string | null } | null,
+): string {
+  const named = typeof item.name === 'string' ? item.name.trim() : '';
+  if (named) return named;
+  const productName = typeof product?.name === 'string' ? product.name.trim() : '';
+  if (productName) return productName;
+  return `Product #${item.id}`;
 }

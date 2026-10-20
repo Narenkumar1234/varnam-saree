@@ -249,6 +249,20 @@ test('unreadable order snapshot is left untouched and returns 500', async () => 
   expect(dbCalls).toEqual(['select']);
 });
 
+test('cancelled orders cannot be marked paid offline', async () => {
+  const token = (await login(credentials())).cookies.get(session.ADMIN_SESSION_COOKIE).value;
+  order.status = 'Cancelled';
+  dbCalls = [];
+  const mark = await orderById.PATCH(
+    request('/api/admin/orders/VRN-admin-test', 'PATCH', { payment: { action: 'mark-offline-paid', method: 'UPI' } }, token),
+    { params: Promise.resolve({ id: order.id }) }
+  );
+  expect(mark.status).toBe(409);
+  expect((await mark.json()).error).toContain('Cancelled orders cannot be marked as paid');
+  expect(JSON.parse(order.itemsJson).payment).toBeUndefined();
+  expect(dbCalls).toEqual(['select']);
+});
+
 test('online Razorpay-paid orders cannot be marked offline or unpaid from Studio', async () => {
   const token = (await login(credentials())).cookies.get(session.ADMIN_SESSION_COOKIE).value;
   const snapshot = JSON.parse(order.itemsJson);

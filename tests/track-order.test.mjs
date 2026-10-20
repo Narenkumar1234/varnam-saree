@@ -14,12 +14,15 @@ const plainText = (markup) => markup.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' 
 const paid = { status: 'paid' };
 const pending = { status: 'pending' };
 const authorized = { status: 'authorized' };
+const offlinePaid = { status: 'paid', provider: 'offline', method: 'UPI' };
 
 test('the public lookup route and track page use the sanitised payload helpers', () => {
   expect(routeSource).toContain('toPublicTrackedOrder');
   expect(routeSource).not.toContain('...order');
   expect(routeSource).not.toContain('readOrderSnapshot');
   expect(trackSource).toContain('TrackedOrderView');
+  expect(trackSource).toContain('loadTrackedOrder');
+  expect(trackSource).not.toContain('if (localOrder) { setLookup({ id: searchedId, status: \'found\', order: localOrder }); return; }');
 });
 
 test('toPublicTrackedOrder keeps status and payment status, never Razorpay secrets', () => {
@@ -44,7 +47,7 @@ test('toPublicTrackedOrder keeps status and payment status, never Razorpay secre
     status: 'Confirmed',
     createdAt: '2026-10-20T10:00:00.000Z',
     pricing: { subtotal: 2500, discountAmount: 0, shipping: 0, total: 2500 },
-    payment: { status: 'authorized' },
+    payment: { status: 'authorized', provider: 'razorpay' },
   });
   expect(JSON.stringify(publicOrder)).not.toContain('order_secret');
   expect(JSON.stringify(publicOrder)).not.toContain('pay_secret');
@@ -77,9 +80,26 @@ test('paid orders mark order confirmed current and hide the pay call to action',
   const markup = render({ id: 'VRN-1', total: 4000, status: 'Confirmed', payment: paid });
   expect(markup).toContain('track-step current');
   expect(plainText(markup)).toContain('1. Order confirmed');
+  expect(plainText(markup)).toContain('Paid');
   expect(plainText(markup)).not.toContain('Awaiting payment');
   expect(plainText(markup)).not.toContain('Pay now');
   expect(plainText(markup)).not.toContain('Retry payment');
+  expect(plainText(markup)).not.toContain('Complete on WhatsApp');
+});
+
+test('offline-paid tracked orders show the method, complete confirm, and hide Pay now / WhatsApp', () => {
+  const markup = render({ id: 'VRN-1', total: 4000, status: 'Confirmed', payment: offlinePaid });
+  expect(plainText(markup)).toContain('Paid · Offline (UPI)');
+  expect(markup).toContain('track-step current');
+  expect(plainText(markup)).not.toContain('Awaiting payment');
+  expect(plainText(markup)).not.toContain('Pay now');
+  expect(plainText(markup)).not.toContain('Complete on WhatsApp');
+  expect(plainText(markup)).not.toContain('Retry payment');
+
+  const unpaid = render({ id: 'VRN-1', total: 4000, status: 'Confirmed' });
+  expect(plainText(unpaid)).toContain('Awaiting payment');
+  expect(unpaid).toContain('Pay now');
+  expect(unpaid).toContain('Complete on WhatsApp instead');
 });
 
 test('cancelled orders stay cancelled even when a payment snapshot exists', () => {

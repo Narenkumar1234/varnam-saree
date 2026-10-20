@@ -198,11 +198,32 @@ test('actual /account renders sign-in -> verified user page -> sign-in; restore 
   const signedIn = render();
   expect(signedIn).toContain('Hello, Alice'); expect(signedIn).toContain('alice@example.test');
   expect(signedIn).toContain('VRN-alice'); expect(signedIn).toContain('Awaiting payment'); expect(signedIn).not.toContain('· Confirmed');
+  expect(signedIn).not.toContain('Paid · Offline');
   expect(signedIn).toContain('My addresses'); expect(signedIn).toContain('Sign out');
   expect(signedIn).not.toContain('Welcome back'); expect(signedIn).not.toContain('Continue with Google');
   await h.controller.logOut(); viewState = h.controller.getState();
   expect(render()).toContain('Continue with Google'); expect(render()).not.toContain('alice@example.test');
   h.stop();
+});
+
+test('account order rows show customer-facing status plus a payment label', () => {
+  viewState = {
+    ...initialCustomerAccountState(),
+    phase: 'signed-in',
+    profile: profiles.alice,
+    orders: [
+      { id: 'VRN-unpaid', total: 2000, status: 'Confirmed', items: [] },
+      { id: 'VRN-offline', total: 3000, status: 'Confirmed', items: [], payment: { provider: 'offline', status: 'paid', method: 'UPI' } },
+      { id: 'VRN-paid', total: 4000, status: 'Handloom Finishing', items: [], payment: { status: 'paid' } },
+    ],
+  };
+  const html = render();
+  expect(html).toContain('VRN-unpaid');
+  expect(html).toContain('Awaiting payment');
+  expect(html).toContain('VRN-offline');
+  expect(html).toContain('Confirmed · Paid · Offline (UPI)');
+  expect(html).toContain('VRN-paid');
+  expect(html).toContain('Handloom Finishing · Paid');
 });
 
 test.each([500, 502, 503, 200])('HTML/non-JSON HTTP %s shows a safe service explanation, never a JSON parser exception', async (status) => {

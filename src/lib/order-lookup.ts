@@ -17,7 +17,7 @@ export interface TrackableOrderRecord {
   date?: string;
   createdAt?: string | Date | null;
   status?: string | null;
-  payment?: Pick<OrderPayment, 'status'> | null;
+  payment?: PaymentStatusSnapshot | Pick<OrderPayment, 'status'> | null;
   itemsJson?: string | null;
 }
 

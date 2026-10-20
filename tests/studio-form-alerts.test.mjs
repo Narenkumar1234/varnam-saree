@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { singleColourHelperText } from '../src/lib/product-input.ts';
 
 const source = readFileSync(fileURLToPath(new URL('../src/app/studio-desk/page.tsx', import.meta.url)), 'utf8');
 
@@ -25,6 +26,18 @@ test('edit modal X button prevents form submit and click fall-through', () => {
   expect(closeButton).toContain('onMouseDown');
   expect(source).toContain('skipEditSaveRef.current = true');
   expect(source).toContain('if (skipEditSaveRef.current || !editingProduct) return;');
+});
+
+test('Add saree single-colour helper omits empty brackets', () => {
+  expect(singleColourHelperText('', 'will-publish')).toBe('No variants added. This saree will be published as a single colour.');
+  expect(singleColourHelperText('   ', 'will-publish')).toBe('No variants added. This saree will be published as a single colour.');
+  expect(singleColourHelperText('Emerald', 'will-publish')).toBe('No variants added. This saree will be published as a single colour (Emerald).');
+  expect(singleColourHelperText('', 'is')).toBe('No variants added. This saree is a single colour.');
+  expect(singleColourHelperText('Rose', 'is')).toBe('No variants added. This saree is a single colour (Rose).');
+  expect(source).toContain("singleColourHelperText(newSaree.colour, 'will-publish')");
+  expect(source).toContain("singleColourHelperText(editingProduct.colour, 'is')");
+  expect(source).not.toContain('single colour ({newSaree.colour})');
+  expect(source).not.toContain('single colour ({editingProduct.colour})');
 });
 
 test('uploadError resets when the edited product id or tab changes, not on each keystroke', () => {

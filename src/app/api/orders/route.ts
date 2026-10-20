@@ -5,6 +5,7 @@ import { eq, desc } from 'drizzle-orm';
 import { AddressValidationError, parseCustomerAddressInput, parseOrderShipping } from '@/lib/address-validation';
 import { saveCustomerAddress } from '@/lib/customer-address-store';
 import { calculateOrderQuote, parseOrderItems, readOrderSnapshot, serializeOrderQuote, OrderPricingError } from '@/lib/order-pricing';
+import { publicPaymentSnapshot } from '@/lib/order-status';
 import { requireAdminSession } from '@/lib/admin-session';
 import { requireCustomerIdentity, customerAuthFailure, customerPrivateHeaders, CustomerAuthError } from '@/lib/customer-auth-server';
 import { localDemoModeEnabled } from '@/lib/local-demo-mode';
@@ -134,7 +135,16 @@ export async function GET(req: NextRequest) {
       // Never authorize from a query email or a legacy, client-supplied UID.
       result = await db.select().from(orders).where(eq(orders.email, customer.email)).orderBy(desc(orders.createdAt));
     }
-    return NextResponse.json({ orders: result.map((order) => ({ ...order, ...readOrderSnapshot(order.itemsJson) })) }, { headers: customerPrivateHeaders });
+    const customerList = Boolean(email || req.headers.has('authorization'));
+    return NextResponse.json({
+      orders: result.map((order) => {
+        const snapshot = readOrderSnapshot(order.itemsJson);
+        if (!customerList) return { ...order, ...snapshot };
+        const { payment: storedPayment, ...safeSnapshot } = snapshot;
+        const payment = publicPaymentSnapshot(storedPayment);
+        return { ...order, ...safeSnapshot, ...(payment ? { payment } : {}) };
+      }),
+    }, { headers: customerPrivateHeaders });
   } catch (error: any) {
     const denied = customerAuthFailure(error);
     if (denied) return denied;
