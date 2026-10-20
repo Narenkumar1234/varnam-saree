@@ -8,7 +8,7 @@ import { useStore } from '@/context/store-context';
 import { ProductCard } from '@/components/ProductCard';
 import { Icon } from '@/components/Icons';
 import { PriceRangeFilter } from '@/components/PriceRangeFilter';
-import { createShopFilters, filterShopProducts, getShopFilterOptions, DISCOUNT_FILTER_OPTIONS } from '@/lib/shop-filters';
+import { createShopFilters, filterShopProducts, getShopFilterOptions, getShopOffersHeading, DISCOUNT_FILTER_OPTIONS } from '@/lib/shop-filters';
 import type { ShopFilterState } from '@/types';
 
 interface SareeListingProps {
@@ -136,11 +136,8 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
         <Link href="/">Home</Link> /{' '}
         {initialSearchMode
           ? 'Search'
-          : filters.minDiscount && filters.minDiscount > 0
-          ? `Offers · ${filters.minDiscount}%+ OFF`
-          : filters.collection === 'All'
-          ? 'All sarees'
-          : `${filters.collection} sarees`}
+          : getShopOffersHeading(filters.minDiscount || 0)
+            || (filters.collection === 'All' ? 'All sarees' : `${filters.collection} sarees`)}
       </div>
 
       {/* If in search mode, display prominent search input */}

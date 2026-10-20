@@ -276,6 +276,21 @@ export default function StudioDeskPage() {
   });
 
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const clearFormAlerts = () => {
+    setUploadError(null);
+  };
+  const openAddForm = () => {
+    clearFormAlerts();
+    setActiveTab('add');
+  };
+  const closeAddForm = () => {
+    clearFormAlerts();
+    setActiveTab('inventory');
+  };
+  const closeEditForm = () => {
+    clearFormAlerts();
+    setEditingProduct(null);
+  };
   const [uploadingTarget, setUploadingTarget] = useState<
     | { target: 'new' | 'edit'; index?: number }
     | { target: 'new-variant' | 'edit-variant'; variantIndex: number; index?: number }
@@ -695,7 +710,7 @@ export default function StudioDeskPage() {
           prev.map((p) => (p.id === editingProduct.id ? parsedProduct : p))
         );
         showToast(`Saved updates for "${editingProduct.name}"`);
-        setEditingProduct(null);
+        closeEditForm();
       } else {
         showToast(data.error || 'Failed to update saree');
       }
@@ -773,7 +788,7 @@ export default function StudioDeskPage() {
         };
         setProducts((prev) => [parsedProduct, ...prev]);
         showToast(`"${newSaree.name}" published to storefront`);
-        setActiveTab('inventory');
+        closeAddForm();
         setNewSaree({
           name: '',
           type: '',
@@ -945,7 +960,7 @@ export default function StudioDeskPage() {
         <button
           type="button"
           className={activeTab === 'add' ? 'active' : ''}
-          onClick={() => setActiveTab('add')}
+          onClick={openAddForm}
         >
           + Add New Saree
         </button>
@@ -980,7 +995,7 @@ export default function StudioDeskPage() {
           ) : products.length === 0 ? (
             <div className="empty" style={{ padding: '40px 20px' }}>
               <p>No sarees found in database.</p>
-              <button className="btn" type="button" onClick={() => setActiveTab('add')}>
+              <button className="btn" type="button" onClick={openAddForm}>
                 Add your first saree
               </button>
             </div>
@@ -1080,6 +1095,7 @@ export default function StudioDeskPage() {
                                 const initialDisc = p.oldPrice && p.oldPrice > p.price
                                   ? Math.round(((p.oldPrice - p.price) / p.oldPrice) * 100)
                                   : '';
+                                clearFormAlerts();
                                 setEditingProduct({
                                   ...p,
                                   images,
@@ -1489,7 +1505,7 @@ export default function StudioDeskPage() {
               <button type="submit" className="btn" disabled={isAddingProduct || uploadingTarget !== null} style={{ flex: 1 }}>
                 {uploadingTarget !== null ? 'Uploading Photo…' : isAddingProduct ? 'Publishing…' : 'Publish Saree to Live Store'} <Icon name="arrow-up-right" />
               </button>
-              <button type="button" className="btn outline" onClick={() => setActiveTab('inventory')}>
+              <button type="button" className="btn outline" onClick={closeAddForm}>
                 Cancel
               </button>
             </div>
@@ -1611,7 +1627,7 @@ export default function StudioDeskPage() {
 
       {/* EDIT SAREE MODAL */}
       {editingProduct && (
-        <div className="admin-modal-overlay" onClick={() => setEditingProduct(null)}>
+        <div className="admin-modal-overlay" onClick={closeEditForm}>
           <div className="admin-modal-card" onClick={(e) => e.stopPropagation()}>
             <div className="admin-modal-header">
               <div>
@@ -1621,7 +1637,7 @@ export default function StudioDeskPage() {
               <button
                 type="button"
                 className="admin-modal-close"
-                onClick={() => setEditingProduct(null)}
+                onClick={closeEditForm}
               >
                 ✕
               </button>
@@ -2010,7 +2026,7 @@ export default function StudioDeskPage() {
                 <button type="submit" className="btn" disabled={isSavingEdit || uploadingTarget !== null} style={{ flex: 1 }}>
                   {uploadingTarget !== null ? 'Uploading Photo…' : isSavingEdit ? 'Saving Changes…' : 'Save Changes'}
                 </button>
-                <button type="button" className="btn outline" onClick={() => setEditingProduct(null)}>
+                <button type="button" className="btn outline" onClick={closeEditForm}>
                   Cancel
                 </button>
               </div>
