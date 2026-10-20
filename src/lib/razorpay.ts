@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { orders } from '@/db/schema';
 import { readOrderSnapshot } from '@/lib/pricing';
+import { notifyAdminsOfOrder } from '@/lib/telegram';
 import type { OrderPayment } from '@/types';
 
 export class PaymentError extends Error {
@@ -90,7 +91,7 @@ async function recordPayment(tx: Transaction, order: SavedOrder, paymentId: stri
   }
   if (saved.status === 'paid') {
     if (saved.paymentId !== paid.id) throw new PaymentError('This order is already paid with another payment.', 409);
-    return { status: 'paid' as const };
+    return { status: 'paid' as const, recordedPaid: false };
   }
   // A successful Checkout signature can arrive while funds are only authorized.
   // Only a captured payment is recorded as paid; the webhook completes late captures.
@@ -98,20 +99,25 @@ async function recordPayment(tx: Transaction, order: SavedOrder, paymentId: stri
   const captured = paid.status === 'captured' && paid.captured === true;
   const payment: OrderPayment = { ...saved, status: captured ? 'paid' : 'authorized', paymentId: paid.id, ...(captured ? { paidAt: new Date().toISOString() } : {}) };
   await savePayment(tx, order, payment);
-  return { status: captured ? 'paid' as const : 'processing' as const };
+  return { status: captured ? 'paid' as const : 'processing' as const, recordedPaid: captured };
 }
 
 export async function verifyCheckout(proof: CheckoutProof) {
   const { client, secret } = gateway();
-  return db.transaction(async (tx) => {
+  const outcome = await db.transaction(async (tx) => {
     const order = await lockedOrder(tx, proof.orderId);
     const saved = readOrderSnapshot(order.itemsJson).payment;
     if (!saved || saved.razorpayOrderId !== proof.razorpay_order_id ||
         !validSignature(`${saved.razorpayOrderId}|${proof.razorpay_payment_id}`, proof.razorpay_signature, secret)) {
       throw new PaymentError('Payment verification failed. Please contact Varnam if your account was debited.', 400);
     }
-    return recordPayment(tx, order, proof.razorpay_payment_id, client);
+    const result = await recordPayment(tx, order, proof.razorpay_payment_id, client);
+    return { ...result, order };
   });
+  if (outcome.recordedPaid) {
+    await notifyAdminsOfOrder({ ...outcome.order, paymentStatus: 'paid' });
+  }
+  return { status: outcome.status };
 }
 
 export async function receiveWebhook(rawBody: string, signature: string) {
@@ -127,11 +133,15 @@ export async function receiveWebhook(rawBody: string, signature: string) {
   const orderId = remote.notes?.localOrderId;
   // Ignore payments from other integrations on the same Razorpay account.
   if (typeof orderId !== 'string') return;
-  await db.transaction(async (tx) => {
+  const outcome = await db.transaction(async (tx) => {
     const order = await lockedOrder(tx, orderId);
     if (readOrderSnapshot(order.itemsJson).payment?.razorpayOrderId !== payment.order_id) {
       throw new PaymentError('Payment order mismatch.', 409);
     }
-    await recordPayment(tx, order, payment.id, client);
+    const result = await recordPayment(tx, order, payment.id, client);
+    return { ...result, order };
   });
+  if (outcome.recordedPaid) {
+    await notifyAdminsOfOrder({ ...outcome.order, paymentStatus: 'paid' });
+  }
 }

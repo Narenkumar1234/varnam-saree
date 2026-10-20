@@ -6,7 +6,7 @@ function memoryStorage(initial = {}) {
   const values = new Map(Object.entries(initial));
   return { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: (key) => values.delete(key), values };
 }
-const structured = { label: 'Work', first: 'Test', last: 'Customer', phone: '9000000000', address: '12, Rose Street', city: 'Chennai', pin: '600001', state: 'Tamil Nadu' };
+const structured = { label: 'Work', first: 'Test', last: 'Customer', phone: '9000000000', address: '12, Rose Street', apartment: '', landmark: '', city: 'Chennai', pin: '600001', state: 'Tamil Nadu' };
 
 test('legacy address text and nickname migrate into a single JSON record without guessing fields', () => {
   const storage = memoryStorage({ [ADDRESS_STORAGE_KEY]: '12, Rose Street\nChennai 600001', [legacyLabelKey]: 'Work' });

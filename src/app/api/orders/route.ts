@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { orders, users } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
+import { AddressValidationError, parseCustomerAddressInput, parseOrderShipping } from '@/lib/address-validation';
+import { saveCustomerAddress } from '@/lib/customer-address-store';
 import { calculateOrderQuote, parseOrderItems, readOrderSnapshot, serializeOrderQuote, OrderPricingError } from '@/lib/order-pricing';
 import { requireAdminSession } from '@/lib/admin-session';
 import { requireCustomerIdentity, customerAuthFailure, customerPrivateHeaders, CustomerAuthError } from '@/lib/customer-auth-server';
 import { localDemoModeEnabled } from '@/lib/local-demo-mode';
+import { notifyAdminsOfOrder } from '@/lib/telegram';
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,7 +16,7 @@ export async function POST(req: NextRequest) {
     // posted UID is never sufficient to associate an order with an account.
     const customer = req.headers.has('authorization') ? await requireCustomerIdentity(req) : null;
     const body = await req.json();
-    const { id, customerName, email, phone, address, city, state, pincode, items, couponCode } = body;
+    const { id, email, items, couponCode } = body;
     if (couponCode != null && typeof couponCode !== 'string') {
       throw new OrderPricingError('Please enter a valid coupon code.');
     }
@@ -21,6 +24,8 @@ export async function POST(req: NextRequest) {
     if (body.expectedTotal != null && body.expectedTotal !== quote.pricing.total) {
       return NextResponse.json({ error: 'Prices have changed. Please review the updated total and place your order again.' }, { status: 409 });
     }
+    const shipping = parseOrderShipping(body);
+    const orderEmail = typeof email === 'string' && email.trim() ? email.trim() : (customer?.email || 'order@varnamsaree.com');
 
     // Opt-in local demo only (never in production): the order is NOT saved.
     if (localDemoModeEnabled()) {
@@ -30,17 +35,12 @@ export async function POST(req: NextRequest) {
         order: {
           id: orderId,
           userId: null,
-          customerName: customerName || 'Varnam Patron',
-          email: email || 'order@varnamsaree.com',
-          phone: phone || '',
-          address: address || '',
-          city: city || '',
-          state: state || '',
-          pincode: pincode || '',
+          email: orderEmail,
           total: quote.pricing.total,
           status: 'Confirmed',
           itemsJson: serializeOrderQuote(quote),
           createdAt: new Date().toISOString(),
+          ...shipping,
           ...quote,
         },
       });
@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
       const existingUser = await db.select().from(users).where(eq(users.uid, customer.uid)).limit(1);
       if (existingUser.length > 0) {
         dbUserId = existingUser[0].id;
+        await db.update(users).set({ phone: shipping.phone }).where(eq(users.id, dbUserId));
       }
     }
 
@@ -59,24 +60,40 @@ export async function POST(req: NextRequest) {
       .values({
         id: id || `VRN-${crypto.randomUUID()}`,
         userId: dbUserId,
-        customerName: customerName || 'Varnam Patron',
-        email: email || 'order@varnamsaree.com',
-        phone: phone || '',
-        address: address || '',
-        city: city || '',
-        state: state || '',
-        pincode: pincode || '',
+        email: orderEmail,
         total: quote.pricing.total,
         status: 'Confirmed',
         itemsJson: serializeOrderQuote(quote),
+        ...shipping,
       })
       .returning();
 
+    if (dbUserId && body.saveAddress === true) {
+      try {
+        await saveCustomerAddress(dbUserId, parseCustomerAddressInput({
+          ...shipping,
+          label: body.addressLabel,
+          fullName: shipping.shippingFullName,
+          phone: shipping.shippingPhone,
+          line1: shipping.shippingLine1,
+          line2: shipping.shippingLine2,
+          landmark: shipping.shippingLandmark,
+          city: shipping.shippingCity,
+          state: shipping.shippingState,
+          pincode: shipping.shippingPincode,
+          isDefault: body.saveAsDefault === true,
+        }));
+      } catch (error) {
+        if (!(error instanceof AddressValidationError)) console.error('Failed to save checkout address:', error);
+      }
+    }
+
+    await notifyAdminsOfOrder({ ...newOrder[0], ...quote, paymentStatus: 'pending payment' });
     return NextResponse.json({ success: true, order: { ...newOrder[0], ...quote } });
   } catch (error: any) {
     const denied = customerAuthFailure(error);
     if (denied) return denied;
-    if (error instanceof OrderPricingError) {
+    if (error instanceof OrderPricingError || error instanceof AddressValidationError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
     console.error('Failed to create order in database:', error);

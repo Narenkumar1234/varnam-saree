@@ -29,6 +29,13 @@
       "when": 1792335600000,
       "tag": "0003_colour_variants",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792500000000,
+      "tag": "0004_customer_addresses",
+      "breakpoints": true
     }
   ]
 }

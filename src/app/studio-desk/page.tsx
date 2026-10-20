@@ -79,6 +79,14 @@ interface AdminOrder {
   city: string;
   state: string;
   pincode: string;
+  shippingFullName?: string | null;
+  shippingPhone?: string | null;
+  shippingLine1?: string | null;
+  shippingLine2?: string | null;
+  shippingLandmark?: string | null;
+  shippingCity?: string | null;
+  shippingState?: string | null;
+  shippingPincode?: string | null;
   total: number;
   status: string;
   itemsJson: string;
@@ -1590,7 +1598,7 @@ export default function StudioDeskPage() {
                         </td>
                         <td>
                           <div style={{ fontSize: '12px', maxWidth: '200px' }}>
-                            {o.address}, {o.city}, {o.state} - {o.pincode}
+                            {[o.shippingLine1 || o.address, o.shippingLine2, o.shippingLandmark, `${o.shippingCity || o.city}, ${o.shippingState || o.state} - ${o.shippingPincode || o.pincode}`].filter(Boolean).join(', ')}
                           </div>
                         </td>
                         <td>

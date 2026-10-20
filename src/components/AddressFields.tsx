@@ -12,8 +12,10 @@ interface Props {
 const inputs = {
   first: { label: 'First name', autoComplete: 'given-name' },
   last: { label: 'Last name', autoComplete: 'family-name' },
-  phone: { label: 'Phone number', autoComplete: 'tel', type: 'tel', pattern: '[0-9+ ()\\-]{10,16}', placeholder: '+91 98765 43210', wide: true },
+  phone: { label: 'Phone number', autoComplete: 'tel', type: 'tel', pattern: '[0-9+ ()\\-]{10,16}', placeholder: '98765 43210', wide: true },
   address: { label: 'Street address', autoComplete: 'address-line1', wide: true },
+  apartment: { label: 'Apartment, floor (optional)', autoComplete: 'address-line2', wide: true, required: false },
+  landmark: { label: 'Landmark (optional)', wide: true, required: false },
   city: { label: 'City', autoComplete: 'address-level2' },
   pin: { label: 'Pincode', autoComplete: 'postal-code', inputMode: 'numeric' as const, pattern: '[0-9]{6}', maxLength: 6 },
   state: { label: 'State', autoComplete: 'address-level1' },
@@ -23,7 +25,7 @@ const inputs = {
 // can keep its existing email/apartment fields between the address groups.
 export function AddressFields({ value, onChange, fields = ADDRESS_FIELDS }: Props) {
   return <>{fields.map((field) => {
-    const { label, wide, ...attributes } = { wide: false, ...inputs[field] };
-    return <label key={field} className={wide ? 'wide' : undefined}>{label}<input {...attributes} name={field} required value={value[field]} onChange={(event) => onChange(field, event.target.value)} /></label>;
+    const { label, wide, required = true, ...attributes } = { wide: false, required: true, ...inputs[field] };
+    return <label key={field} className={wide ? 'wide' : undefined}>{label}<input {...attributes} name={field} required={required} value={value[field]} onChange={(event) => onChange(field, event.target.value)} /></label>;
   })}</>;
 }
