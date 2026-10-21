@@ -133,3 +133,45 @@ export function openWhatsAppOrder(message: string): boolean {
     return false;
   }
 }
+
+/**
+ * Open a blank tab synchronously inside the checkout click (so popup blockers allow it);
+ * the caller points it at WhatsApp once the order is saved. Returns null when blocked.
+ */
+export function openPendingWhatsAppWindow(): Window | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const pending = window.open('', '_blank');
+    if (!pending) return null;
+    try {
+      pending.opener = null;
+      pending.document.title = 'Opening WhatsApp…';
+      pending.document.body.innerHTML = '<p style="font-family:system-ui,sans-serif;padding:24px;color:#392535">Saving your Varnam order and opening WhatsApp…</p>';
+    } catch { /* cosmetic only */ }
+    return pending;
+  } catch {
+    return null;
+  }
+}
+
+/** WhatsApp message for an order just placed at checkout, including its real order ID. */
+export function checkoutWhatsAppMessage(
+  orderId: string,
+  quote: { items: OrderItem[]; pricing: OrderPricing },
+  customer: { first?: string; last?: string; phone?: string; address?: string; apartment?: string; landmark?: string; city?: string; state?: string; pin?: string },
+  origin = '',
+): string {
+  return createSavedOrderWhatsAppMessage({
+    id: orderId,
+    status: 'Payment pending',
+    total: quote.pricing.total,
+    items: quote.items,
+    pricing: quote.pricing,
+    customerName: [customer.first, customer.last].filter(Boolean).join(' ').trim() || undefined,
+    phone: customer.phone || null,
+    address: [customer.address, customer.apartment, customer.landmark].filter(Boolean).join(', '),
+    city: customer.city,
+    state: customer.state,
+    pincode: customer.pin,
+  }, [], origin);
+}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { use, Suspense } from 'react';
+import React, { use, Suspense, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useStore } from '@/context/store-context';
@@ -10,7 +10,7 @@ import { OrderTotals } from '@/components/OrderTotals';
 import { OrderLinePrice } from '@/components/OrderLinePrice';
 import { CustomerPayment } from '@/components/CustomerPayment';
 import { isPaidPayment } from '@/lib/order-status';
-import { createWhatsAppOrderUrl } from '@/lib/whatsapp';
+import { createSavedOrderWhatsAppMessage, createWhatsAppOrderUrl } from '@/lib/whatsapp';
 import { ProductThumb } from '@/components/ProductThumb';
 import { resolveOrderLineImage } from '@/lib/product-gallery';
 import { capitalizeColour } from '@/lib/colour';
@@ -20,6 +20,21 @@ function ConfirmationContent({ orderId }: { orderId: string }) {
   const { getOrderById, getProductById, updateOrderPayment } = useStore();
   const order = getOrderById(orderId);
   const autoStartPayment = searchParams.get('pay') === 'online';
+  const viaWhatsApp = searchParams.get('via') === 'whatsapp';
+  const openWhatsAppHere = viaWhatsApp && searchParams.get('open') === '1';
+  const orderWhatsAppUrl = order ? createWhatsAppOrderUrl(createSavedOrderWhatsAppMessage({
+    id: order.id, status: 'Payment pending', total: order.total, items: order.items, pricing: order.pricing, customerName: order.name,
+  }, [], typeof window === 'undefined' ? '' : window.location.origin)) : null;
+
+  // WhatsApp checkout when the new tab was blocked: this entry becomes the plain
+  // confirmation URL, then this tab goes to WhatsApp, so Back lands here.
+  const handedOff = useRef(false);
+  useEffect(() => {
+    if (!openWhatsAppHere || !orderWhatsAppUrl || handedOff.current) return;
+    handedOff.current = true;
+    window.history.replaceState(null, '', `/confirmation/${encodeURIComponent(orderId)}?via=whatsapp`);
+    window.location.assign(orderWhatsAppUrl);
+  }, [openWhatsAppHere, orderWhatsAppUrl, orderId]);
 
   if (!order) {
     return (
@@ -56,6 +71,13 @@ function ConfirmationContent({ orderId }: { orderId: string }) {
         </p>
       ) : (
         <p>Order placed — awaiting payment</p>
+      )}
+
+      {viaWhatsApp && !isPaidPayment(order.payment) && orderWhatsAppUrl && (
+        <p className="muted" role="status" style={{ marginTop: '8px' }}>
+          We&apos;ve opened WhatsApp with your order ID so we can confirm payment and delivery.{' '}
+          <a className="text-link" href={orderWhatsAppUrl} target="_blank" rel="noopener noreferrer">WhatsApp didn&apos;t open? Continue on WhatsApp</a>
+        </p>
       )}
 
       {isPaidPayment(order.payment) ? (

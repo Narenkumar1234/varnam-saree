@@ -19,6 +19,7 @@ import { ProductThumb } from '@/components/ProductThumb';
 import { resolveOrderLineImage } from '@/lib/product-gallery';
 import { capitalizeColour } from '@/lib/colour';
 import { OrderLinePrice } from '@/components/OrderLinePrice';
+import { formatIstDate } from '@/lib/datetime';
 
 interface Props {
   order: TrackedOrder & { name?: string };
@@ -42,12 +43,7 @@ export function TrackedOrderView({ order, onPaid }: Props) {
       <h2 style={{ fontSize: '24px' }}>{order.id}</h2>
       <p className="muted">
         Order placed on{' '}
-        {order.date ||
-          new Date(order.createdAt || Date.now()).toLocaleDateString('en-IN', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-          })}
+        {formatIstDate(order.createdAt) || order.date || '—'}
       </p>
 
       <p role="status" className={`track-payment-banner is-${cancelled ? 'cancelled' : payState}`}>

@@ -11,6 +11,7 @@ import { ProductThumb } from '@/components/ProductThumb';
 import { resolveOrderLineImage } from '@/lib/product-gallery';
 import { capitalizeColour } from '@/lib/colour';
 import { OrderLinePrice } from '@/components/OrderLinePrice';
+import { formatIstDate } from '@/lib/datetime';
 
 interface AccountViewProps {
   initialSignUp?: boolean;
@@ -101,7 +102,7 @@ export function AccountView({ initialSignUp = false, ordersOnly = false }: Accou
             ) : orders.length ? orders.map((order) => (
               <div key={order.id} className="order-card">
                 <h3>{order.id}{' '}<span className="muted" style={{ fontSize: '11px' }}>{accountOrderStatusLine(order.status, order.payment)}</span></h3>
-                <p>{order.date || new Date(order.createdAt || '').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} · {money(order.total)}</p>
+                <p>{formatIstDate(order.createdAt) || order.date} · {money(order.total)}</p>
                 {order.items && order.items.length > 0 && (
                   <div className="order-card-items">
                     <div className="order-summary-items">

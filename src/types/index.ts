@@ -34,7 +34,10 @@ export interface CartItem {
 
 export interface Order {
   id: string;
+  /** Display date (IST) captured when the order was placed in this browser. */
   date: string;
+  /** ISO timestamp, when known; preferred for display (formatted in IST). */
+  createdAt?: string;
   name: string;
   items: OrderItem[];
   total: number;
