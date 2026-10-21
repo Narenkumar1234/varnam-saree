@@ -35,9 +35,14 @@ interface Props {
   onPaid?: () => void;
   /** Idle unpaid button label. Checkout keeps the default “Pay ₹… online”. */
   idleLabel?: string;
+  /**
+   * 'secondary': a small "Prefer to pay online? Pay now" line under another main
+   * action (WhatsApp checkout confirmation); no WhatsApp link of its own.
+   */
+  variant?: 'primary' | 'secondary';
 }
 
-export function CustomerPayment({ orderId, total, customerName, email, phone, payment, autoStart, whatsAppUrl, onPaid, idleLabel }: Props) {
+export function CustomerPayment({ orderId, total, customerName, email, phone, payment, autoStart, whatsAppUrl, onPaid, idleLabel, variant = 'primary' }: Props) {
   const [busy, setBusy] = useState(false);
   const [paid, setPaid] = useState(payment?.status === 'paid');
   const [processing, setProcessing] = useState(payment?.status === 'authorized');
@@ -149,6 +154,21 @@ export function CustomerPayment({ orderId, total, customerName, email, phone, pa
       <div id="customer-payment" style={{ textAlign: 'center', margin: '20px 0' }}>
         <p role="status" style={{ color: 'var(--success, #2e7d32)', fontWeight: 600, fontSize: '1.1rem' }}>✓ Payment confirmed</p>
         {payment?.paymentId && <small className="muted">{payment.paymentId}</small>}
+      </div>
+    );
+  }
+
+  if (variant === 'secondary') {
+    const busyLabel = busy ? 'Please wait…' : proof ? 'Retry payment verification' : processing ? 'Check payment status' : null;
+    return (
+      <div id="customer-payment" className="customer-payment-secondary">
+        <p>
+          {busyLabel ? null : <>Prefer to pay online?{' '}</>}
+          <button type="button" className="text-link" disabled={busy} onClick={() => void pay()}>
+            {busyLabel || idleLabel || 'Pay now'}
+          </button>
+        </p>
+        {message && <p className={`coupon-feedback${isError ? ' error' : ''}`} role={isError ? 'alert' : 'status'}>{message}</p>}
       </div>
     );
   }
