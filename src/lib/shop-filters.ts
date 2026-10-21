@@ -144,3 +144,82 @@ export function filterShopProducts(
     return matchesQuery && matchesCollection && matchesColour && matchesPrice && matchesDiscount;
   });
 }
+
+/** Minimal read interface so both URLSearchParams and Next's ReadonlyURLSearchParams work. */
+interface ParamReader {
+  get(name: string): string | null;
+  getAll(name: string): string[];
+}
+
+const SHOP_FILTER_PARAM_KEYS = ['collection', 'colour', 'color', 'min', 'max', 'offers', 'discount'];
+
+/**
+ * Read shop filters from the URL: ?collection=Silk&colour=Emerald,Rose&min=2000&max=9000&offers=25
+ * Colours match the primary-colour options case-insensitively (repeated or comma-separated).
+ */
+export function parseShopFiltersFromParams(
+  params: ParamReader,
+  options: { collections: string[]; colours: string[]; priceBounds: PriceRange },
+): ShopFilterState {
+  const { collections, colours, priceBounds } = options;
+  const rawCollection = params.get('collection');
+  const collection = rawCollection
+    ? collections.find((c) => c.toLowerCase() === rawCollection.trim().toLowerCase()) || 'All'
+    : 'All';
+
+  const requestedColours = [...params.getAll('colour'), ...params.getAll('color')]
+    .flatMap((value) => value.split(','))
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const selectedColours: string[] = [];
+  for (const requested of requestedColours) {
+    const key = colourKey(requested);
+    const canonical = colours.find((c) => colourKey(c) === key) || formatColourTitleCase(requested);
+    if (!selectedColours.some((c) => colourKey(c) === colourKey(canonical))) selectedColours.push(canonical);
+  }
+
+  const parseBound = (value: string | null) => {
+    if (value == null || value.trim() === '') return null;
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.round(n) : null;
+  };
+  const urlMin = parseBound(params.get('min'));
+  const urlMax = parseBound(params.get('max'));
+  const min = Math.max(priceBounds.min, Math.min(urlMin ?? priceBounds.min, priceBounds.max));
+  const max = Math.max(min, Math.min(urlMax ?? priceBounds.max, priceBounds.max));
+
+  const offers = params.get('offers') || params.get('discount');
+  const minDiscount = offers ? (parseInt(offers, 10) || 50) : 0;
+
+  return { collection, colours: selectedColours, priceRange: { min, max }, minDiscount: Math.max(0, minDiscount) };
+}
+
+/**
+ * Write shop filters into a copy of the current params (other params such as ?q= are kept).
+ * Defaults are omitted so an unfiltered shop stays at a clean /shop URL.
+ */
+export function shopFiltersToParams(
+  filters: ShopFilterState,
+  priceBounds: PriceRange,
+  current: string | URLSearchParams = '',
+): URLSearchParams {
+  const params = new URLSearchParams(current.toString());
+  for (const key of SHOP_FILTER_PARAM_KEYS) params.delete(key);
+  if (filters.collection && filters.collection !== 'All') params.set('collection', filters.collection);
+  if (filters.colours.length) params.set('colour', filters.colours.join(','));
+  if (filters.priceRange.min > priceBounds.min) params.set('min', String(filters.priceRange.min));
+  if (filters.priceRange.max < priceBounds.max) params.set('max', String(filters.priceRange.max));
+  if (filters.minDiscount && filters.minDiscount > 0) params.set('offers', String(filters.minDiscount));
+  return params;
+}
+
+/** Stable comparison key for two filter states. */
+export function shopFiltersKey(filters: ShopFilterState): string {
+  return JSON.stringify([
+    filters.collection,
+    filters.colours.map(colourKey).sort(),
+    filters.priceRange.min,
+    filters.priceRange.max,
+    filters.minDiscount || 0,
+  ]);
+}

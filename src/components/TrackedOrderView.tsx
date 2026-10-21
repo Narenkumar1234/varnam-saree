@@ -11,6 +11,7 @@ import {
   paymentDisplayStatus,
   trackingConfirmStepComplete,
   trackingDeliveredStepComplete,
+  trackingDeliveryCopy,
 } from '@/lib/order-status';
 import { createWhatsAppOrderUrl } from '@/lib/whatsapp';
 import { StoreContext } from '@/context/store-context';
@@ -75,7 +76,7 @@ export function TrackedOrderView({ order, onPaid }: Props) {
       </div>
       <div className={`track-step${deliveredDone ? ' current' : ''}`}>
         <div className="step-title">3. Delivered</div>
-        <small>Complimentary insured shipping across India.</small>
+        <small>{trackingDeliveryCopy(order.pricing)}</small>
       </div>
 
       {order.items && order.items.length > 0 && (

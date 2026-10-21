@@ -789,10 +789,10 @@ nav a:hover {
   display: inline-block;
   width: auto;
   max-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.4;
+  /* Wrap long tags (e.g. "Everyday favourite") instead of truncating on narrow cards */
+  white-space: normal;
+  overflow-wrap: break-word;
+  line-height: 1.35;
   border-radius: 2px;
 }
 
@@ -3062,6 +3062,16 @@ footer {
   .floating-socials .icon {
     width: 24px;
     height: 24px;
+  }
+  .floating-socials {
+    transition: opacity .2s ease, transform .2s ease, visibility .2s;
+  }
+  /* Phone: hidden over page content; shown only over the footer (see FloatingSocials). */
+  .floating-socials.is-phone-hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(16px);
   }
   .product-actions {
     gap: 6px;
