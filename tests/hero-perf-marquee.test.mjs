@@ -27,12 +27,19 @@ test('reduced motion shows a single 38px line instead of the stacked track', () 
 
 test('hero sizes reflect the cropped render width so phones at DPR2+ get >=1920w', () => {
   expect(HERO_IMAGE_SIZES.startsWith('(max-width: 700px) 712px')).toBe(true);
-  expect(HERO_IMAGE_SIZES).toContain('(max-width: 1100px) 100vw');
-  expect(HERO_IMAGE_SIZES.endsWith('100vw')).toBe(true);
+  expect(HERO_IMAGE_SIZES).toBe('(max-width: 700px) 712px, (max-width: 1600px) 100vw, 1600px');
+  expect(HERO_IMAGE_SIZES).not.toContain('1352px');
   const src = readFileSync(new URL('../src/components/HeroCarousel.tsx', import.meta.url), 'utf8');
   expect(src).toContain('sizes={HERO_IMAGE_SIZES}');
 });
 
 test('route loading placeholder fills the viewport so streamed content does not shift the footer', () => {
   expect(css).toMatch(/\.page-loading-container \{[^}]*min-height: 100svh;/);
+});
+
+test('wide screens never show the same marquee message twice at once', () => {
+  expect(css).toMatch(/@media \(min-width: 701px\) \{\s*\.site-marquee-dup \{\s*display: none;/);
+  expect(css).toContain('min-width: calc(100vw + 400px);');
+  const header = readFileSync(new URL('../src/components/Header.tsx', import.meta.url), 'utf8');
+  expect(header).toContain('site-marquee-dup');
 });

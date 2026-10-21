@@ -8,7 +8,7 @@ import { useStore } from '@/context/store-context';
 import { ProductCard } from '@/components/ProductCard';
 import { Icon } from '@/components/Icons';
 import { PriceRangeFilter } from '@/components/PriceRangeFilter';
-import { createShopFilters, filterShopProducts, getShopFilterOptions, getShopListingHeading, DISCOUNT_FILTER_OPTIONS } from '@/lib/shop-filters';
+import { createShopFilters, filterShopProducts, getShopFilterOptions, getShopListingHeading, parseShopFiltersFromParams, shopFiltersKey, shopFiltersToParams, DISCOUNT_FILTER_OPTIONS } from '@/lib/shop-filters';
 import type { ShopFilterState } from '@/types';
 
 interface SareeListingProps {
@@ -24,31 +24,22 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
   );
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const initialCollection = searchParams.get('collection');
-  const initialOffers = searchParams.get('offers') || searchParams.get('discount');
-  const initialDiscount = initialOffers ? (parseInt(initialOffers, 10) || 50) : 0;
+  const filterOptions = { collections: collectionOptions, colours, priceBounds };
 
   const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') ?? '');
-  const [filters, setFilters] = useState<ShopFilterState>(() => ({
-    ...createShopFilters(
-      priceBounds,
-      initialCollection && collectionOptions.includes(initialCollection)
-        ? initialCollection
-        : 'All'
-    ),
-    minDiscount: initialDiscount,
-  }));
+  // Filters are read from the URL (?collection=&colour=&min=&max=&offers=) and written back to it.
+  const [filters, setFilters] = useState<ShopFilterState>(() => parseShopFiltersFromParams(searchParams, filterOptions));
 
   const persistSearchQuery = useCallback((value: string) => {
     setSearchQuery(value);
     if (!initialSearchMode) return;
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(window.location.search);
     if (value) params.set('q', value);
     else params.delete('q');
     const query = params.toString();
     const nextUrl = query ? `${pathname}?${query}` : pathname;
     window.history.replaceState(window.history.state, '', nextUrl);
-  }, [initialSearchMode, pathname, searchParams]);
+  }, [initialSearchMode, pathname]);
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetDraft, setSheetDraft] = useState<ShopFilterState>(filters);
@@ -67,18 +58,27 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
     setFilters(adjust); setSheetDraft(adjust); previousBounds.current = priceBounds;
   }, [priceBounds.min, priceBounds.max]);
 
-  // Sync if URL search params change
+  // URL -> filters (initial load, header links, back/forward). Our own writes are skipped.
+  const paramsString = searchParams.toString();
+  const ownWrites = React.useRef<{ latest: string | null; pending: Set<string> }>({ latest: null, pending: new Set() });
   useEffect(() => {
-    const c = searchParams.get('collection');
-    const offersP = searchParams.get('offers') || searchParams.get('discount');
-    const discountVal = offersP ? (parseInt(offersP, 10) || 50) : 0;
+    const own = ownWrites.current;
+    if (paramsString === own.latest) { own.pending.clear(); return; }
+    if (own.pending.delete(paramsString)) return;
+    const next = parseShopFiltersFromParams(new URLSearchParams(paramsString), filterOptions);
+    setFilters((prev) => (shopFiltersKey(prev) === shopFiltersKey(next) ? prev : next));
+  }, [paramsString, collectionOptions.join('\0'), colours.join('\0'), priceBounds.min, priceBounds.max]);
 
-    setFilters((prev) => ({
-      ...prev,
-      collection: c && collectionOptions.includes(c) ? c : (!initialSearchMode || !collectionOptions.includes(prev.collection) ? 'All' : prev.collection),
-      minDiscount: discountVal,
-    }));
-  }, [searchParams, initialSearchMode, collectionOptions.join('\0')]);
+  // Filters -> URL. replaceState (integrated with the Next router) updates the address
+  // without a server round trip, history entry or scroll jump, even while dragging the price slider.
+  useEffect(() => {
+    const current = window.location.search.replace(/^\?/, '');
+    const next = shopFiltersToParams(filters, priceBounds, current).toString();
+    if (next === current) return;
+    ownWrites.current.latest = next;
+    ownWrites.current.pending.add(next);
+    window.history.replaceState(window.history.state, '', next ? `${pathname}?${next}` : pathname);
+  }, [filters, pathname, priceBounds.min, priceBounds.max]);
 
   const urlQuery = searchParams.get('q') ?? '';
   useEffect(() => {

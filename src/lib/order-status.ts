@@ -224,3 +224,14 @@ export function studioAdminPaymentDetails(
     : null;
   return { status, provider, paymentId, paidAt, note };
 }
+
+/**
+ * Track page "Delivered" step copy from the order's stored delivery charge
+ * (pricing.shipping). Older orders without a pricing snapshot get neutral copy.
+ */
+export function trackingDeliveryCopy(pricing?: { shipping?: number | null } | null): string {
+  const shipping = pricing?.shipping;
+  if (typeof shipping !== 'number' || !Number.isFinite(shipping)) return 'Insured shipping across India.';
+  if (shipping <= 0) return 'Complimentary insured shipping across India.';
+  return `Insured shipping across India · delivery charge ₹${Math.round(shipping).toLocaleString('en-IN')} included in your total.`;
+}
