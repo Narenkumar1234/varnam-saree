@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
-import { parseShopFiltersFromParams, shopFiltersToParams, shopFiltersKey } from '../src/lib/shop-filters.ts';
+import { parseShopFiltersFromParams, parseShopSortFromParams, shopFiltersToParams, shopFiltersKey, shopStateToParams } from '../src/lib/shop-filters.ts';
 import { trackingDeliveryCopy } from '../src/lib/order-status.ts';
 
 const options = { collections: ['All', 'Silk', 'Cotton'], colours: ['Emerald', 'Off-White', 'Rose'], priceBounds: { min: 2000, max: 9000 } };
@@ -25,11 +25,29 @@ test('shop filters are written to the URL, keeping other params and omitting def
   expect(none.toString()).toBe('');
 });
 
-test('SareeListing syncs filters with the URL without a router round trip', () => {
+test('sort is part of the shop URL; Featured is the default and omitted', () => {
+  expect(parseShopSortFromParams(new URLSearchParams('sort=high'))).toBe('high');
+  expect(parseShopSortFromParams(new URLSearchParams('sort=LOW'))).toBe('low');
+  expect(parseShopSortFromParams(new URLSearchParams('sort=bogus'))).toBe('featured');
+  expect(parseShopSortFromParams(new URLSearchParams(''))).toBe('featured');
+  const empty = { collection: 'All', colours: [], priceRange: { min: 2000, max: 9000 }, minDiscount: 0 };
+  expect(shopStateToParams(empty, 'featured', options.priceBounds, 'sort=high&q=silk').toString()).toBe('q=silk');
+  expect(shopStateToParams({ ...empty, colours: ['Rose'] }, 'new', options.priceBounds, '').toString()).toBe('colour=Rose&sort=new');
+});
+
+test('SareeListing pushes one history entry per user change and rebuilds state from the URL', () => {
   const src = readFileSync(new URL('../src/components/SareeListing.tsx', import.meta.url), 'utf8');
   expect(src).toContain('parseShopFiltersFromParams(searchParams, filterOptions)');
-  expect(src).toContain('shopFiltersToParams(filters, priceBounds, current)');
-  expect(src).toContain('window.history.replaceState');
+  expect(src).toContain('parseShopSortFromParams(searchParams)');
+  // user changes push; initial normalisation replaces
+  expect(src).toContain("window.history.pushState(null, ''");
+  expect(src).toContain("window.history.replaceState(null, '', canonical");
+  // Back/forward: filters and sort follow useSearchParams
+  expect(src).toMatch(/setSortOption\(parseShopSortFromParams\(params\)\)/);
+  // every control goes through commitShopState (no silent setFilters from controls)
+  expect(src).toContain("commitShopState(filters, e.target.value as ShopSortOption)");
+  expect(src).toContain('{ debounce: true }');
+  expect(src).not.toContain('ownWrites');
 });
 
 test('track page delivery copy reflects the stored delivery charge', () => {
@@ -42,11 +60,14 @@ test('track page delivery copy reflects the stored delivery charge', () => {
   expect(view).not.toContain('Complimentary insured shipping across India.');
 });
 
-test('phone: floating socials only show over the footer; card tags wrap', () => {
+test('floating socials: footer-only up to 1100px, desktop gutter, footer links clear; card tags wrap', () => {
   const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
-  expect(css).toMatch(/@media \(max-width: 700px\)[\s\S]*\.floating-socials\.is-phone-hidden \{[^}]*visibility: hidden;/);
+  expect(css).toMatch(/@media \(max-width: 1100px\) \{[\s\S]*?\.floating-socials\.is-compact-hidden \{[^}]*visibility: hidden;/);
+  expect(css).toMatch(/@media \(min-width: 1101px\) \{[\s\S]*?\.section,\s*\.page-title,\s*\.benefits \{\s*padding-right: max\(5%, 80px\);/);
+  expect(css).toMatch(/footer \{\s*padding-right: max\(5%, 92px\);/);
+  expect(css).toMatch(/\.footer-top > div > a:not\(\.brand\) \{\s*width: fit-content;/);
   expect(css).toMatch(/\.product-badges \.tag \{[^}]*white-space: normal;/);
   const comp = readFileSync(new URL('../src/components/FloatingSocials.tsx', import.meta.url), 'utf8');
   expect(comp).toContain('IntersectionObserver');
-  expect(comp).toContain('is-phone-hidden');
+  expect(comp).toContain('is-compact-hidden');
 });

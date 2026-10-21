@@ -223,3 +223,25 @@ export function shopFiltersKey(filters: ShopFilterState): string {
     filters.minDiscount || 0,
   ]);
 }
+
+export type ShopSortOption = 'featured' | 'low' | 'high' | 'new';
+export const SHOP_SORT_OPTIONS: ShopSortOption[] = ['featured', 'low', 'high', 'new'];
+
+/** Read ?sort= (featured is the default and is never written to the URL). */
+export function parseShopSortFromParams(params: Pick<ParamReader, 'get'>): ShopSortOption {
+  const raw = (params.get('sort') || '').trim().toLowerCase();
+  return (SHOP_SORT_OPTIONS as string[]).includes(raw) ? (raw as ShopSortOption) : 'featured';
+}
+
+/** Full shop query: filters plus sort, keeping unrelated params such as ?q=. */
+export function shopStateToParams(
+  filters: ShopFilterState,
+  sort: ShopSortOption,
+  priceBounds: PriceRange,
+  current: string | URLSearchParams = '',
+): URLSearchParams {
+  const params = shopFiltersToParams(filters, priceBounds, current);
+  params.delete('sort');
+  if (sort !== 'featured') params.set('sort', sort);
+  return params;
+}

@@ -2403,6 +2403,63 @@ footer {
   transform: translateY(-2px);
 }
 
+/* Phone and tablet (<=1100px): hidden over page content, shown only over the
+   footer (see FloatingSocials). */
+@media (max-width: 1100px) {
+  .floating-socials {
+    transition: opacity .2s ease, transform .2s ease, visibility .2s;
+  }
+  .floating-socials.is-compact-hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(16px);
+  }
+}
+
+/* Footer links never sit under the stack: a right gutter wider than the stack
+   (56px + 20px offset on tablet, 48px + 16px on phone and desktop), and links
+   only as wide as their text. */
+footer {
+  padding-right: max(5%, 92px);
+}
+
+.footer-top > div > a:not(.brand) {
+  width: fit-content;
+}
+
+@media (max-width: 700px) {
+  footer {
+    padding-right: max(5%, 76px);
+  }
+}
+
+/* Desktop (>1100px): always visible, slimmer, and page content keeps out of a
+   right gutter (80px) so cards, Buy now and Check buttons are never underneath. */
+@media (min-width: 1101px) {
+  .floating-socials {
+    right: max(16px, env(safe-area-inset-right));
+    bottom: max(20px, env(safe-area-inset-bottom));
+    gap: 10px;
+  }
+  .floating-socials a {
+    width: 48px;
+    height: 48px;
+  }
+  .floating-socials .icon {
+    width: 24px;
+    height: 24px;
+  }
+  .section,
+  .page-title,
+  .benefits {
+    padding-right: max(5%, 80px);
+  }
+  .story-band {
+    margin-right: max(5%, 80px);
+  }
+}
+
 #toast {
   position: fixed;
   bottom: 25px;
@@ -3079,16 +3136,6 @@ footer {
   .floating-socials .icon {
     width: 24px;
     height: 24px;
-  }
-  .floating-socials {
-    transition: opacity .2s ease, transform .2s ease, visibility .2s;
-  }
-  /* Phone: hidden over page content; shown only over the footer (see FloatingSocials). */
-  .floating-socials.is-phone-hidden {
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    transform: translateY(16px);
   }
   .product-actions {
     gap: 6px;
