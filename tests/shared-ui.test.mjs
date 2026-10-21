@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, expect, mock, test } from 'bun:test';
-import { createElement } from 'react';
+import { createContext, createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { DEFAULT_SETTINGS } from '../src/lib/commerce.ts';
 import { VARNAM_CONFIG } from '../src/data/products.ts';
@@ -7,7 +7,8 @@ import { getWhatsAppNumber, createWhatsAppOrderUrl } from '@/lib/whatsapp';
 
 let store;
 const originalNumber = VARNAM_CONFIG.whatsappNumber;
-mock.module('../src/context/store-context.tsx', () => ({ useStore: () => store }));
+mock.module('../src/context/store-context.tsx', () => ({
+  StoreContext: createContext(undefined), useStore: () => store }));
 const { DeliveryPolicy } = await import('../src/components/DeliveryPolicy.tsx');
 const { WhatsAppFallback } = await import('../src/components/WhatsAppFallback.tsx');
 const { default: ShippingPage } = await import('../src/app/shipping/page.tsx');

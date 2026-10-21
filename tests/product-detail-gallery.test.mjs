@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
-import { createElement } from 'react';
+import { createContext, createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { DEFAULT_COMMERCE } from '../src/lib/commerce.ts';
 import { imageLoader, needsUnoptimized } from '../src/lib/image-loader.ts';
@@ -142,6 +142,7 @@ const qaStoreProduct = {
 };
 
 mock.module('../src/context/store-context.tsx', () => ({
+  StoreContext: createContext(undefined),
   useStore: () => ({
     products: [qaStoreProduct],
     getProductById: () => qaStoreProduct,

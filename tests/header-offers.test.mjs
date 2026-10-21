@@ -1,10 +1,11 @@
 import { beforeEach, expect, mock, test } from 'bun:test';
-import { createElement } from 'react';
+import { createContext, createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { DEFAULT_SETTINGS } from '../src/lib/commerce.ts';
 
 let store;
-mock.module('../src/context/store-context.tsx', () => ({ useStore: () => store }));
+mock.module('../src/context/store-context.tsx', () => ({
+  StoreContext: createContext(undefined), useStore: () => store }));
 mock.module('next/navigation', () => ({
   usePathname: () => '/',
   useRouter: () => ({ push: () => {}, replace: () => {} }),

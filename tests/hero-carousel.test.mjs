@@ -8,6 +8,9 @@ import {
   getPrevSlideIndex,
   clampSlideIndex,
   HeroCarousel,
+  HERO_AUTOPLAY_MS,
+  HERO_IMAGE_QUALITY,
+  isHeroAutoplayPaused,
 } from '../src/components/HeroCarousel.tsx';
 
 test('slide config defines exactly 4 slides with correct asset paths and descriptive alts', () => {
@@ -16,22 +19,22 @@ test('slide config defines exactly 4 slides with correct asset paths and descrip
   const expectedSlides = [
     {
       id: 'hero-1-four-models',
-      src: '/assets/hero/hero-1-four-models.webp',
+      src: '/assets/hero/hero-1-four-models-hd.webp',
       altContains: 'four models',
     },
     {
       id: 'hero-2-emerald',
-      src: '/assets/hero/hero-2-emerald.webp',
+      src: '/assets/hero/hero-2-emerald-hd.webp',
       altContains: 'emerald',
     },
     {
       id: 'hero-3-rose',
-      src: '/assets/hero/hero-3-rose.webp',
+      src: '/assets/hero/hero-3-rose-hd.webp',
       altContains: 'rose',
     },
     {
       id: 'hero-4-indigo',
-      src: '/assets/hero/hero-4-indigo.webp',
+      src: '/assets/hero/hero-4-indigo-hd.webp',
       altContains: 'indigo',
     },
   ];
@@ -87,10 +90,10 @@ test('HeroCarousel renders accessible markup, dot indicators, desktop arrows, an
 
   // First slide is active initially, others inactive
   expect(markup).toContain('hero-slide is-active');
-  expect(markup).toContain('hero-1-four-models.webp');
-  expect(markup).toContain('hero-2-emerald.webp');
-  expect(markup).toContain('hero-3-rose.webp');
-  expect(markup).toContain('hero-4-indigo.webp');
+  expect(markup).toContain('hero-1-four-models-hd.webp');
+  expect(markup).toContain('hero-2-emerald-hd.webp');
+  expect(markup).toContain('hero-3-rose-hd.webp');
+  expect(markup).toContain('hero-4-indigo-hd.webp');
 
   // Desktop navigation arrows with aria labels
   expect(markup).toContain('aria-label="Previous slide"');
@@ -132,7 +135,7 @@ test('globals.css configures crossfade, responsive heights, and prefers-reduced-
 
   // Respects prefers-reduced-motion
   expect(css).toContain('@media (prefers-reduced-motion: reduce)');
-  expect(css).toContain('transition: none !important;');
+  expect(css).toContain('transition: opacity 150ms linear, visibility 150ms linear !important;');
 
   // Mobile stacked layout (height 400px and hidden arrows)
   expect(css).toContain('height: 400px;');
@@ -170,4 +173,35 @@ test('tablet hero stacks like phone with no wash, phone caption aligns left', ()
   expect(phoneCounter).not.toBeNull();
   expect(phoneCounter[1]).toContain('text-align: left;');
   expect(phoneCounter[1]).not.toContain('text-align: center;');
+});
+
+test('autoplay always runs except while hovering controls, keyboard-focused, or tab hidden', () => {
+  expect(HERO_AUTOPLAY_MS).toBe(5000);
+  const idle = { hoveringControls: false, keyboardFocusInside: false, tabHidden: false };
+  expect(isHeroAutoplayPaused(idle)).toBe(false);
+  expect(isHeroAutoplayPaused({ ...idle, hoveringControls: true })).toBe(true);
+  expect(isHeroAutoplayPaused({ ...idle, keyboardFocusInside: true })).toBe(true);
+  expect(isHeroAutoplayPaused({ ...idle, tabHidden: true })).toBe(true);
+
+  const src = readFileSync(new URL('../src/components/HeroCarousel.tsx', import.meta.url), 'utf8');
+  // Reduced motion no longer disables autoplay
+  expect(src).not.toContain('prefersReducedMotion');
+  // Mouse click focus must not pause; only :focus-visible does
+  expect(src).toContain(":focus-visible");
+});
+
+test('hero images are high-res sources served at quality 90 with retina widths', () => {
+  expect(HERO_IMAGE_QUALITY).toBe(90);
+  // (Other test files mock next/image globally, so assert on source not markup.)
+  const src = readFileSync(new URL('../src/components/HeroCarousel.tsx', import.meta.url), 'utf8');
+  expect(src).toContain('quality={HERO_IMAGE_QUALITY}');
+  expect(src).toContain('sizes="100vw"');
+
+  const cfg = readFileSync(new URL('../next.config.mjs', import.meta.url), 'utf8');
+  expect(cfg).toMatch(/qualities:\s*\[[^\]]*90/);
+  expect(cfg).toMatch(/deviceSizes:\s*\[[^\]]*2560[^\]]*3840/);
+
+  for (const slide of HERO_SLIDES) {
+    expect(existsSync(new URL(`../public${slide.src}`, import.meta.url))).toBe(true);
+  }
 });

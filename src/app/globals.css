@@ -347,9 +347,10 @@ nav a:hover {
   z-index: 3;
 }
 
+/* Reduced motion: autoplay still runs, but slides swap with a very short fade */
 @media (prefers-reduced-motion: reduce) {
   .hero-slide {
-    transition: none !important;
+    transition: opacity 150ms linear, visibility 150ms linear !important;
   }
 }
 
