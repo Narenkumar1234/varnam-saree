@@ -109,8 +109,8 @@ test('HeroCarousel renders accessible markup, dot indicators, desktop arrows, an
   expect(markup).toContain('aria-selected="true"');
 });
 
-test('landing page src/app/page.tsx renders HeroCarousel alongside headline and counter', () => {
-  const pageSource = readFileSync(new URL('../src/app/page.tsx', import.meta.url), 'utf8');
+test('landing page (src/components/HomePage.tsx) renders HeroCarousel alongside headline and counter', () => {
+  const pageSource = readFileSync(new URL('../src/components/HomePage.tsx', import.meta.url), 'utf8');
 
   expect(pageSource).toContain("import { HeroCarousel } from '@/components/HeroCarousel';");
   expect(pageSource).toContain('<section className="hero">');
@@ -144,7 +144,7 @@ test('globals.css configures crossfade, responsive heights, and prefers-reduced-
 });
 
 test('hero caption sits in the left copy column and the copy has a readability wash', () => {
-  const pageSource = readFileSync(new URL('../src/app/page.tsx', import.meta.url), 'utf8');
+  const pageSource = readFileSync(new URL('../src/components/HomePage.tsx', import.meta.url), 'utf8');
   const copyStart = pageSource.indexOf('<div className="hero-copy">');
   const caption = pageSource.indexOf('<div className="hero-counter">');
   const sectionEnd = pageSource.indexOf('</section>', copyStart);

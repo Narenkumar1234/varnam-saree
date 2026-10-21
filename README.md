@@ -123,6 +123,17 @@ A one-time migration copies a previous `varnam-address` localStorage record into
 
 At the mobile breakpoint (850px), the navigation drawer is a labelled modal dialog. Focus stays inside it until a link, Close menu or Escape closes it; background content is inert, and focus returns to the toggle. Desktop navigation keeps its normal navigation semantics. The mobile benefits strip wraps all four items with 13px text. Price sliders expose labelled, associated visible outputs and current currency values as they move.
 
+## Landing-page reviews (Studio > Reviews)
+
+A "Google reviews" style section near the bottom of the landing page. There is no Google API: the owner copies real reviews in by hand.
+
+**Apply the migration once per database:** after pulling this change, run `bun run db:migrate` with the existing SQL environment variables (no new variables). It is not part of the Vercel build, the same as `0004_customer_addresses`. `0005_reviews` is additive and idempotent: `CREATE TABLE IF NOT EXISTS "reviews"` plus `CREATE INDEX IF NOT EXISTS "reviews_visible_sort_idx"`. It alters, deletes and seeds nothing, and re-running it is a no-op. Until it is applied, the storefront section stays hidden and Studio > Reviews shows a "run the migrations" error. Nothing else is affected. Section settings are `site_settings` rows (`reviewsEnabled`, `reviewsTitle`, `reviewsRating`, `reviewsCount`, `reviewsGoogleUrl`, `reviewsWriteUrl`), so they need no schema change and stay separate from the commerce settings form.
+
+- **Visibility:** the section renders only when **Show reviews section** is on and at least one review is set to **Show**. It is off by default and nothing is seeded, so customers see nothing until the owner adds real reviews.
+- **Reads:** the landing page (a server component) reads the section fresh per request, like `getCommerce()`, so edits appear on the next page load. Only visible reviews are queried. `GET /api/reviews` returns the same public data, or `{ "section": null }`.
+- **Studio:** `/studio-desk` > **Reviews** has the settings (title, overall rating 1.0–5.0, total count, Google reviews link, optional write-a-review link) and the review list with add, edit, delete (with confirm), show/hide and up/down reorder. Review fields: name (required), stars 1–5 (required), text (required, up to 600 characters), date, https photo URL and the saree bought (all optional).
+- **Admin API:** `GET`/`POST /api/admin/reviews`, `PATCH`/`DELETE /api/admin/reviews/[id]`, `PUT /api/admin/reviews/settings` and `PUT /api/admin/reviews/order` (`{ ids: [...] }`) use the same admin session and cross-origin checks as the other admin routes. They validate every field on the server.
+
 ## Owner-managed commercial settings
 
 After pulling this change, run `bun run db:migrate` and `bun run db:seed` (or `bun run db:setup`) with the existing SQL environment variables. No new environment variables are required. The second migration adds `coupons` (unique code, integer discount percentage, active flag, minimum subtotal, inclusive UTC expiry date) and `site_settings` (text key/value rows). The seed adds OFFER50 and WELCOME10 once and fills missing settings without overwriting owner edits. Repeat setup preserves disabled coupons, renamed/deleted codes, and deliberately deleting every coupon.

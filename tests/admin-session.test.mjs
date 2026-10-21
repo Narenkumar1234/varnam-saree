@@ -160,7 +160,7 @@ test('all exported admin handlers, including any newly added routes, reject anon
       covered++;
     }
   }
-  expect(covered).toBe(14);
+  expect(covered).toBe(20); // +6: reviews GET/POST, reviews/[id] PATCH/DELETE, reviews/settings PUT, reviews/order PUT
   expect(dbCalls).toHaveLength(0);
 });
 
