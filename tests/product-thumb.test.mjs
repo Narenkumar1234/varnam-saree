@@ -1,5 +1,5 @@
 import { expect, mock, test } from 'bun:test';
-import { createElement } from 'react';
+import { createContext, createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { readFileSync } from 'node:fs';
 import { DEFAULT_COMMERCE } from '../src/lib/commerce.ts';
@@ -52,6 +52,7 @@ test('ProductThumb and cart page wire onError to a neutral fallback tile', () =>
 });
 
 mock.module('../src/context/store-context.tsx', () => ({
+  StoreContext: createContext(undefined),
   useStore: () => ({
     cart: [{ id: 10, qty: 2 }],
     products: [qaProduct],

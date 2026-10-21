@@ -4,6 +4,10 @@ const nextConfig = {
   serverExternalPackages: ['firebase-admin'],
   images: {
     formats: ['image/avif', 'image/webp'],
+    // 75 is the default for product images; 90 is used by the full-bleed hero.
+    qualities: [75, 90],
+    // Default sizes plus 2560 so retina laptops get a close match for the hero.
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 2560, 3840],
     remotePatterns: [
       {
         protocol: 'https',
