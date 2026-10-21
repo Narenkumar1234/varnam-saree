@@ -8,7 +8,7 @@ import { useStore } from '@/context/store-context';
 import { ProductCard } from '@/components/ProductCard';
 import { Icon } from '@/components/Icons';
 import { PriceRangeFilter } from '@/components/PriceRangeFilter';
-import { createShopFilters, filterShopProducts, getShopFilterOptions, getShopListingHeading, parseShopFiltersFromParams, shopFiltersKey, shopFiltersToParams, DISCOUNT_FILTER_OPTIONS } from '@/lib/shop-filters';
+import { createShopFilters, filterShopProducts, getShopFilterOptions, getShopListingHeading, parseShopFiltersFromParams, parseShopSortFromParams, shopFiltersKey, shopStateToParams, DISCOUNT_FILTER_OPTIONS, type ShopSortOption } from '@/lib/shop-filters';
 import type { ShopFilterState } from '@/types';
 
 interface SareeListingProps {
@@ -38,12 +38,12 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
     else params.delete('q');
     const query = params.toString();
     const nextUrl = query ? `${pathname}?${query}` : pathname;
-    window.history.replaceState(window.history.state, '', nextUrl);
+    window.history.replaceState(null, '', nextUrl);
   }, [initialSearchMode, pathname]);
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetDraft, setSheetDraft] = useState<ShopFilterState>(filters);
-  const [sortOption, setSortOption] = useState<'featured' | 'low' | 'high' | 'new'>('featured');
+  const [sortOption, setSortOption] = useState<ShopSortOption>(() => parseShopSortFromParams(searchParams));
 
   // Refresh slider bounds when live prices change, preserving a user's selection.
   const previousBounds = React.useRef(priceBounds);
@@ -58,27 +58,61 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
     setFilters(adjust); setSheetDraft(adjust); previousBounds.current = priceBounds;
   }, [priceBounds.min, priceBounds.max]);
 
-  // URL -> filters (initial load, header links, back/forward). Our own writes are skipped.
+  // The URL (?collection=&colour=&min=&max=&offers=&sort=) is the source of truth for
+  // history: every user change pushes one entry (Back undoes it), and back/forward
+  // rebuild the filters and sort from the URL below.
   const paramsString = searchParams.toString();
-  const ownWrites = React.useRef<{ latest: string | null; pending: Set<string> }>({ latest: null, pending: new Set() });
   useEffect(() => {
-    const own = ownWrites.current;
-    if (paramsString === own.latest) { own.pending.clear(); return; }
-    if (own.pending.delete(paramsString)) return;
-    const next = parseShopFiltersFromParams(new URLSearchParams(paramsString), filterOptions);
+    const params = new URLSearchParams(paramsString);
+    const next = parseShopFiltersFromParams(params, filterOptions);
     setFilters((prev) => (shopFiltersKey(prev) === shopFiltersKey(next) ? prev : next));
+    setSortOption(parseShopSortFromParams(params));
   }, [paramsString, collectionOptions.join('\0'), colours.join('\0'), priceBounds.min, priceBounds.max]);
 
-  // Filters -> URL. replaceState (integrated with the Next router) updates the address
-  // without a server round trip, history entry or scroll jump, even while dragging the price slider.
+  // Initial normalisation (e.g. ?colour=rose -> ?colour=Rose, out-of-range prices dropped)
+  // replaces the entry instead of adding one.
   useEffect(() => {
     const current = window.location.search.replace(/^\?/, '');
-    const next = shopFiltersToParams(filters, priceBounds, current).toString();
-    if (next === current) return;
-    ownWrites.current.latest = next;
-    ownWrites.current.pending.add(next);
-    window.history.replaceState(window.history.state, '', next ? `${pathname}?${next}` : pathname);
-  }, [filters, pathname, priceBounds.min, priceBounds.max]);
+    const params = new URLSearchParams(current);
+    const canonical = shopStateToParams(
+      parseShopFiltersFromParams(params, filterOptions),
+      parseShopSortFromParams(params),
+      priceBounds,
+      current,
+    ).toString();
+    if (canonical !== current) {
+      window.history.replaceState(null, '', canonical ? `${pathname}?${canonical}` : pathname);
+    }
+  }, [pathname, collectionOptions.join('\0'), colours.join('\0'), priceBounds.min, priceBounds.max]);
+
+  const sliderTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (sliderTimer.current) clearTimeout(sliderTimer.current); }, []);
+
+  /** Apply a user change and push it as one history entry (scroll position kept). */
+  const commitShopState = (
+    nextFilters: ShopFilterState,
+    nextSort: ShopSortOption = sortOption,
+    options: { debounce?: boolean; clearQuery?: boolean } = {},
+  ) => {
+    setFilters(nextFilters);
+    setSortOption(nextSort);
+    if (sliderTimer.current) { clearTimeout(sliderTimer.current); sliderTimer.current = null; }
+    const push = () => {
+      sliderTimer.current = null;
+      const current = window.location.search.replace(/^\?/, '');
+      const params = shopStateToParams(nextFilters, nextSort, priceBounds, current);
+      if (options.clearQuery) params.delete('q');
+      const next = params.toString();
+      if (next === current) return;
+      // history.pushState is integrated with the Next router (useSearchParams updates,
+      // Back/forward work) without remounting the page, so scroll stays put. router.push
+      // re-keys this page segment per query, remounting it and jumping to the top.
+      window.history.pushState(null, '', next ? `${pathname}?${next}` : pathname);
+    };
+    // Dragging the price slider adds a single entry once the thumb settles.
+    if (options.debounce) sliderTimer.current = setTimeout(push, 400);
+    else push();
+  };
 
   const urlQuery = searchParams.get('q') ?? '';
   useEffect(() => {
@@ -121,9 +155,10 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
     initialSearchMode
   );
 
+  // Clears filters (and the search text) as one history entry; the chosen sort is kept.
   const resetFilters = () => {
-    setFilters(createShopFilters(priceBounds));
-    persistSearchQuery('');
+    setSearchQuery('');
+    commitShopState(createShopFilters(priceBounds), sortOption, { clearQuery: true });
   };
 
   const handleOpenSheet = () => {
@@ -137,7 +172,7 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
   };
 
   const handleApplySheet = () => {
-    setFilters({
+    commitShopState({
       ...sheetDraft,
       colours: [...sheetDraft.colours],
       priceRange: { ...sheetDraft.priceRange },
@@ -205,7 +240,7 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
                     value={c}
                     checked={filters.collection === c}
                     onChange={() => {
-                      setFilters((prev) => ({ ...prev, collection: c }));
+                      commitShopState({ ...filters, collection: c });
                     }}
                   />
                   <span>{c === 'All' ? 'All sarees' : `${c} sarees`}</span>
@@ -227,12 +262,8 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
                     checked={filters.colours.some((c) => c.toLowerCase() === colName.toLowerCase())}
                     onChange={(e) => {
                       const checked = e.target.checked;
-                      setFilters((prev) => ({
-                        ...prev,
-                        colours: checked
-                          ? [...prev.colours.filter((c) => c.toLowerCase() !== colName.toLowerCase()), colName]
-                          : prev.colours.filter((c) => c.toLowerCase() !== colName.toLowerCase()),
-                      }));
+                      const others = filters.colours.filter((c) => c.toLowerCase() !== colName.toLowerCase());
+                      commitShopState({ ...filters, colours: checked ? [...others, colName] : others });
                     }}
                   />
                   <span className="filter-colour" style={{ background: hex }} aria-hidden="true" />
@@ -248,7 +279,7 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
               bounds={priceBounds}
               value={filters.priceRange}
               onChange={(priceRange) => {
-                setFilters((prev) => ({ ...prev, priceRange }));
+                commitShopState({ ...filters, priceRange }, sortOption, { debounce: true });
               }}
             />
           </fieldset>
@@ -265,7 +296,7 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
                     value={opt.value}
                     checked={(filters.minDiscount || 0) === opt.value}
                     onChange={() => {
-                      setFilters((prev) => ({ ...prev, minDiscount: opt.value }));
+                      commitShopState({ ...filters, minDiscount: opt.value });
                     }}
                   />
                   <span>{opt.label}</span>
@@ -305,7 +336,7 @@ export function SareeListing({ initialSearchMode = false }: SareeListingProps) {
                   id="sort"
                   name="sort"
                   value={sortOption}
-                  onChange={(e) => setSortOption(e.target.value as any)}
+                  onChange={(e) => commitShopState(filters, e.target.value as ShopSortOption)}
                 >
                   <option value="featured">Sort: Featured</option>
                   <option value="low">Price: Low first</option>

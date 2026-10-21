@@ -4,10 +4,11 @@ import React, { useEffect, useState } from 'react';
 import { Icon } from './Icons';
 
 /**
- * On phones (<=700px) the fixed WhatsApp/Instagram stack would cover card hearts,
- * Buy now buttons and checkout CTAs, so it only appears once the footer (which
- * also carries these links) fills the bottom of the screen. Desktop and tablet
- * are unchanged.
+ * Up to 1100px the fixed WhatsApp/Instagram stack would cover card hearts, Add to
+ * bag / Buy now buttons and the delivery Check button, so it only appears once the
+ * footer (which also carries these links) fills the bottom of the screen. Above
+ * 1100px it is always shown, slimmer, beside a right-hand gutter that page content
+ * and footer links never enter (see globals.css).
  */
 export function FloatingSocials() {
   const [footerInView, setFooterInView] = useState(false);
@@ -26,7 +27,7 @@ export function FloatingSocials() {
   }, []);
 
   return (
-    <div className={`floating-socials${footerInView ? '' : ' is-phone-hidden'}`} aria-label="Connect with Varnam">
+    <div className={`floating-socials${footerInView ? '' : ' is-compact-hidden'}`} aria-label="Connect with Varnam">
       <a
         className="social-whatsapp"
         href="https://wa.me/919360451710?text=Hello%20Varnam%2C%20I%20would%20like%20to%20know%20more%20about%20your%20sarees."
