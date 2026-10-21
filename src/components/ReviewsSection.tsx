@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useStore } from '@/context/store-context';
-import { formatReviewDate, reviewAvatar, starFillPercent, type PublicReview, type PublicReviewsSection } from '@/lib/reviews';
+import { formatReviewDate, reviewAvatar, starFills, type PublicReview, type PublicReviewsSection } from '@/lib/reviews';
 
 /**
  * Reviews this long may overflow the 5-line clamp, so the server renders a "Read more"
@@ -12,18 +12,25 @@ import { formatReviewDate, reviewAvatar, starFillPercent, type PublicReview, typ
  */
 const READ_MORE_CANDIDATE_AT = 140;
 const STAR_PATH = 'M10 1.6l2.47 5.3 5.8.68-4.3 3.96 1.15 5.73L10 14.4l-5.12 2.87 1.15-5.73-4.3-3.96 5.8-.68z';
+/** Tight box around the star glyph, so a 80% fill covers 80% of the visible star. */
+const STAR_VIEWBOX = '1.73 1.16 16.54 16.54';
 
-/** Five stars with a partial fill (e.g. 4.8). Decorative layers; the label carries the value. */
+/**
+ * Five stars, each filled on its own: 4.8 → four full stars and 80% of the fifth.
+ * The stars are decorative layers; the label carries the value.
+ */
 export function ReviewStars({ rating, size = 16, label }: { rating: number; size?: number; label?: string }) {
-  const row = (className: string) => (
-    <svg className={className} width={size * 5} height={size} viewBox="0 0 100 20" aria-hidden="true" focusable="false">
-      {[0, 1, 2, 3, 4].map((i) => <path key={i} d={STAR_PATH} transform={`translate(${i * 20} 0)`} />)}
-    </svg>
+  const star = (className?: string) => (
+    <svg className={className} width={size} height={size} viewBox={STAR_VIEWBOX} aria-hidden="true" focusable="false"><path d={STAR_PATH} /></svg>
   );
   return (
-    <span className="review-stars" role="img" aria-label={label || `Rated ${rating} out of 5`} style={{ width: size * 5, height: size }}>
-      {row('review-stars-base')}
-      <span className="review-stars-fill" style={{ width: `${starFillPercent(rating)}%` }}>{row('')}</span>
+    <span className="review-stars" role="img" aria-label={label || `Rated ${rating} out of 5`} style={{ gap: Math.max(1, Math.round(size * 0.14)) }}>
+      {starFills(rating).map((fill, i) => (
+        <span key={i} className="review-star" style={{ width: size, height: size }}>
+          {star('review-star-base')}
+          {fill > 0 && <span className="review-star-fill" style={{ width: `${fill}%` }}>{star()}</span>}
+        </span>
+      ))}
     </span>
   );
 }
@@ -52,7 +59,7 @@ function ReviewAvatar({ review }: { review: PublicReview }) {
   return <span className="review-avatar review-avatar-initial" style={{ background: colour }} aria-hidden="true">{initial}</span>;
 }
 
-function ReviewCard({ review }: { review: PublicReview }) {
+function ReviewCard({ review, position, total }: { review: PublicReview; position: number; total: number }) {
   const { getProductById } = useStore();
   const [expanded, setExpanded] = useState(false);
   const [fits, setFits] = useState(false);
@@ -74,7 +81,7 @@ function ReviewCard({ review }: { review: PublicReview }) {
   }, [long, expanded]);
   return (
     <li className="review-card">
-      <article aria-label={`Review by ${review.name}`}>
+      <article aria-roledescription="slide" aria-label={`${position} of ${total}: review by ${review.name}`}>
         <div className="review-card-head">
           <ReviewAvatar review={review} />
           <div className="review-card-meta">
@@ -112,32 +119,39 @@ function ReviewCard({ review }: { review: PublicReview }) {
 
 export function ReviewsSection({ section }: { section: PublicReviewsSection }) {
   const { settings, reviews } = section;
-  const trackRef = useRef<HTMLUListElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
   const trackId = useId();
-  const [edges, setEdges] = useState({ start: true, end: false });
+  // Arrows appear only when the cards overflow the row (measured after mount and on resize).
+  // Until then they are not rendered; the space they would use is beside the taller heading,
+  // so showing them later does not move anything.
+  const [scroll, setScroll] = useState({ overflows: false, start: true, end: true });
   const count = settings.reviewCount > 0 ? settings.reviewCount : reviews.length;
 
-  const updateEdges = useCallback(() => {
+  const measure = useCallback(() => {
     const track = trackRef.current;
     if (!track) return;
     const max = track.scrollWidth - track.clientWidth;
-    setEdges({ start: track.scrollLeft <= 2, end: track.scrollLeft >= max - 2 });
+    const next = { overflows: max > 2, start: track.scrollLeft <= 2, end: track.scrollLeft >= max - 2 };
+    setScroll((prev) => (prev.overflows === next.overflows && prev.start === next.start && prev.end === next.end ? prev : next));
   }, []);
 
   useEffect(() => {
-    updateEdges();
+    measure();
     const track = trackRef.current;
-    if (!track || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(updateEdges);
-    observer.observe(track);
-    return () => observer.disconnect();
-  }, [updateEdges]);
+    if (!track) return;
+    window.addEventListener('resize', measure);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    observer?.observe(track);
+    if (track.firstElementChild) observer?.observe(track.firstElementChild);
+    return () => { window.removeEventListener('resize', measure); observer?.disconnect(); };
+  }, [measure]);
 
   const scrollByCard = (direction: 1 | -1, toEnd = false) => {
     const track = trackRef.current;
     if (!track) return;
     const card = track.querySelector<HTMLElement>('.review-card');
-    const gap = parseFloat(getComputedStyle(track).columnGap || '0') || 0;
+    const list = track.firstElementChild;
+    const gap = list ? parseFloat(getComputedStyle(list).columnGap || '0') || 0 : 0;
     const step = card ? card.offsetWidth + gap : track.clientWidth * 0.8;
     const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
     if (toEnd) track.scrollTo({ left: direction > 0 ? track.scrollWidth : 0, behavior });
@@ -145,8 +159,8 @@ export function ReviewsSection({ section }: { section: PublicReviewsSection }) {
   };
 
   // With mandatory snapping a small key scroll snaps back, so keys move a whole card.
-  const onTrackKeyDown = (event: React.KeyboardEvent<HTMLUListElement>) => {
-    if (event.target !== event.currentTarget) return;
+  const onTrackKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget || !scroll.overflows) return;
     const moves: Record<string, [1 | -1, boolean]> = { ArrowRight: [1, false], ArrowLeft: [-1, false], Home: [-1, true], End: [1, true] };
     const move = moves[event.key];
     if (!move) return;
@@ -180,19 +194,34 @@ export function ReviewsSection({ section }: { section: PublicReviewsSection }) {
             </div>
           )}
         </div>
-        <div className="reviews-arrows">
-          <button type="button" aria-controls={trackId} aria-label="Previous reviews" disabled={edges.start} onClick={() => scrollByCard(-1)}>
-            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          </button>
-          <button type="button" aria-controls={trackId} aria-label="Next reviews" disabled={edges.end} onClick={() => scrollByCard(1)}>
-            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          </button>
-        </div>
+        {scroll.overflows && (
+          <div className="reviews-arrows">
+            <button type="button" aria-controls={trackId} aria-label="Previous reviews" disabled={scroll.start} onClick={() => scrollByCard(-1)}>
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </button>
+            <button type="button" aria-controls={trackId} aria-label="Next reviews" disabled={scroll.end} onClick={() => scrollByCard(1)}>
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </button>
+          </div>
+        )}
       </div>
-      {/* Focusable scroller: arrow keys scroll it; cards snap on swipe. */}
-      <ul id={trackId} ref={trackRef} className="reviews-track" tabIndex={0} aria-label="Customer reviews, scroll sideways for more" onScroll={updateEdges} onKeyDown={onTrackKeyDown}>
-        {reviews.map((review) => <ReviewCard key={review.id} review={review} />)}
-      </ul>
+      {/* Carousel region: the scroller is focusable (arrow keys, Home/End); cards snap on swipe. */}
+      <div
+        id={trackId}
+        ref={trackRef}
+        className="reviews-track"
+        role="region"
+        aria-roledescription="carousel"
+        aria-label={scroll.overflows ? 'Customer reviews, scroll sideways for more' : 'Customer reviews'}
+        tabIndex={0}
+        data-overflows={scroll.overflows ? 'true' : undefined}
+        onScroll={measure}
+        onKeyDown={onTrackKeyDown}
+      >
+        <ul className="reviews-list">
+          {reviews.map((review, index) => <ReviewCard key={review.id} review={review} position={index + 1} total={reviews.length} />)}
+        </ul>
+      </div>
     </section>
   );
 }

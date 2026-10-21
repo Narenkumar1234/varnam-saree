@@ -2760,23 +2760,29 @@ footer {
 }
 
 .review-stars {
-  position: relative;
-  display: inline-block;
+  display: inline-flex;
   flex: none;
   line-height: 0;
   vertical-align: middle;
 }
 
-.review-stars svg {
+/* Each star is filled on its own (4.8 = four full stars + 80% of the fifth). */
+.review-star {
+  position: relative;
+  display: block;
+  flex: none;
+}
+
+.review-star svg {
   display: block;
   fill: #d8a531;
 }
 
-.review-stars .review-stars-base {
+.review-star .review-star-base {
   fill: #e4d9cc;
 }
 
-.review-stars-fill {
+.review-star-fill {
   position: absolute;
   inset: 0 auto 0 0;
   overflow: hidden;
@@ -2817,12 +2823,8 @@ footer {
 }
 
 .reviews-track {
-  list-style: none;
-  margin: 0;
+  margin: 0 -2px;
   padding: 4px 2px 14px;
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scroll-snap-type: x mandatory;
@@ -2835,12 +2837,47 @@ footer {
   outline-offset: 4px;
 }
 
+/* Cards share the row's height. When they all fit, they grow to fill it (up to a
+   comfortable width) and the group is centred; auto margins resolve to 0 once the
+   row overflows, so scrolling never cuts off the first card. */
+.reviews-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+}
+
 .review-card {
-  flex: 0 0 min(340px, 84%);
+  flex: 1 0 min(340px, 84%);
+  max-width: 440px;
+  display: flex;
   scroll-snap-align: start;
   background: #f6f0e8;
   border: 1px solid var(--line);
   padding: 20px 20px 18px;
+}
+
+.review-card:first-child {
+  margin-left: auto;
+}
+
+.review-card:last-child {
+  margin-right: auto;
+}
+
+.review-card > article {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.review-card-head,
+.review-text {
+  align-self: stretch;
 }
 
 .review-card-head {
@@ -2886,7 +2923,7 @@ footer {
   flex-wrap: wrap;
   align-items: center;
   gap: 4px 10px;
-  color: var(--muted);
+  color: #5f5559; /* 6.3:1 on the card (the site --muted is 4.4:1 here) */
   font-size: 12px;
 }
 
@@ -2923,17 +2960,26 @@ footer {
 }
 
 .review-product {
-  margin: 12px 0 0;
-  padding-top: 10px;
-  border-top: 1px solid var(--line);
-  font-size: 12px;
-  color: var(--muted);
+  /* Pinned to the bottom of the card so the "Bought" lines line up across a row. */
+  margin: auto 0 0;
+  padding-top: 12px;
+  align-self: stretch;
+  border-top: 1px solid #e2d7ca;
+  font-size: 14px;
+  line-height: 1.45;
+  color: #5f5559; /* 6.3:1 on the card background: WCAG AA */
 }
 
 .review-product a {
-  color: var(--ink);
+  color: var(--ink); /* 12.5:1 */
+  font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+/* Minimum gap above the pinned footer in the tallest card of the row. */
+.review-card article > :has(+ .review-product) {
+  margin-bottom: 12px;
 }
 
 @media (max-width: 700px) {
@@ -2950,6 +2996,7 @@ footer {
   }
   .review-card {
     flex-basis: 84%;
+    max-width: none;
     padding: 18px 16px 16px;
   }
 }
@@ -4355,13 +4402,38 @@ footer {
 .studio-review-badge { font-size: 11px; padding: 1px 8px; border-radius: 10px; background: #e4dbd3; }
 .studio-review-text { margin: 6px 0 0; font-size: 13px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; overflow-wrap: anywhere; }
 .studio-review-product { margin: 4px 0 0; font-size: 12px; }
-.studio-review-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; flex: none; max-width: 260px; }
-.studio-review-actions .btn { min-height: 34px; padding: 6px 12px; font-size: 12px; }
-.studio-review-textarea { display: flex; flex-direction: column; }
-.studio-review-textarea textarea { width: 100%; resize: vertical; }
-.studio-review-counter { align-self: flex-end; font-size: 11px; }
+.studio-review-actions { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; flex: none; }
+.studio-review-move { display: flex; gap: 6px; margin-right: 4px; }
+/* Row controls: real buttons with 40px touch targets. */
+.studio-review-btn {
+  min-width: 40px; min-height: 40px; padding: 0 14px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid #cbbfb3; border-radius: 6px; background: white; color: var(--ink);
+  font: 500 13px/1 'DM Sans', sans-serif; white-space: nowrap; cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.studio-review-btn.is-icon { width: 40px; padding: 0; }
+.studio-review-btn:hover:not(:disabled) { background: #f6f0e8; border-color: var(--ink); }
+.studio-review-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.studio-review-btn:disabled { opacity: .4; cursor: default; }
+.studio-review-btn.is-danger { color: #a3262a; border-color: #e3b9b6; }
+.studio-review-btn.is-danger:hover:not(:disabled) { background: #fdf1f0; border-color: #a3262a; }
+.studio-reviews-list li.is-editing { display: block; padding: 0; border: 2px solid var(--gold); background: #fffdf8; box-shadow: 0 0 0 4px rgba(164, 122, 56, .15); }
+.studio-reviews-list li.is-editing .studio-review-form { margin: 0; padding: 16px; }
+.studio-review-form h3 { margin-top: 0; }
+.studio-review-textfield { display: flex; flex-direction: column; gap: 6px; }
+.studio-review-form { scroll-margin-top: 16px; }
+.studio-review-textbox { width: 100%; resize: vertical; display: block; }
+.studio-review-count-row { display: flex; justify-content: flex-end; margin-top: -2px; }
+.studio-review-counter { font-size: 12px; color: #5f5559; font-variant-numeric: tabular-nums; }
+.studio-review-counter.is-over { color: #a3262a; font-weight: 600; }
+.studio-review-textbox[aria-invalid='true'] { border-color: #a3262a; outline-color: #a3262a; }
+.studio-review-over { margin: 0; padding: 8px 12px; border-left: 3px solid #a3262a; background: #fdf1f0; color: #7d1d20; font-size: 13px; }
+.studio-review-over[hidden] { display: none; }
+.studio-field-hint { display: block; margin-top: 4px; font-size: 12px; font-weight: 400; }
 .studio-review-visible { align-self: end; }
 @media (max-width: 700px) {
   .studio-reviews-list li { flex-direction: column; }
-  .studio-review-actions { justify-content: flex-start; max-width: none; }
+  .studio-review-actions { width: 100%; flex-wrap: wrap; justify-content: flex-start; }
+  .studio-review-actions .studio-review-btn:not(.is-icon) { flex: 1 1 0; }
 }
