@@ -1,5 +1,5 @@
 import { relations, sql } from 'drizzle-orm';
-import { boolean, date, index, integer, pgTable, serial, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { boolean, check, date, index, integer, pgTable, serial, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 
 // Define the 'products' table
 export const products = pgTable('products', {
@@ -98,6 +98,26 @@ export const siteSettings = pgTable('site_settings', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
 });
+
+// Landing-page "Google reviews" cards, entered by the owner in Studio.
+// product_id is deliberately not a foreign key: deleting a saree must not be
+// blocked by a review; a missing product simply drops the "Bought" line.
+export const reviews = pgTable('reviews', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  rating: integer('rating').notNull(),
+  text: text('text').notNull(),
+  reviewDate: date('review_date', { mode: 'string' }),
+  photoUrl: text('photo_url'),
+  productId: integer('product_id'),
+  visible: boolean('visible').notNull().default(true),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+}, (table) => [
+  index('reviews_visible_sort_idx').on(table.visible, table.sortOrder),
+  check('reviews_rating_range', sql`${table.rating} BETWEEN 1 AND 5`),
+]);
 
 // Relationships
 export const usersRelations = relations(users, ({ many }) => ({

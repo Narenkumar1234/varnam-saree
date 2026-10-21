@@ -11,6 +11,7 @@ import { readOrderSnapshot } from '@/lib/pricing';
 import { singleColourHelperText } from '@/lib/product-input';
 import { OrderSavings } from '@/components/OrderTotals';
 import { StudioCommerce } from '@/components/StudioCommerce';
+import { StudioReviews } from '@/components/StudioReviews';
 import { StudioOrderLookup } from '@/components/StudioOrderLookup';
 import { StudioOrderStatusEditor } from '@/components/StudioOrderStatusEditor';
 import { needsUnoptimized } from '@/lib/image-loader';
@@ -124,7 +125,7 @@ export default function StudioDeskPage() {
   const [authError, setAuthError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'inventory' | 'add' | 'orders' | 'lookup' | 'coupons' | 'settings'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'add' | 'orders' | 'lookup' | 'coupons' | 'settings' | 'reviews'>('inventory');
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [orderFilters, setOrderFilters] = useState(createStudioOrderFilters);
@@ -822,6 +823,7 @@ export default function StudioDeskPage() {
         </button>
         <button type="button" className={activeTab === 'coupons' ? 'active' : ''} onClick={() => setActiveTab('coupons')}>Coupons</button>
         <button type="button" className={activeTab === 'settings' ? 'active' : ''} onClick={() => setActiveTab('settings')}>Site settings</button>
+        <button type="button" className={activeTab === 'reviews' ? 'active' : ''} onClick={() => setActiveTab('reviews')}>Reviews</button>
       </div>
 
       {activeTab === 'lookup' && (
@@ -834,6 +836,8 @@ export default function StudioDeskPage() {
       )}
 
       {(activeTab === 'coupons' || activeTab === 'settings') && <StudioCommerce key={activeTab} section={activeTab} adminFetch={adminFetch} />}
+
+      {activeTab === 'reviews' && <StudioReviews adminFetch={adminFetch} products={products} />}
 
       {/* TAB 1: INVENTORY & CATALOG */}
       {activeTab === 'inventory' && (
