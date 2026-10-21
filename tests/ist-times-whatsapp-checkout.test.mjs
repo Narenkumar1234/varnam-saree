@@ -59,3 +59,20 @@ test('Order on WhatsApp saves the order through the same submit, then opens What
   expect(confirmation).toContain("window.history.replaceState(null, '', `/confirmation/");
   expect(confirmation).toContain('window.location.assign(orderWhatsAppUrl)');
 });
+
+test('WhatsApp-checkout confirmation: WhatsApp is the main action, online pay is a small option', () => {
+  const page = read('src/app/confirmation/[id]/page.tsx');
+  const wa = page.slice(page.indexOf('viaWhatsApp && orderWhatsAppUrl ? ('), page.indexOf(') : (', page.indexOf('viaWhatsApp && orderWhatsAppUrl ? (')));
+  expect(wa).toContain('Continue on WhatsApp');
+  expect(wa).toContain('variant="secondary"');
+  expect(wa).not.toContain('whatsAppUrl=');
+  expect(wa.match(/href=/g)?.length).toBe(1);
+  expect(page).not.toContain("WhatsApp didn&apos;t open?");
+  const payment = read('src/components/CustomerPayment.tsx');
+  const secondary = payment.slice(payment.indexOf("if (variant === 'secondary')"), payment.indexOf('return (\n    <div id="customer-payment" style'));
+  expect(secondary).toContain('Prefer to pay online?');
+  expect(secondary).not.toContain('instead');
+  expect(secondary).not.toContain('whatsAppUrl');
+  // The normal confirmation keeps the primary Pay now + WhatsApp link
+  expect(payment).toContain('Complete on WhatsApp instead');
+});

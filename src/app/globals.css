@@ -1615,6 +1615,51 @@ nav a:hover {
   background: #edf3ee;
 }
 
+/* Confirmation after a WhatsApp checkout: WhatsApp is the main action. */
+.confirmation-whatsapp {
+  max-width: 360px;
+  margin: 18px auto 0;
+  text-align: center;
+}
+
+.confirmation-whatsapp-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  margin-top: 14px;
+  background: #176047;
+  border-color: #176047;
+  color: white;
+}
+
+.confirmation-whatsapp-cta:hover {
+  background: #124d39;
+}
+
+.customer-payment-secondary {
+  margin-top: 14px;
+  font-size: 0.9rem;
+  color: var(--muted, #6b5a66);
+}
+
+.customer-payment-secondary .text-link {
+  font: inherit;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  border-bottom: 1px solid;
+  border-radius: 0;
+  padding: 0 0 2px;
+  min-height: 0;
+}
+
+.customer-payment-secondary .text-link:disabled {
+  opacity: .6;
+  cursor: default;
+}
+
 .product-whatsapp {
   margin-top: -2px;
   margin-bottom: 18px;

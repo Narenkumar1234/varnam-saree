@@ -73,15 +73,27 @@ function ConfirmationContent({ orderId }: { orderId: string }) {
         <p>Order placed — awaiting payment</p>
       )}
 
-      {viaWhatsApp && !isPaidPayment(order.payment) && orderWhatsAppUrl && (
-        <p className="muted" role="status" style={{ marginTop: '8px' }}>
-          We&apos;ve opened WhatsApp with your order ID so we can confirm payment and delivery.{' '}
-          <a className="text-link" href={orderWhatsAppUrl} target="_blank" rel="noopener noreferrer">WhatsApp didn&apos;t open? Continue on WhatsApp</a>
-        </p>
-      )}
-
       {isPaidPayment(order.payment) ? (
         <p style={{ color: 'var(--success, #2e7d32)', fontWeight: 600 }} role="status">✓ Payment confirmed</p>
+      ) : viaWhatsApp && orderWhatsAppUrl ? (
+        // WhatsApp checkout: WhatsApp is the main action; online payment is a small option.
+        <div className="confirmation-whatsapp">
+          <p className="muted" role="status">
+            We&apos;ve opened WhatsApp with your order ID so we can confirm payment and delivery.
+          </p>
+          <a className="btn confirmation-whatsapp-cta" href={orderWhatsAppUrl} target="_blank" rel="noopener noreferrer">
+            <Icon name="whatsapp" /> Continue on WhatsApp
+          </a>
+          <CustomerPayment
+            variant="secondary"
+            orderId={order.id}
+            total={order.total}
+            customerName={order.name}
+            payment={order.payment}
+            idleLabel={order.payment ? 'Retry payment' : 'Pay now'}
+            onPaid={handlePaid}
+          />
+        </div>
       ) : (
         <CustomerPayment
           orderId={order.id}
