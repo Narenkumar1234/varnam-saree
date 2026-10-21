@@ -111,7 +111,7 @@ test('image loader keeps Firebase %2F and token query inside the url param', () 
 
 test('ProductDetail thumbs and main image share the gallery builder and selected index', () => {
   const src = readFileSync(new URL('../src/components/ProductDetail.tsx', import.meta.url), 'utf8');
-  expect(src).toContain('buildProductGalleryImages(product, selectedVariantIndex)');
+  expect(src).toContain('buildProductGalleryImages(product ? { ...product, variants: null } : product)');
   expect(src).toContain('const [selectedImageIndex, setSelectedImageIndex] = useState(0)');
   expect(src).toContain('setSelectedImageIndex(0)');
   expect(src).toContain('onClick={() => setSelectedImageIndex(idx)}');
@@ -168,23 +168,37 @@ mock.module('next/link', () => ({
 
 const { default: ProductDetail } = await import('../src/components/ProductDetail.tsx');
 
-test('rendered gallery uses one array: main image is index 0 and thumbs stay in the same order', () => {
-  const gallery = buildProductGalleryImages(qaStoreProduct, 0);
+test('rendered gallery uses the product\'s own photos only, with primary colour as text and no swatches', () => {
+  const gallery = buildProductGalleryImages({ ...qaStoreProduct, variants: null }, 0);
   const markup = renderToStaticMarkup(createElement(ProductDetail, { id: '10' }));
   const srcs = [...markup.matchAll(/src="([^"]+)"/g)].map((match) => match[1].replaceAll('&amp;', '&'));
-  expect(gallery).toEqual([UNSPLASH, WIKIMEDIA, FIREBASE]);
+  expect(gallery).toEqual([WIKIMEDIA, FIREBASE]);
   expect(srcs[0]).toBe(gallery[0]);
-  expect(srcs.slice(1, 4)).toEqual(gallery);
+  expect(srcs.slice(1, 3)).toEqual(gallery);
+  // Variant photos never surface on the storefront
+  expect(srcs).not.toContain(UNSPLASH);
+  expect(srcs).not.toContain(GOLD);
   expect(markup).toContain('aria-selected="true"');
   expect(markup).toContain('View photo 1 of QA gallery saree');
-  expect(markup).toContain('View photo 3 of QA gallery saree');
+  expect(markup).toContain('View photo 2 of QA gallery saree');
   expect(markup).toContain('Includes unstitched blouse piece');
   expect(markup).not.toContain('Choose finishing');
-  expect(resolveColourHex('Maroon')).not.toBe(resolveColourHex('Gold'));
-  expect(markup).toContain(resolveColourHex('Maroon'));
-  expect(markup).toContain(resolveColourHex('Gold'));
-  expect(markup).toContain('title="Maroon"');
-  expect(markup).toContain('title="Gold"');
+  expect(markup).toContain('Colour: Rose');
+  expect(markup).not.toContain('swatch');
+  expect(markup).not.toContain('colour-variant-switcher');
+  expect(markup).not.toContain('title="Maroon"');
+  expect(markup).not.toContain('title="Gold"');
+});
+
+test('product page has no ?variant= handling: Buy now and Suspense wrapper removed', () => {
+  const src = readFileSync(new URL('../src/components/ProductDetail.tsx', import.meta.url), 'utf8');
+  expect(src).not.toContain('useSearchParams');
+  expect(src).not.toContain('variant=');
+  expect(src).toContain('router.push(`/checkout?buyNow=${product.id}&qty=${qty}`)');
+  const page = readFileSync(new URL('../src/app/product/[id]/page.tsx', import.meta.url), 'utf8');
+  expect(page).not.toContain('Suspense');
+  const checkout = readFileSync(new URL('../src/app/checkout/page.tsx', import.meta.url), 'utf8');
+  expect(checkout).not.toContain("searchParams.get('variant')");
 });
 
 test('desktop gallery places a vertical thumbnail rail to the right of the main image', () => {
@@ -204,4 +218,12 @@ test('mobile gallery keeps a compact horizontal thumbnail row that cannot overfl
   expect(css).toContain('flex-direction: row');
   expect(css).toContain('overflow-x: auto');
   expect(css).toContain('max-width: 100%');
+});
+
+test('storefront catalogue does not expose colour variants (DB column untouched)', () => {
+  const src = readFileSync(new URL('../src/lib/catalogue-server.ts', import.meta.url), 'utf8');
+  expect(src).not.toContain('variants }');
+  expect(src).not.toContain('JSON.parse');
+  const schema = readFileSync(new URL('../src/db/schema.ts', import.meta.url), 'utf8');
+  expect(schema).toContain("variants: text('variants')");
 });

@@ -4,8 +4,8 @@ import { DeliveryPolicy } from '@/components/DeliveryPolicy';
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { capitalizeColour, resolveColourHex } from '@/lib/colour';
+import { useRouter } from 'next/navigation';
+import { capitalizeColour } from '@/lib/colour';
 import { useStore } from '@/context/store-context';
 import { ProductCard } from '@/components/ProductCard';
 import { Icon } from '@/components/Icons';
@@ -14,11 +14,10 @@ import { PINCODE_PATTERN, PINCODE_PATTERN_MESSAGE } from '@/lib/address-validati
 import { getProductQuantityLimit } from '@/lib/product-quantity';
 import { imageLoader, needsUnoptimized } from '@/lib/image-loader';
 import { QuantityStepper } from '@/components/QuantityStepper';
-import { buildProductGalleryImages, clampGalleryIndex, resolveVariantIndex } from '@/lib/product-gallery';
+import { buildProductGalleryImages, clampGalleryIndex } from '@/lib/product-gallery';
 
 export default function ProductDetail({ id }: { id: string }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { products, getProductById, addToCart, wish, toggleWish, orderProductOnWhatsApp } = useStore();
   const product = getProductById(id);
   const quantityLimit = product ? getProductQuantityLimit(product) : 1;
@@ -29,26 +28,13 @@ export default function ProductDetail({ id }: { id: string }) {
 
   useEffect(() => { setQty((current) => Math.max(1, Math.min(current, quantityLimit))); }, [product?.id, quantityLimit]);
 
-  const hasVariants = Boolean(product?.variants && product.variants.length > 0);
-  const requestedVariant = searchParams?.get('variant') || searchParams?.get('colour');
-  const [selectedVariantIndex, setSelectedVariantIndex] = useState<number>(0);
-
-  useEffect(() => {
-    if (requestedVariant && product?.variants) {
-      setSelectedVariantIndex(resolveVariantIndex(product.variants, requestedVariant));
-    } else {
-      setSelectedVariantIndex(0);
-    }
-  }, [product?.id, requestedVariant]);
-
-  const activeVariant = hasVariants && product?.variants ? (product.variants[selectedVariantIndex] || product.variants[0]) : null;
-
-  const galleryImages = buildProductGalleryImages(product, selectedVariantIndex);
+  // Storefront shows the product's own photos only; colour variants are not offered.
+  const galleryImages = buildProductGalleryImages(product ? { ...product, variants: null } : product);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   useEffect(() => {
     setSelectedImageIndex(0);
-  }, [product?.id, selectedVariantIndex]);
+  }, [product?.id]);
 
   const currentImageIndex = clampGalleryIndex(selectedImageIndex, galleryImages.length);
   const currentImage = galleryImages[currentImageIndex] || product?.image || '';
@@ -163,48 +149,7 @@ export default function ProductDetail({ id }: { id: string }) {
               {soldOut ? 'Sold out' : product.stock != null ? `${product.stock} available` : 'Please confirm availability when ordering'}
             </p>
 
-            <div>Colour: {capitalizeColour(activeVariant ? (activeVariant.colour || activeVariant.name) : product.colour)}</div>
-            {hasVariants && product.variants && product.variants.length > 0 ? (
-              <div className="swatches colour-variant-switcher" role="radiogroup" aria-label="Colour variants">
-                {product.variants.map((v, idx) => {
-                  const varName = v.colour || v.name;
-                  const isCurrent = idx === selectedVariantIndex;
-                  return (
-                    <button
-                      key={idx}
-                      type="button"
-                      role="radio"
-                      aria-checked={isCurrent}
-                      aria-label={`Select ${capitalizeColour(varName)} variant`}
-                      title={capitalizeColour(varName)}
-                      className={`swatch ${isCurrent ? 'selected' : ''}`}
-                      style={{
-                        background: resolveColourHex(varName, v.hex),
-                        cursor: 'pointer',
-                        border: isCurrent ? '2px solid var(--ink, #1f1d1d)' : '1px solid rgba(0,0,0,0.2)',
-                      }}
-                      onClick={() => {
-                        setSelectedVariantIndex(idx);
-                        setSelectedImageIndex(0);
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="swatches">
-                {products.slice(0, 4).map((x) => (
-                  <Link
-                    key={x.id}
-                    href={`/product/${x.id}`}
-                    className={`swatch ${x.colour === product.colour ? 'selected' : ''}`}
-                    style={{ background: resolveColourHex(x.colour) }}
-                    title={capitalizeColour(x.colour)}
-                    aria-label={`View ${capitalizeColour(x.colour)} saree`}
-                  />
-                ))}
-              </div>
-            )}
+            <div className="product-colour">Colour: {capitalizeColour(product.colour)}</div>
 
             <p className="blouse-note">Includes unstitched blouse piece</p>
 
@@ -233,10 +178,7 @@ export default function ProductDetail({ id }: { id: string }) {
                 type="button"
                 disabled={soldOut}
                 onClick={() => {
-                  const varParam = activeVariant?.name || activeVariant?.colour ? `&variant=${encodeURIComponent(activeVariant.name || activeVariant.colour || '')}` : '';
-                  router.push(
-                    `/checkout?buyNow=${product.id}&qty=${qty}${varParam}`
-                  );
+                  router.push(`/checkout?buyNow=${product.id}&qty=${qty}`);
                 }}
               >
                 Buy now

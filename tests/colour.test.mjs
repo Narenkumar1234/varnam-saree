@@ -42,9 +42,10 @@ test('prefers an explicit variant hex and falls back to a named neutral', () => 
   expect(resolveColourHex(null)).toBe(NEUTRAL_SWATCH_HEX);
 });
 
-test('product swatches resolve colours through the shared helper and show the name', () => {
-  expect(detailSource).toContain('resolveColourHex(');
-  expect(detailSource).toContain('title={capitalizeColour(varName)}');
+test('product page shows the primary colour as text with no swatch picker', () => {
+  expect(detailSource).toContain('Colour: {capitalizeColour(product.colour)}');
+  expect(detailSource).not.toContain('resolveColourHex(');
+  expect(detailSource).not.toContain('swatch');
   expect(detailSource).toContain('Estimated delivery in 5–7 business days.');
   expect(detailSource).not.toContain('Demo estimate');
 });

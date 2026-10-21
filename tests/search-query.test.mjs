@@ -53,9 +53,9 @@ test('search is case-insensitive across name, type, collection, colour, tag and 
   expect(productMatchesQuery(demo, 'special edition')).toBe(true);
 });
 
-test('variant colour names are searchable', () => {
-  expect(getProductSearchText(withVariants)).toContain('gold');
-  expect(productMatchesQuery(withVariants, 'gold')).toBe(true);
+test('only the primary colour is searchable; variant colour names are not', () => {
+  expect(getProductSearchText(withVariants)).not.toContain('gold');
+  expect(productMatchesQuery(withVariants, 'gold')).toBe(false);
   expect(productMatchesQuery(withVariants, 'Maroon')).toBe(true);
   expect(productMatchesQuery(withVariants, 'navy')).toBe(false);
 });
@@ -64,7 +64,8 @@ test('multiple words are ANDed', () => {
   const silkEmerald = fallbackProducts.find((product) => product.id === 1);
   expect(productMatchesQuery(silkEmerald, 'silk emerald')).toBe(true);
   expect(productMatchesQuery(silkEmerald, 'silk cotton')).toBe(false);
-  expect(productMatchesQuery(withVariants, 'qa gold')).toBe(true);
+  expect(productMatchesQuery(withVariants, 'qa maroon')).toBe(true);
+  expect(productMatchesQuery(withVariants, 'qa gold')).toBe(false);
   expect(productMatchesQuery(withVariants, 'qa navy')).toBe(false);
 });
 

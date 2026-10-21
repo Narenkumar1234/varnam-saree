@@ -1,7 +1,7 @@
 import { validateCoupon } from '@/lib/coupons';
 import { DEFAULT_COMMERCE, deliveryCharge, type CommerceConfig } from '@/lib/commerce';
 import { getProductQuantityLimit } from '@/lib/product-quantity';
-import { findVariantIndex, getCartLineImage } from '@/lib/product-gallery';
+import { getProductCoverImage } from '@/lib/product-gallery';
 import type { CartItem, OrderItem, OrderPricing, OrderQuote, OrderPayment, Product } from '@/types';
 
 export class OrderPricingError extends Error {}
@@ -26,17 +26,13 @@ export function quoteFromCatalogue(items: CartItem[], code: string | null | unde
     if (!Number.isSafeInteger(subtotal) || subtotal > 2_147_483_497) {
       throw new OrderPricingError('The selected quantity is too large. Please reduce it.');
     }
-    // Image + variant are resolved from the server catalogue; client-sent image URLs are never trusted.
-    const requestedVariant = item.variant || item.colour;
-    const variantIndex = requestedVariant ? findVariantIndex(product.variants, requestedVariant) : -1;
-    const matchedVariant = variantIndex >= 0 ? product.variants?.[variantIndex] : undefined;
-    const variantName = matchedVariant ? (matchedVariant.colour || matchedVariant.name || '').trim() : '';
-    const lineImage = getCartLineImage(product, variantIndex >= 0 ? variantIndex : 0);
+    // Image is resolved from the server catalogue (product cover); client-sent image URLs are never trusted.
+    // Colour variants are no longer offered: any variant/colour on an old bag item is ignored.
+    const lineImage = getProductCoverImage(product);
     return {
       id: product.id,
       qty: item.qty,
       ...(typeof item.finish === 'string' ? { finish: item.finish } : {}),
-      ...(variantName ? { variant: variantName } : {}),
       image: lineImage,
       name: product.name,
       unitPrice: product.price,
@@ -90,16 +86,12 @@ export function parseOrderItems(input: unknown): CartItem[] {
   )) {
     throw new OrderPricingError('Add at least one valid saree to your bag before ordering.');
   }
-  return input.map((item) => {
-    const variant = typeof item.variant === 'string' ? item.variant.trim().slice(0, 60)
-      : typeof item.colour === 'string' ? item.colour.trim().slice(0, 60) : '';
-    return sanitizeLineItem({
-      id: item.id,
-      qty: item.qty,
-      ...(typeof item.finish === 'string' ? { finish: item.finish } : {}),
-      ...(variant ? { variant } : {}),
-    });
-  });
+  // Old bags may still carry a variant/colour; it is accepted but ignored.
+  return input.map((item) => sanitizeLineItem({
+    id: item.id,
+    qty: item.qty,
+    ...(typeof item.finish === 'string' ? { finish: item.finish } : {}),
+  }));
 }
 
 /** Keep string finishing from old bags/orders; drop objects/numbers/empty strings so the UI cannot crash. */
