@@ -56,15 +56,16 @@ export const HERO_IMAGE_QUALITY = 90;
 
 /**
  * Rendered (object-fit: cover) width of the 16:9 hero at each breakpoint, so
- * high-DPR screens fetch a large enough file:
+ * high-DPR screens fetch a large enough file without overshooting:
  * - phone (<=700px): the slide is 400px tall, so the image is 400*16/9 ≈ 712px wide
- *   regardless of viewport width (DPR2 → 1920w, DPR3 → 2048w+).
- * - tablet (701–1100px): stacked, height <= 56.25vw, so 100vw.
- * - desktop: hero is up to 760px tall (840px at >=1400px), i.e. up to ~1352px /
- *   ~1494px wide when that exceeds the viewport; otherwise 100vw.
+ *   regardless of viewport width (DPR2 → 1920w, DPR3 → 2560w).
+ * - tablet/desktop: the image spans the hero width (100vw, capped at the 1600px
+ *   page container). At typical desktop heights the hero is shorter than 16:9 of
+ *   its width, so cover width = 100vw (1280 DPR2 → 2560w); only very tall
+ *   windows crop up to ~5% wider.
  */
 export const HERO_IMAGE_SIZES =
-  '(max-width: 700px) 712px, (max-width: 1100px) 100vw, (max-width: 1352px) 1352px, (max-width: 1494px) 1494px, 100vw';
+  '(max-width: 700px) 712px, (max-width: 1600px) 100vw, 1600px';
 
 /**
  * Whether autoplay should be paused. Only two things pause it:

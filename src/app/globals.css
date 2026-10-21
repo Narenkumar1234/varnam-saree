@@ -93,6 +93,23 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   to { transform: translateX(-50%); }
 }
 
+/* Wider screens: each loop group holds one set of messages spread over at least
+   the viewport width plus one message, so the same message is never on screen twice. */
+@media (min-width: 701px) {
+  .site-marquee-dup {
+    display: none;
+  }
+
+  .site-marquee-group {
+    min-width: calc(100vw + 400px);
+    justify-content: space-around;
+  }
+
+  .site-marquee-track {
+    animation-duration: 44s;
+  }
+}
+
 /* Reduced motion: one line, same height, no duplicates. Before hydration only
    the first message shows; the client then rotates unique messages with a fade. */
 .site-marquee-single {

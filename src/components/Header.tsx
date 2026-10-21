@@ -107,20 +107,27 @@ export function Header() {
       <div className="site-marquee" role="region" aria-label="Store updates">
         <div className="site-marquee-track">
           <p className="site-marquee-group">
-            {repeatedMarquee.map((msg, idx) => (
-              <React.Fragment key={`p1-${idx}`}>
-                <span>{msg}</span>
-                <span className="site-marquee-star" aria-hidden="true">✦</span>
-              </React.Fragment>
-            ))}
+            {repeatedMarquee.map((msg, idx) => {
+              // Second copy fills narrow phone screens; hidden on wider screens (see CSS)
+              const dup = idx >= uniqueMarquee.length ? ' site-marquee-dup' : '';
+              return (
+                <React.Fragment key={`p1-${idx}`}>
+                  <span className={dup.trim() || undefined}>{msg}</span>
+                  <span className={`site-marquee-star${dup}`} aria-hidden="true">✦</span>
+                </React.Fragment>
+              );
+            })}
           </p>
           <p className="site-marquee-group" aria-hidden="true">
-            {repeatedMarquee.map((msg, idx) => (
-              <React.Fragment key={`p2-${idx}`}>
-                <span>{msg}</span>
-                <span className="site-marquee-star">✦</span>
-              </React.Fragment>
-            ))}
+            {repeatedMarquee.map((msg, idx) => {
+              const dup = idx >= uniqueMarquee.length ? ' site-marquee-dup' : '';
+              return (
+                <React.Fragment key={`p2-${idx}`}>
+                  <span className={dup.trim() || undefined}>{msg}</span>
+                  <span className={`site-marquee-star${dup}`}>✦</span>
+                </React.Fragment>
+              );
+            })}
           </p>
         </div>
         {/* Reduced-motion single line (shown via CSS media query) */}
