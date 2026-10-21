@@ -195,7 +195,7 @@ test('hero images are high-res sources served at quality 90 with retina widths',
   // (Other test files mock next/image globally, so assert on source not markup.)
   const src = readFileSync(new URL('../src/components/HeroCarousel.tsx', import.meta.url), 'utf8');
   expect(src).toContain('quality={HERO_IMAGE_QUALITY}');
-  expect(src).toContain('sizes="100vw"');
+  expect(src).toContain('sizes={HERO_IMAGE_SIZES}');
 
   const cfg = readFileSync(new URL('../next.config.mjs', import.meta.url), 'utf8');
   expect(cfg).toMatch(/qualities:\s*\[[^\]]*90/);

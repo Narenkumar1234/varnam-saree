@@ -55,6 +55,18 @@ export const HERO_AUTOPLAY_MS = 5000;
 export const HERO_IMAGE_QUALITY = 90;
 
 /**
+ * Rendered (object-fit: cover) width of the 16:9 hero at each breakpoint, so
+ * high-DPR screens fetch a large enough file:
+ * - phone (<=700px): the slide is 400px tall, so the image is 400*16/9 ≈ 712px wide
+ *   regardless of viewport width (DPR2 → 1920w, DPR3 → 2048w+).
+ * - tablet (701–1100px): stacked, height <= 56.25vw, so 100vw.
+ * - desktop: hero is up to 760px tall (840px at >=1400px), i.e. up to ~1352px /
+ *   ~1494px wide when that exceeds the viewport; otherwise 100vw.
+ */
+export const HERO_IMAGE_SIZES =
+  '(max-width: 700px) 712px, (max-width: 1100px) 100vw, (max-width: 1352px) 1352px, (max-width: 1494px) 1494px, 100vw';
+
+/**
  * Whether autoplay should be paused. Only two things pause it:
  * - the pointer resting on the dots/arrows (resumes as soon as it leaves), and
  * - keyboard focus inside the carousel (resumes when focus leaves).
@@ -211,7 +223,7 @@ export function HeroCarousel() {
                 fill
                 priority={index === 0}
                 loading={index === 0 ? undefined : 'lazy'}
-                sizes="100vw"
+                sizes={HERO_IMAGE_SIZES}
                 quality={HERO_IMAGE_QUALITY}
                 className="hero-slide-img"
               />

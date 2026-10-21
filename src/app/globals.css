@@ -93,27 +93,34 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   to { transform: translateX(-50%); }
 }
 
+/* Reduced motion: one line, same height, no duplicates. Before hydration only
+   the first message shows; the client then rotates unique messages with a fade. */
+.site-marquee-single {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  margin: 0;
+  padding: 0 14px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: center;
+  animation: site-marquee-fade 400ms ease-out;
+}
+
+@keyframes site-marquee-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .site-marquee-track {
-    width: 100%;
-    animation: none;
-  }
-
-  .site-marquee-group {
-    width: 100%;
-    min-width: 0;
-    height: auto;
-    min-height: 38px;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 4px 12px;
-    padding: 7px 12px;
-    white-space: normal;
-    text-align: center;
-  }
-
-  .site-marquee-group[aria-hidden='true'] {
     display: none;
+  }
+
+  .site-marquee-single {
+    display: flex;
   }
 }
 
@@ -3131,12 +3138,15 @@ footer {
   text-transform: uppercase;
 }
 
+/* Full-viewport placeholder: when the streamed page replaces it, the footer is
+   already below the fold, so nothing visible shifts (CLS). */
 .page-loading-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 50vh;
+  min-height: 100vh;
+  min-height: 100svh;
   gap: 16px;
 }
 

@@ -39,6 +39,26 @@ export function renderMarquee(message?: string | null, settings?: SiteSettings):
   const threshold = settings?.freeDeliveryThreshold ?? 2999;
   return message.replaceAll('{freeDeliveryThreshold}', `₹${threshold.toLocaleString('en-IN')}`);
 }
+/**
+ * Announcement-bar messages (Studio > site settings marqueeMessage1–3), rendered,
+ * blank ones dropped and duplicates removed (case/whitespace-insensitive).
+ */
+export function getMarqueeMessages(settings: SiteSettings): string[] {
+  const raw = [settings.marqueeMessage1, settings.marqueeMessage2, settings.marqueeMessage3]
+    .filter((m): m is string => Boolean(m && m.trim()));
+  const source = raw.length > 0 ? raw : [DEFAULT_SETTINGS.marqueeMessage1, DEFAULT_SETTINGS.marqueeMessage2];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const message of source) {
+    const rendered = renderMarquee(message, settings).trim();
+    const key = rendered.replace(/\s+/g, ' ').toLowerCase();
+    if (!rendered || seen.has(key)) continue;
+    seen.add(key);
+    out.push(rendered);
+  }
+  return out;
+}
+
 export function freeDeliveryCopy(settings: SiteSettings): string {
   return settings.standardShippingFee === 0 || settings.freeDeliveryThreshold === 0
     ? 'Free delivery on all orders'
