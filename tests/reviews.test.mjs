@@ -153,13 +153,63 @@ test('section settings are validated server-side and stored apart from commerce 
     { ...validSettings, marqueeMessage1: 'sneaky' },
   ];
   for (const body of invalid) expect((await settingsRoute.PUT(req('/api/admin/reviews/settings', 'PUT', body))).status).toBe(400);
-  const saved = await settingsRoute.PUT(req('/api/admin/reviews/settings', 'PUT', { ...validSettings, rating: 4.83 }));
+  const saved = await settingsRoute.PUT(req('/api/admin/reviews/settings', 'PUT', validSettings));
   expect(saved.status).toBe(200);
   expect((await saved.json()).settings.rating).toBe(4.8);
   const stored = Object.fromEntries(tables.site_settings.map((row) => [row.key, row.value]));
   expect(stored).toMatchObject({ reviewsEnabled: 'true', reviewsRating: '4.8', reviewsCount: '126', reviewsGoogleUrl: 'https://g.page/r/varnam', marqueeMessage1: 'Dispatch time 2 to 5 business days' });
   const all = await (await reviewsRoute.GET(req('/api/admin/reviews'))).json();
   expect(all.settings).toEqual({ ...validSettings, rating: 4.8 });
+});
+
+test('admin API handlers return clear 400 errors for bad reviews and section ratings (no browser involved)', async () => {
+  const errorOf = async (response) => ({ status: response.status, error: (await response.json()).error });
+  const post = (body) => reviewsRoute.POST(req('/api/admin/reviews', 'POST', body));
+  const patch = (id, body) => reviewRoute.PATCH(req(`/api/admin/reviews/${id}`, 'PATCH', body), ctx(id));
+  const put = (body) => settingsRoute.PUT(req('/api/admin/reviews/settings', 'PUT', body));
+
+  // Reviews: create and edit go through the same validation.
+  const existing = addReview({ name: 'Existing' });
+  const reviewCases = [
+    [{ ...validReview, rating: 6 }, 'Choose a star rating from 1 to 5 (whole stars).'],
+    [{ ...validReview, rating: 0 }, 'Choose a star rating from 1 to 5 (whole stars).'],
+    [{ ...validReview, rating: 4.5 }, 'Choose a star rating from 1 to 5 (whole stars).'],
+    [{ ...validReview, name: '' }, "Enter the reviewer's name (up to 80 characters)."],
+    [{ ...validReview, name: '    ' }, "Enter the reviewer's name (up to 80 characters)."],
+    [{ ...validReview, text: 'x'.repeat(601) }, 'Review text must be 600 characters or less (this one has 601).'],
+    [{ ...validReview, text: '   ' }, 'Enter the review text.'],
+  ];
+  for (const [body, message] of reviewCases) {
+    expect(await errorOf(await post(body))).toEqual({ status: 400, error: message });
+    expect(await errorOf(await patch(existing.id, body))).toEqual({ status: 400, error: message });
+  }
+  expect(tables.reviews).toEqual([existing]); // nothing created or changed
+  expect((await post({ ...validReview, text: 'x'.repeat(600) })).status).toBe(201); // exactly 600 is fine
+
+  // Section rating: 1.0–5.0 with one decimal place; nothing is rounded or clamped silently.
+  const settingCases = [
+    [6, 'The overall rating must be from 1.0 to 5.0, e.g. 4.8.'],
+    [5.5, 'The overall rating must be from 1.0 to 5.0, e.g. 4.8.'],
+    [0.5, 'The overall rating must be from 1.0 to 5.0, e.g. 4.8.'],
+    [0, 'The overall rating must be from 1.0 to 5.0, e.g. 4.8.'],
+    [-4.8, 'The overall rating must be from 1.0 to 5.0, e.g. 4.8.'],
+    [4.85, 'Use one decimal place for the overall rating, e.g. 4.8.'],
+    [4.83, 'Use one decimal place for the overall rating, e.g. 4.8.'],
+    [1.05, 'Use one decimal place for the overall rating, e.g. 4.8.'],
+    ['4.8', 'Enter the overall rating as a number, e.g. 4.8.'],
+    [null, 'Enter the overall rating as a number, e.g. 4.8.'],
+  ];
+  for (const [rating, message] of settingCases) {
+    expect(await errorOf(await put({ ...validSettings, rating }))).toEqual({ status: 400, error: message });
+  }
+  expect(tables.site_settings.some((row) => row.key === 'reviewsRating')).toBe(false);
+  // A raw body that JSON cannot express as a number (e.g. NaN/Infinity) is also a 400.
+  expect((await settingsRoute.PUT(req('/api/admin/reviews/settings', 'PUT', JSON.stringify(validSettings).replace('4.8', '1e999')))).status).toBe(400);
+  for (const rating of [1, 1.0, 2.5, 4.8, 4.9, 5]) {
+    const response = await put({ ...validSettings, rating });
+    expect(response.status).toBe(200);
+    expect((await response.json()).settings.rating).toBe(rating);
+  }
 });
 
 test('visibility rule: hidden by default; shown only when switched on with at least one visible review', async () => {
@@ -214,9 +264,13 @@ test('edit, show/hide, delete and reorder', async () => {
 });
 
 test('display helpers', () => {
-  expect(lib.starFillPercent(4.8)).toBe(96);
-  expect(lib.starFillPercent(4.25)).toBe(85);
-  expect(lib.starFillPercent(9)).toBe(100);
+  // Stars fill one by one: 4.8 = four full stars and 80% of the fifth.
+  expect(lib.starFills(4.8)).toEqual([100, 100, 100, 100, 80]);
+  expect(lib.starFills(3.25)).toEqual([100, 100, 100, 25, 0]);
+  expect(lib.starFills(5)).toEqual([100, 100, 100, 100, 100]);
+  expect(lib.starFills(1)).toEqual([100, 0, 0, 0, 0]);
+  expect(lib.starFills(9)).toEqual([100, 100, 100, 100, 100]);
+  expect(lib.starFills(Number.NaN)).toEqual([0, 0, 0, 0, 0]);
   expect(lib.formatReviewDate('2026-09-14')).toBe('14 Sep 2026');
   expect(lib.formatReviewDate('nope')).toBe('');
   expect(lib.reviewAvatar(' lakshmi')).toMatchObject({ initial: 'L' });
@@ -233,7 +287,11 @@ test('landing page wiring, Studio tab and an additive, idempotent migration', ()
   expect(read('src/app/page.tsx')).not.toContain("'use client'");
   expect(read('src/components/HomePage.tsx')).toContain('{reviews && <ReviewsSection section={reviews} />}');
   const section = read('src/components/ReviewsSection.tsx');
-  for (const text of ['See all reviews on Google', 'Write a review', 'Read more', 'aria-label="Previous reviews"', 'aria-label="Next reviews"', 'Bought:', 'target="_blank"', 'tabIndex={0}']) expect(section).toContain(text);
+  for (const text of ['See all reviews on Google', 'Write a review', 'Read more', 'aria-label="Previous reviews"', 'aria-label="Next reviews"', 'Bought:', 'target="_blank"', 'tabIndex={0}', 'role="region"', 'aria-roledescription="carousel"', 'aria-roledescription="slide"', 'starFills(rating)', 'scroll.overflows &&']) expect(section).toContain(text);
+  const studioReviews = read('src/components/StudioReviews.tsx');
+  expect(studioReviews).toContain('e.g. 4.8, from 1.0 to 5.0');
+  expect(studioReviews).toContain('step={0.1}');
+  expect(studioReviews).not.toMatch(/maxLength=\{REVIEW_TEXT_MAX\}/); // long pastes are flagged, never cut off silently
   expect(section).not.toMatch(/https?:\/\/(?!www\.w3\.org)/); // no external requests (Google "G" is inline SVG)
   const studio = read('src/app/studio-desk/page.tsx');
   expect(studio).toContain("setActiveTab('reviews')");

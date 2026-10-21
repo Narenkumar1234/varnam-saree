@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import type { Product } from '@/types';
 import {
   DEFAULT_REVIEW_SETTINGS,
@@ -37,10 +37,117 @@ async function readJson(response: Response, fallback: string) {
   return data;
 }
 
+const textLength = (text: string) => text.trim().length;
+
+/**
+ * Add / edit form. The text box has no maxLength, so a long paste is never cut off
+ * silently: the live counter turns into an error and saving is blocked until it fits.
+ */
+function ReviewForm({ draft, setDraft, products, busy, disabled, onSubmit, onCancel, autoFocus = false }: {
+  draft: Draft;
+  setDraft: (draft: Draft) => void;
+  products: Pick<Product, 'id' | 'name'>[];
+  busy: boolean;
+  disabled: boolean;
+  onSubmit: (event: React.FormEvent) => void;
+  onCancel?: () => void;
+  autoFocus?: boolean;
+}) {
+  const id = useId();
+  const nameRef = useRef<HTMLInputElement>(null);
+  const [pasteNote, setPasteNote] = useState('');
+  const length = textLength(draft.text);
+  const over = length - REVIEW_TEXT_MAX;
+  const editing = draft.id != null;
+
+  useEffect(() => {
+    if (!autoFocus) return;
+    nameRef.current?.focus({ preventScroll: true });
+    // Bring the whole form into view from its heading (it can be taller than a phone screen).
+    nameRef.current?.closest('form')?.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }, [autoFocus]);
+
+  const onPaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const pasted = event.clipboardData.getData('text');
+    const target = event.currentTarget;
+    const next = target.value.slice(0, target.selectionStart) + pasted + target.value.slice(target.selectionEnd);
+    setPasteNote(textLength(next) > REVIEW_TEXT_MAX ? `The pasted text makes the review ${textLength(next)} characters long. Google reviews can be longer than ${REVIEW_TEXT_MAX}, so shorten it before saving; nothing was cut off.` : '');
+  };
+
+  const submit = (event: React.FormEvent) => {
+    if (over > 0) { event.preventDefault(); document.getElementById(`${id}-text`)?.focus(); return; }
+    onSubmit(event);
+  };
+
+  return (
+    <form className={`admin-edit-form studio-commerce-form studio-review-form${editing ? ' is-editing' : ''}`} onSubmit={submit} aria-labelledby={`${id}-title`}>
+      <fieldset disabled={disabled}>
+        <h3 id={`${id}-title`}>{editing ? `Edit review by ${draft.name || '…'}` : 'Add a review'}</h3>
+        <div className="admin-form-row two-col">
+          <label>Reviewer name<input ref={nameRef} required maxLength={REVIEW_NAME_MAX} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></label>
+          <label>Star rating
+            <select required value={draft.rating} onChange={(e) => setDraft({ ...draft, rating: Number(e.target.value) })}>
+              {[5, 4, 3, 2, 1].map((n) => <option key={n} value={n}>{n} star{n === 1 ? '' : 's'}</option>)}
+            </select>
+          </label>
+        </div>
+        <div className="studio-review-textfield">
+          <label htmlFor={`${id}-text`}>Review text</label>
+          <textarea
+            id={`${id}-text`}
+            className="studio-review-textbox"
+            required
+            rows={5}
+            value={draft.text}
+            aria-invalid={over > 0 || undefined}
+            aria-describedby={`${id}-count${over > 0 ? ` ${id}-over` : ''}`}
+            onPaste={onPaste}
+            onChange={(e) => { setDraft({ ...draft, text: e.target.value }); if (textLength(e.target.value) <= REVIEW_TEXT_MAX) setPasteNote(''); }}
+          />
+          <div className="studio-review-count-row">
+            <span id={`${id}-count`} className={`studio-review-counter${over > 0 ? ' is-over' : ''}`}>{length}/{REVIEW_TEXT_MAX}</span>
+          </div>
+          <p id={`${id}-over`} className="studio-review-over" role="alert" hidden={over <= 0}>
+            {over > 0 ? (pasteNote || `The review is ${over} character${over === 1 ? '' : 's'} over the ${REVIEW_TEXT_MAX}-character limit. Shorten it to save.`) : ''}
+          </p>
+        </div>
+        <div className="admin-form-row two-col">
+          <label>Review date (optional)<input type="date" value={draft.reviewDate} onChange={(e) => setDraft({ ...draft, reviewDate: e.target.value })} /></label>
+          <label>Photo URL (optional)<input type="url" inputMode="url" placeholder="https://…" maxLength={500} value={draft.photoUrl} onChange={(e) => setDraft({ ...draft, photoUrl: e.target.value })} /></label>
+        </div>
+        <div className="admin-form-row two-col">
+          <label>Saree they bought (optional)
+            <select value={draft.productId} onChange={(e) => setDraft({ ...draft, productId: e.target.value })}>
+              <option value="">None</option>
+              {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </label>
+          <label className="studio-commerce-checkbox studio-review-visible">
+            <input type="checkbox" checked={draft.visible} onChange={(e) => setDraft({ ...draft, visible: e.target.checked })} />
+            Show this review
+          </label>
+        </div>
+        <div className="studio-commerce-actions">
+          <button className="btn" type="submit" disabled={busy}>{busy ? 'Saving…' : editing ? 'Save review' : 'Add review'}</button>
+          {onCancel && <button type="button" className="btn outline" onClick={onCancel}>Cancel edit</button>}
+        </div>
+      </fieldset>
+    </form>
+  );
+}
+
+const ArrowIcon = ({ up }: { up: boolean }) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d={up ? 'M12 19V5m-6 6l6-6 6 6' : 'M12 5v14m-6-6l6 6 6-6'} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 export function StudioReviews({ adminFetch, products }: { adminFetch: AdminFetch; products: Pick<Product, 'id' | 'name'>[] }) {
   const [settings, setSettings] = useState<ReviewSettings>(DEFAULT_REVIEW_SETTINGS);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
+  /** The review being edited in place in the list (separate from the "Add a review" form). */
+  const [editDraft, setEditDraft] = useState<Draft | null>(null);
   const [loading, setLoading] = useState(true);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -77,16 +184,42 @@ export function StudioReviews({ adminFetch, products }: { adminFetch: AdminFetch
     }, 'Review settings saved. The landing page shows them on its next load.');
   };
 
-  const saveReview = (event: React.FormEvent) => {
+  const addReview = (event: React.FormEvent) => {
     event.preventDefault();
-    const editing = draft.id != null;
     void run(async () => {
-      const data = await readJson(await adminFetch(editing ? `/api/admin/reviews/${draft.id}` : '/api/admin/reviews', {
-        method: editing ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(toPayload(draft)),
+      const data = await readJson(await adminFetch('/api/admin/reviews', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(toPayload(draft)),
       }), 'Unable to save the review.');
-      setReviews((list) => editing ? list.map((r) => r.id === data.review.id ? data.review : r) : [...list, data.review]);
+      setReviews((list) => [...list, data.review]);
       setDraft(emptyDraft());
-    }, editing ? 'Review updated.' : 'Review added.');
+    }, 'Review added.');
+  };
+
+  const focusRowAction = (reviewId: number) => {
+    requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-edit-review="${reviewId}"]`)?.focus());
+  };
+
+  const startEdit = (review: Review) => {
+    setEditDraft(toDraft(review)); setError(''); setNotice('');
+  };
+  const cancelEdit = () => {
+    const id = editDraft?.id;
+    setEditDraft(null); setError('');
+    if (id != null) focusRowAction(id);
+  };
+
+  const saveEdit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!editDraft || editDraft.id == null) return;
+    const current = editDraft;
+    void run(async () => {
+      const data = await readJson(await adminFetch(`/api/admin/reviews/${current.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(toPayload(current)),
+      }), 'Unable to save the review.');
+      setReviews((list) => list.map((r) => r.id === data.review.id ? data.review : r));
+      setEditDraft(null);
+      focusRowAction(data.review.id);
+    }, 'Review updated.');
   };
 
   const toggleVisible = (review: Review) => void run(async () => {
@@ -101,7 +234,7 @@ export function StudioReviews({ adminFetch, products }: { adminFetch: AdminFetch
     void run(async () => {
       await readJson(await adminFetch(`/api/admin/reviews/${review.id}`, { method: 'DELETE' }), 'Unable to delete the review.');
       setReviews((list) => list.filter((r) => r.id !== review.id));
-      if (draft.id === review.id) setDraft(emptyDraft());
+      if (editDraft?.id === review.id) setEditDraft(null);
     }, 'Review deleted.');
   };
 
@@ -147,7 +280,10 @@ export function StudioReviews({ adminFetch, products }: { adminFetch: AdminFetch
             </label>
             <div className="admin-form-row two-col">
               <label>Section title<input required maxLength={REVIEW_TITLE_MAX} value={settings.title} onChange={(e) => setSettings({ ...settings, title: e.target.value })} /></label>
-              <label>Overall rating (1.0–5.0)<input required type="number" min={1} max={5} step={0.1} value={settings.rating} onChange={(e) => setSettings({ ...settings, rating: Number(e.target.value) })} /></label>
+              <label>Overall rating
+                <input required type="number" inputMode="decimal" min={1} max={5} step={0.1} value={settings.rating} aria-describedby="studio-reviews-rating-hint" onChange={(e) => setSettings({ ...settings, rating: Number(e.target.value) })} />
+                <span id="studio-reviews-rating-hint" className="muted studio-field-hint">e.g. 4.8, from 1.0 to 5.0 (one decimal, as shown on Google)</span>
+              </label>
             </div>
             <div className="admin-form-row two-col">
               <label>Total Google reviews<input required type="number" min={0} max={10000000} step={1} value={settings.reviewCount} onChange={(e) => setSettings({ ...settings, reviewCount: Number(e.target.value) })} /></label>
@@ -168,7 +304,11 @@ export function StudioReviews({ adminFetch, products }: { adminFetch: AdminFetch
           </div>
         ) : (
           <ol className="studio-reviews-list">
-            {reviews.map((review, index) => (
+            {reviews.map((review, index) => editDraft?.id === review.id ? (
+              <li key={review.id} className="is-editing">
+                <ReviewForm draft={editDraft} setDraft={setEditDraft} products={products} busy={busy} disabled={busy || !loaded} onSubmit={saveEdit} onCancel={cancelEdit} autoFocus />
+              </li>
+            ) : (
               <li key={review.id} className={review.visible ? '' : 'is-hidden'}>
                 <div className="studio-review-main">
                   <div className="studio-review-title">
@@ -180,55 +320,21 @@ export function StudioReviews({ adminFetch, products }: { adminFetch: AdminFetch
                   <p className="studio-review-text">{review.text}</p>
                   {review.productId && <p className="muted studio-review-product">Bought: {productName(review.productId) || `Saree #${review.productId} (no longer listed)`}</p>}
                 </div>
-                <div className="studio-review-actions">
-                  <button type="button" className="btn outline" disabled={busy || index === 0} onClick={() => move(index, -1)} aria-label={`Move ${review.name}'s review up`}>↑</button>
-                  <button type="button" className="btn outline" disabled={busy || index === reviews.length - 1} onClick={() => move(index, 1)} aria-label={`Move ${review.name}'s review down`}>↓</button>
-                  <button type="button" className="btn outline" disabled={busy} onClick={() => toggleVisible(review)}>{review.visible ? 'Hide' : 'Show'}</button>
-                  <button type="button" className="btn outline" disabled={busy} onClick={() => { setDraft(toDraft(review)); setError(''); setNotice(''); }}>Edit</button>
-                  <button type="button" className="btn outline" disabled={busy} onClick={() => remove(review)}>Delete</button>
+                <div className="studio-review-actions" role="group" aria-label={`Actions for ${review.name}'s review`}>
+                  <div className="studio-review-move">
+                    <button type="button" className="studio-review-btn is-icon" disabled={busy || index === 0} onClick={() => move(index, -1)} aria-label={`Move ${review.name}'s review up`} title="Move up"><ArrowIcon up /></button>
+                    <button type="button" className="studio-review-btn is-icon" disabled={busy || index === reviews.length - 1} onClick={() => move(index, 1)} aria-label={`Move ${review.name}'s review down`} title="Move down"><ArrowIcon up={false} /></button>
+                  </div>
+                  <button type="button" className="studio-review-btn" disabled={busy} onClick={() => toggleVisible(review)} aria-label={`${review.visible ? 'Hide' : 'Show'} ${review.name}'s review`}>{review.visible ? 'Hide' : 'Show'}</button>
+                  <button type="button" className="studio-review-btn" data-edit-review={review.id} disabled={busy || editDraft != null} onClick={() => startEdit(review)} aria-label={`Edit ${review.name}'s review`}>Edit</button>
+                  <button type="button" className="studio-review-btn is-danger" disabled={busy} onClick={() => remove(review)} aria-label={`Delete ${review.name}'s review`}>Delete</button>
                 </div>
               </li>
             ))}
           </ol>
         )}
 
-        <form className="admin-edit-form studio-commerce-form" onSubmit={saveReview} aria-labelledby="studio-review-form-title">
-          <fieldset disabled={busy || !loaded}>
-            <h3 id="studio-review-form-title">{draft.id != null ? `Edit review by ${draft.name || '…'}` : 'Add a review'}</h3>
-            <div className="admin-form-row two-col">
-              <label>Reviewer name<input required maxLength={REVIEW_NAME_MAX} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></label>
-              <label>Star rating
-                <select required value={draft.rating} onChange={(e) => setDraft({ ...draft, rating: Number(e.target.value) })}>
-                  {[5, 4, 3, 2, 1].map((n) => <option key={n} value={n}>{n} star{n === 1 ? '' : 's'}</option>)}
-                </select>
-              </label>
-            </div>
-            <label className="studio-review-textarea">Review text
-              <textarea required rows={5} maxLength={REVIEW_TEXT_MAX} value={draft.text} onChange={(e) => setDraft({ ...draft, text: e.target.value })} />
-              <span className="muted studio-review-counter">{draft.text.length}/{REVIEW_TEXT_MAX}</span>
-            </label>
-            <div className="admin-form-row two-col">
-              <label>Review date (optional)<input type="date" value={draft.reviewDate} onChange={(e) => setDraft({ ...draft, reviewDate: e.target.value })} /></label>
-              <label>Photo URL (optional)<input type="url" inputMode="url" placeholder="https://…" maxLength={500} value={draft.photoUrl} onChange={(e) => setDraft({ ...draft, photoUrl: e.target.value })} /></label>
-            </div>
-            <div className="admin-form-row two-col">
-              <label>Saree they bought (optional)
-                <select value={draft.productId} onChange={(e) => setDraft({ ...draft, productId: e.target.value })}>
-                  <option value="">None</option>
-                  {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
-              </label>
-              <label className="studio-commerce-checkbox studio-review-visible">
-                <input type="checkbox" checked={draft.visible} onChange={(e) => setDraft({ ...draft, visible: e.target.checked })} />
-                Show this review
-              </label>
-            </div>
-            <div className="studio-commerce-actions">
-              <button className="btn" type="submit" disabled={busy}>{busy ? 'Saving…' : draft.id != null ? 'Save review' : 'Add review'}</button>
-              {draft.id != null && <button type="button" className="btn outline" onClick={() => { setDraft(emptyDraft()); setError(''); }}>Cancel edit</button>}
-            </div>
-          </fieldset>
-        </form>
+        <ReviewForm draft={draft} setDraft={setDraft} products={products} busy={busy} disabled={busy || !loaded} onSubmit={addReview} />
       </>}
     </section>
   );

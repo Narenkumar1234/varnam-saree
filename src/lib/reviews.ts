@@ -99,8 +99,15 @@ export function reviewSettingsInput(body: unknown): ReviewSettings {
   if (typeof value.enabled !== 'boolean') throw new ReviewInputError('Choose whether to show the reviews section.');
   const title = typeof value.title === 'string' ? value.title.trim() : '';
   if (!title || title.length > REVIEW_TITLE_MAX) throw new ReviewInputError(`The section title needs 1–${REVIEW_TITLE_MAX} characters.`);
-  if (typeof value.rating !== 'number' || !Number.isFinite(value.rating) || value.rating < 1 || value.rating > 5) {
-    throw new ReviewInputError('The overall rating must be between 1.0 and 5.0.');
+  if (typeof value.rating !== 'number' || !Number.isFinite(value.rating)) {
+    throw new ReviewInputError('Enter the overall rating as a number, e.g. 4.8.');
+  }
+  if (value.rating < 1 || value.rating > 5) {
+    throw new ReviewInputError('The overall rating must be from 1.0 to 5.0, e.g. 4.8.');
+  }
+  // One decimal place, like Google shows it (4.8, not 4.85): reject rather than silently round.
+  if (Math.abs(value.rating * 10 - Math.round(value.rating * 10)) > 1e-9) {
+    throw new ReviewInputError('Use one decimal place for the overall rating, e.g. 4.8.');
   }
   if (typeof value.reviewCount !== 'number' || !Number.isSafeInteger(value.reviewCount) || value.reviewCount < 0 || value.reviewCount > 10_000_000) {
     throw new ReviewInputError('The total review count must be a whole number of 0 or more.');
@@ -123,11 +130,11 @@ export function reviewInput(body: unknown, productIds?: Set<number>): ReviewInpu
   const name = typeof value.name === 'string' ? value.name.trim().replace(/\s+/g, ' ') : '';
   if (!name || name.length > REVIEW_NAME_MAX) throw new ReviewInputError(`Enter the reviewer's name (up to ${REVIEW_NAME_MAX} characters).`);
   if (typeof value.rating !== 'number' || !Number.isInteger(value.rating) || value.rating < 1 || value.rating > 5) {
-    throw new ReviewInputError('Choose a star rating from 1 to 5.');
+    throw new ReviewInputError('Choose a star rating from 1 to 5 (whole stars).');
   }
   const text = typeof value.text === 'string' ? value.text.trim() : '';
   if (!text) throw new ReviewInputError('Enter the review text.');
-  if (text.length > REVIEW_TEXT_MAX) throw new ReviewInputError(`Review text must be ${REVIEW_TEXT_MAX} characters or less.`);
+  if (text.length > REVIEW_TEXT_MAX) throw new ReviewInputError(`Review text must be ${REVIEW_TEXT_MAX} characters or less (this one has ${text.length}).`);
 
   const rawDate = value.reviewDate === '' || value.reviewDate == null ? null : value.reviewDate;
   if (rawDate !== null && (typeof rawDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(rawDate)
@@ -202,8 +209,11 @@ export function reviewAvatar(name: string): { initial: string; colour: string } 
   return { initial, colour: AVATAR_COLOURS[hash % AVATAR_COLOURS.length] };
 }
 
-/** Width (0–100%) of the filled layer for a rating, e.g. 4.8 → 96. */
-export function starFillPercent(rating: number): number {
-  if (!Number.isFinite(rating)) return 0;
-  return Math.round(Math.min(5, Math.max(0, rating)) / 5 * 1000) / 10;
+/**
+ * Fill (0–100%) of each of the five stars, filled star by star:
+ * 4.8 → [100, 100, 100, 100, 80], 3.25 → [100, 100, 100, 25, 0].
+ */
+export function starFills(rating: number): number[] {
+  const value = Number.isFinite(rating) ? Math.min(5, Math.max(0, rating)) : 0;
+  return [0, 1, 2, 3, 4].map((i) => Math.round(Math.min(1, Math.max(0, value - i)) * 100));
 }
