@@ -7,6 +7,7 @@ import { validateCoupon, type CouponValidation } from '@/lib/coupons';
 import { quoteFromCatalogue, previewOrderQuote, parseOrderItems } from '@/lib/pricing';
 import { DEFAULT_COMMERCE, type CommerceConfig } from '@/lib/commerce';
 import { customerAuthHeaders } from '@/lib/customer-auth-headers';
+import { formatIstDate } from '@/lib/datetime';
 import { createProductWhatsAppMessage, createWhatsAppOrderUrl, formatWhatsAppOrderMessage, openWhatsAppOrder } from '@/lib/whatsapp';
 
 interface StoreContextType {
@@ -251,14 +252,12 @@ export function StoreProvider({ children, initialProducts, initialCommerce = DEF
       await refreshProducts();
       throw new Error(data?.error || 'Your order could not be saved. Please try again.');
     }
-    const date = new Date().toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
+    const createdAt = new Date().toISOString();
+    const date = formatIstDate(createdAt);
     const newOrder: Order = {
       id,
       date,
+      createdAt,
       name: details.first,
       items: data.order.items,
       pricing: data.order.pricing,

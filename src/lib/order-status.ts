@@ -1,3 +1,4 @@
+import { formatIstDateTime } from './datetime';
 import type { OrderPayment } from '@/types';
 import { isOfflinePaymentMethod } from '@/lib/offline-payment';
 
@@ -185,16 +186,7 @@ export function accountOrderStatusLine(status?: string | null, payment?: Payment
 }
 
 export function formatOrderCreatedAtIst(value?: string | Date | null): string {
-  const date = value instanceof Date ? value : typeof value === 'string' && value.trim() ? new Date(value) : null;
-  if (!date || Number.isNaN(date.getTime())) return '';
-  return date.toLocaleString('en-IN', {
-    timeZone: 'Asia/Kolkata',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatIstDateTime(typeof value === 'string' ? value.trim() : value);
 }
 
 export type AdminPaymentDetails = {

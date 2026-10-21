@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Product } from '@/types';
+import { formatIstDateTime } from '@/lib/datetime';
 import { money, capitalizeColour } from '@/data/products';
 import { Icon } from '@/components/Icons';
 import { readOrderSnapshot } from '@/lib/pricing';
@@ -1412,13 +1413,7 @@ export default function StudioDeskPage() {
                             <td>
                               <strong>{o.id}</strong>
                               <div className="muted" style={{ fontSize: '11px' }}>
-                                {new Date(o.createdAt).toLocaleDateString('en-IN', {
-                                  day: 'numeric',
-                                  month: 'short',
-                                  year: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
+                                {formatIstDateTime(o.createdAt)}
                               </div>
                             </td>
                             <td>

@@ -13,11 +13,10 @@ import { OrderTotals } from '@/components/OrderTotals';
 import { OrderLinePrice } from '@/components/OrderLinePrice';
 import { AddressFields } from '@/components/AddressFields';
 import { ADDRESS_FIELDS, customerAddressPayload, deliveryFromCustomerAddress, markAddressMigrated, readSavedAddress, shouldMigrateBrowserAddress } from '@/lib/address-storage';
-import { formatWhatsAppOrderMessage } from '@/lib/whatsapp';
 import type { CustomerAddress, DeliveryAddress } from '@/types';
 import { loadRazorpayCheckout } from '@/components/StudioPayment';
 import { money } from '@/data/products';
-import { createWhatsAppOrderUrl } from '@/lib/whatsapp';
+import { createWhatsAppOrderUrl, openPendingWhatsAppWindow, checkoutWhatsAppMessage } from '@/lib/whatsapp';
 import { useCustomerAccount } from '@/hooks/use-customer-account';
 import { customerAuthHeaders } from '@/lib/customer-auth-headers';
 import { ProductThumb } from '@/components/ProductThumb';
@@ -36,8 +35,11 @@ async function razorpayRequest(endpoint: string, body: unknown) {
 function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { cart, products, commerce, getProductById, couponCode, placeOrder, openWhatsAppMessage, updateOrderPayment } = useStore();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { cart, products, commerce, getProductById, couponCode, placeOrder, updateOrderPayment } = useStore();
+  const [isSubmitting, setSubmittingState] = useState(false);
+  // Synchronous guard: a double-click fires twice before React re-renders the disabled button.
+  const submittingRef = useRef(false);
+  const setIsSubmitting = (value: boolean) => { submittingRef.current = value; setSubmittingState(value); };
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'online' | 'whatsapp'>('online');
   const [paymentPhase, setPaymentPhase] = useState<'form' | 'paying' | 'error'>('form');
@@ -189,11 +191,20 @@ function CheckoutContent() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (isSubmitting || checkoutError) return;
+    if (submittingRef.current || checkoutError) return;
+    // "Order on WhatsApp instead" is a submit button for the same form, so it gets the
+    // same validation and the same saved order; it only switches the payment method.
+    const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLElement | null;
+    const method: 'online' | 'whatsapp' = submitter?.dataset.payment === 'whatsapp' ? 'whatsapp' : paymentMethod;
+    if (method !== paymentMethod) setPaymentMethod(method);
     setIsSubmitting(true);
     setSubmitError(null);
+    // Open the WhatsApp tab now, inside the click, so popup blockers allow it. It is
+    // pointed at the chat once the order (and its ID) is saved.
+    const whatsAppWindow = method === 'whatsapp' ? openPendingWhatsAppWindow() : null;
+    const quote = checkoutQuote;
     try {
       const orderId = await placeOrder(
         {
@@ -204,16 +215,26 @@ function CheckoutContent() {
         buyNowProduct ? checkoutItems : undefined
       );
 
-      if (paymentMethod === 'whatsapp') {
-        router.push(`/confirmation/${orderId}`);
+      if (method === 'whatsapp') {
+        const whatsAppUrl = createWhatsAppOrderUrl(checkoutWhatsAppMessage(orderId, quote, formData, window.location.origin));
+        if (whatsAppWindow && !whatsAppWindow.closed && whatsAppUrl) {
+          whatsAppWindow.location.replace(whatsAppUrl);
+          router.push(`/confirmation/${orderId}?via=whatsapp`);
+        } else {
+          // Popup blocked: the confirmation page takes over this tab and opens WhatsApp
+          // from there, so Back from WhatsApp returns to the confirmation.
+          whatsAppWindow?.close();
+          router.push(`/confirmation/${orderId}?via=whatsapp&open=1`);
+        }
         return;
       }
 
       // Razorpay: order saved, now initiate payment
-      savedTotal.current = checkoutQuote.pricing.total;
+      savedTotal.current = quote.pricing.total;
       setPlacedOrderId(orderId);
       await startRazorpayPayment(orderId);
     } catch (err) {
+      whatsAppWindow?.close();
       setSubmitError(err instanceof TypeError
         ? 'Your order could not be saved. Check your connection and try again.'
         : err instanceof Error ? err.message : 'Your order could not be saved. Please try again.');
@@ -276,37 +297,6 @@ function CheckoutContent() {
       </>
     );
   }
-
-  const handleWhatsAppCheckout = () => {
-    if (checkoutError) return;
-    const customerName = `${formData.first} ${formData.last}`.trim();
-    const fullAddress = [
-      formData.address,
-      formData.apartment,
-      formData.landmark,
-      formData.city,
-      formData.state,
-      formData.pin,
-    ].filter(Boolean).join(', ');
-
-    const lines = [
-      buyNowProduct ? `Direct purchase for: ${buyNowProduct.name}` : `Bag Order (${checkoutQuote.items.length} sarees):`,
-      '',
-      ...checkoutQuote.items.map((x) => `• ${x.name} × ${x.qty} — ₹${x.total || x.unitPrice * x.qty}`),
-      '',
-      `Subtotal: ₹${checkoutQuote.pricing.subtotal}`,
-      ...(checkoutQuote.pricing.discountAmount > 0 && checkoutQuote.pricing.couponCode ? [`Coupon (${checkoutQuote.pricing.couponCode}): −₹${checkoutQuote.pricing.discountAmount}`] : []),
-      `Delivery: ${checkoutQuote.pricing.shipping ? `₹${checkoutQuote.pricing.shipping}` : 'Free delivery'}`,
-      `Total: ₹${checkoutQuote.pricing.total}`,
-      '',
-      ...(customerName ? [`Customer: ${customerName}`] : []),
-      ...(formData.phone ? [`Phone: ${formData.phone}`] : []),
-      ...(formData.email ? [`Email: ${formData.email}`] : []),
-      ...(fullAddress ? [`Delivery address: ${fullAddress}`] : []),
-    ];
-
-    openWhatsAppMessage(formatWhatsAppOrderMessage(lines, 'Hello Varnam, I would like to place this order on WhatsApp:', 'Please confirm my order and share delivery / payment details.'));
-  };
 
   return (
     <>
@@ -410,21 +400,35 @@ function CheckoutContent() {
             {checkoutError && <p className="coupon-feedback error" role="alert">{checkoutError}</p>}
             {checkoutError && <p><Link className="text-link" href={buyNowProduct ? `/product/${buyNowProduct.id}` : '/cart'}>{buyNowProduct ? 'Review this saree' : 'Review your bag'}</Link></p>}
             {submitError && <p className="coupon-feedback error" role="alert">{submitError}</p>}
+            {paymentMethod === 'whatsapp' && (
+              <p className="muted" style={{ fontSize: '12px', marginTop: '10px' }}>
+                Your order is saved first, then WhatsApp opens with your order ID so we can confirm payment and delivery.
+              </p>
+            )}
             <button className="btn" type="submit" disabled={isSubmitting || !!checkoutError} style={{ width: '100%', marginTop: '24px' }}>
-              {isSubmitting ? 'Placing order…' : paymentMethod === 'online' ? 'Place order & pay' : 'Place order'} <Icon name="arrow-up-right" />
+              {isSubmitting
+                ? 'Placing order…'
+                : paymentMethod === 'online'
+                  ? <>Place order &amp; pay <Icon name="arrow-up-right" /></>
+                  : <><Icon name="whatsapp" /> Place order on WhatsApp</>}
             </button>
-            <div className="checkout-or-divider" aria-hidden="true">
-              <span>or</span>
-            </div>
-            <button
-              type="button"
-              className="whatsapp-order"
-              style={{ width: '100%', minHeight: '48px', justifyContent: 'center' }}
-              disabled={isSubmitting || !!checkoutError}
-              onClick={handleWhatsAppCheckout}
-            >
-              <Icon name="whatsapp" /> Order on WhatsApp
-            </button>
+            {paymentMethod === 'online' && (
+              <>
+                <div className="checkout-or-divider" aria-hidden="true">
+                  <span>or</span>
+                </div>
+                {/* Same form submit as above, with the WhatsApp payment method. */}
+                <button
+                  type="submit"
+                  data-payment="whatsapp"
+                  className="whatsapp-order"
+                  style={{ width: '100%', minHeight: '48px', justifyContent: 'center' }}
+                  disabled={isSubmitting || !!checkoutError}
+                >
+                  <Icon name="whatsapp" /> Order on WhatsApp instead
+                </button>
+              </>
+            )}
           </form>
 
           <aside className="summary-box">
