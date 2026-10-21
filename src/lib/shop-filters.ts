@@ -16,29 +16,13 @@ export function colourKey(value: string): string {
   return value.trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
-/** Extract all trimmed colour candidates from a product and its variants. */
+/** The product's primary colour (colour variants are not offered on the storefront). */
 export function getProductColours(product: Product): string[] {
-  const colours: string[] = [];
-  if (typeof product.colour === 'string' && product.colour.trim()) {
-    colours.push(product.colour.trim());
-  }
-  if (Array.isArray(product.variants)) {
-    for (const v of product.variants) {
-      if (v) {
-        if (typeof v.colour === 'string' && v.colour.trim()) {
-          colours.push(v.colour.trim());
-        }
-        if (typeof v.name === 'string' && v.name.trim()) {
-          colours.push(v.name.trim());
-        }
-      }
-    }
-  }
-  return colours;
+  return typeof product.colour === 'string' && product.colour.trim() ? [product.colour.trim()] : [];
 }
 
 /**
- * Lists every distinct colour text entered by owners across published products/variants,
+ * Lists every distinct colour text entered by owners across published products' primary colours,
  * trimmed, de-duplicated case-insensitively, shown in friendly title case, and sorted alphabetically.
  */
 export function getShopColours(catalogue: Product[]): string[] {

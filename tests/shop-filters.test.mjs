@@ -84,28 +84,17 @@ describe('Shop colour filters', () => {
     expect(formatColourTitleCase('   ')).toBe('');
   });
 
-  test('getProductColours extracts all distinct trimmed colours from product and its variants', () => {
-    const colours = getProductColours(sampleProducts[0]);
-    expect(colours).toContain('emerald');
-    expect(colours).toContain('ruby red');
-    expect(colours).toContain('GOLD');
+  test('getProductColours returns only the trimmed primary colour (variants are ignored)', () => {
+    expect(getProductColours(sampleProducts[0])).toEqual(['emerald']);
+    expect(getProductColours(sampleProducts[4])).toEqual([]);
   });
 
-  test('getShopColours lists trimmed, case-insensitively de-duplicated, title-cased, alphabetically sorted colours across products/variants', () => {
+  test('getShopColours lists trimmed, case-insensitively de-duplicated, title-cased, alphabetically sorted primary colours', () => {
     const colours = getShopColours(sampleProducts);
-    // Expected distinct colours:
-    // - "emerald" / "EMERALD" -> "Emerald"
-    // - "ruby red" -> "Ruby Red"
-    // - "GOLD" -> "Gold"
-    // - "Rose" -> "Rose"
-    // - "bottle-green" / "bottle green" -> "Bottle-Green", "Bottle Green"
-    // - "off-white" -> "Off-White"
-    // Blank should be skipped.
-    expect(colours).toContain('Emerald');
-    expect(colours).toContain('Ruby Red');
-    expect(colours).toContain('Gold');
-    expect(colours).toContain('Rose');
-    expect(colours).toContain('Off-White');
+    // Primary colours only; variant colours (Ruby Red, Gold, Bottle-Green) are not listed. Blank is skipped.
+    expect(colours).toEqual(['Emerald', 'Off-White', 'Rose']);
+    expect(colours).not.toContain('Ruby Red');
+    expect(colours).not.toContain('Gold');
 
     // Case-insensitively de-duplicated: Emerald appears only once
     expect(colours.filter((c) => c.toLowerCase() === 'emerald')).toHaveLength(1);
@@ -135,16 +124,13 @@ describe('Shop colour filters', () => {
     expect(results.map((p) => p.id)).not.toContain(4);
   });
 
-  test('filterShopProducts matches colours case-insensitively against variant colour', () => {
+  test('filterShopProducts does not match variant colours', () => {
     const filters = {
       ...createShopFilters({ min: 0, max: 10000 }),
       colours: ['Ruby Red'],
     };
-    const results = filterShopProducts(sampleProducts, filters);
-    // Product 1 has variant 'ruby red'
-    expect(results.map((p) => p.id)).toContain(1);
-    expect(results.map((p) => p.id)).not.toContain(2);
-    expect(results.map((p) => p.id)).not.toContain(3);
+    // Product 1 has a legacy variant 'ruby red', but only primary colours count
+    expect(filterShopProducts(sampleProducts, filters)).toEqual([]);
   });
 
   test('filterShopProducts matches multiple selected colours', () => {
