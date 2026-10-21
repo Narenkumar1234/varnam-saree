@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useStore } from '@/context/store-context';
 import { Icon } from './Icons';
-import { renderMarquee } from '@/lib/commerce';
+import { getMarqueeMessages } from '@/lib/commerce';
 import { validateCoupon } from '@/lib/coupons';
 import { getMaxProductDiscount, getOffersNav } from '@/lib/shop-filters';
 
@@ -21,6 +21,25 @@ export function Header() {
   const couponOffer = commerce.coupons.filter((coupon) => validateCoupon(coupon.code, commerce.coupons, Number.MAX_SAFE_INTEGER).valid).sort((a, b) => b.percentage - a.percentage)[0];
   const offersNav = getOffersNav(getMaxProductDiscount(products || []), couponOffer || null);
   const pathname = usePathname();
+
+  // Announcement bar: the scrolling track repeats the messages for a seamless loop;
+  // under reduced motion a single line rotates the unique messages every ~4s.
+  const uniqueMarquee = getMarqueeMessages(commerce.settings);
+  const repeatedMarquee = [...uniqueMarquee, ...uniqueMarquee];
+  const [marqueeIndex, setMarqueeIndex] = useState(0);
+  useEffect(() => {
+    if (uniqueMarquee.length < 2) return;
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const sync = () => {
+      if (timer) clearInterval(timer);
+      timer = undefined;
+      if (media.matches) timer = setInterval(() => setMarqueeIndex((i) => (i + 1) % uniqueMarquee.length), 4000);
+    };
+    sync();
+    media.addEventListener('change', sync);
+    return () => { if (timer) clearInterval(timer); media.removeEventListener('change', sync); };
+  }, [uniqueMarquee.length]);
 
   // Close menu on navigation
   useEffect(() => {
@@ -87,36 +106,27 @@ export function Header() {
     <>
       <div className="site-marquee" role="region" aria-label="Store updates">
         <div className="site-marquee-track">
-          {(() => {
-            const rawMessages = [
-              commerce.settings.marqueeMessage1,
-              commerce.settings.marqueeMessage2,
-              commerce.settings.marqueeMessage3,
-            ].filter((m): m is string => Boolean(m && m.trim()));
-            const messages = rawMessages.length > 0 ? rawMessages : [commerce.settings.marqueeMessage1, commerce.settings.marqueeMessage2];
-            const repeated = [...messages, ...messages];
-            return (
-              <>
-                <p className="site-marquee-group">
-                  {repeated.map((msg, idx) => (
-                    <React.Fragment key={`p1-${idx}`}>
-                      <span>{renderMarquee(msg, commerce.settings)}</span>
-                      <span className="site-marquee-star" aria-hidden="true">✦</span>
-                    </React.Fragment>
-                  ))}
-                </p>
-                <p className="site-marquee-group" aria-hidden="true">
-                  {repeated.map((msg, idx) => (
-                    <React.Fragment key={`p2-${idx}`}>
-                      <span>{renderMarquee(msg, commerce.settings)}</span>
-                      <span className="site-marquee-star">✦</span>
-                    </React.Fragment>
-                  ))}
-                </p>
-              </>
-            );
-          })()}
+          <p className="site-marquee-group">
+            {repeatedMarquee.map((msg, idx) => (
+              <React.Fragment key={`p1-${idx}`}>
+                <span>{msg}</span>
+                <span className="site-marquee-star" aria-hidden="true">✦</span>
+              </React.Fragment>
+            ))}
+          </p>
+          <p className="site-marquee-group" aria-hidden="true">
+            {repeatedMarquee.map((msg, idx) => (
+              <React.Fragment key={`p2-${idx}`}>
+                <span>{msg}</span>
+                <span className="site-marquee-star">✦</span>
+              </React.Fragment>
+            ))}
+          </p>
         </div>
+        {/* Reduced-motion single line (shown via CSS media query) */}
+        <p className="site-marquee-single" key={`single-${marqueeIndex}`}>
+          {uniqueMarquee[marqueeIndex % Math.max(uniqueMarquee.length, 1)]}
+        </p>
       </div>
 
       <header className={dialogOpen ? 'mobile-nav-is-open' : undefined}>
