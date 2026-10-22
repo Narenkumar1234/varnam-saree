@@ -164,35 +164,37 @@ export default function ProductDetail({ id }: { id: string }) {
                 aria-label={`Quantity of ${product.name}`}
               />
 
-              <button
-                className="btn add-bag-btn"
-                type="button"
-                disabled={soldOut || isAdding}
-                onClick={handleAddToCart}
-              >
-                {soldOut ? 'Sold out' : isAdding ? 'Adding…' : 'Add to bag'} <Icon name="arrow-up-right" />
-              </button>
+              <div className="buy-actions">
+                <button
+                  className="btn add-bag-btn"
+                  type="button"
+                  disabled={soldOut || isAdding}
+                  onClick={handleAddToCart}
+                >
+                  {soldOut ? 'Sold out' : isAdding ? 'Adding…' : 'Add to bag'} <Icon name="arrow-up-right" />
+                </button>
 
-              <button
-                className="btn outline buy-now-btn"
-                type="button"
-                disabled={soldOut}
-                onClick={() => {
-                  router.push(`/checkout?buyNow=${product.id}&qty=${qty}`);
-                }}
-              >
-                Buy now
-              </button>
+                <button
+                  className="btn outline buy-now-btn"
+                  type="button"
+                  disabled={soldOut}
+                  onClick={() => {
+                    router.push(`/checkout?buyNow=${product.id}&qty=${qty}`);
+                  }}
+                >
+                  Buy now
+                </button>
 
-              <button
-                className={`btn outline wishlist-button ${isWish ? 'active' : ''}`}
-                type="button"
-                aria-label={`Save ${product.name} to wishlist`}
-                aria-pressed={isWish}
-                onClick={() => toggleWish(product.id)}
-              >
-                <Icon name={isWish ? 'heart-fill' : 'heart'} />
-              </button>
+                <button
+                  className={`btn outline wishlist-button ${isWish ? 'active' : ''}`}
+                  type="button"
+                  aria-label={`Save ${product.name} to wishlist`}
+                  aria-pressed={isWish}
+                  onClick={() => toggleWish(product.id)}
+                >
+                  <Icon name={isWish ? 'heart-fill' : 'heart'} />
+                </button>
+              </div>
             </div>
 
             <button
