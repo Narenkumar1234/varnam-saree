@@ -171,7 +171,13 @@ export default function ProductDetail({ id }: { id: string }) {
                   disabled={soldOut || isAdding}
                   onClick={handleAddToCart}
                 >
-                  {soldOut ? 'Sold out' : isAdding ? 'Adding…' : 'Add to bag'} <Icon name="arrow-up-right" />
+                  {soldOut ? (
+                    'Sold out'
+                  ) : (
+                    <>
+                      {isAdding ? 'Adding…' : 'Add to bag'} <Icon name="arrow-up-right" />
+                    </>
+                  )}
                 </button>
 
                 <button
