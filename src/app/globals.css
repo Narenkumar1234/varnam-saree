@@ -1504,7 +1504,7 @@ nav a:hover {
 
 .buy-row .quantity-stepper {
   border-radius: 0;
-  height: 44px;
+  height: 48px;
   width: fit-content;
   align-self: flex-start;
   flex-shrink: 0;
@@ -1512,16 +1512,16 @@ nav a:hover {
 
 .buy-row .quantity-stepper button {
   border-radius: 0;
-  width: 44px;
-  min-width: 44px;
-  height: 44px;
-  min-height: 44px;
-  line-height: 44px;
+  width: 48px;
+  min-width: 48px;
+  height: 48px;
+  min-height: 48px;
+  line-height: 48px;
 }
 
 .buy-row .quantity-stepper .quantity-stepper-value {
-  height: 44px;
-  line-height: 44px;
+  height: 48px;
+  line-height: 48px;
   min-width: 36px;
 }
 
@@ -1576,7 +1576,7 @@ nav a:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--line);
+  border: 1px solid var(--ink);
   background: var(--paper);
   color: var(--ink);
   margin: 0;
@@ -1770,7 +1770,12 @@ details p {
 }
 
 .cart-item .quantity-stepper {
+  border-radius: 0;
   margin-top: 10px;
+}
+
+.cart-item .quantity-stepper button {
+  border-radius: 0;
 }
 
 .remove {
