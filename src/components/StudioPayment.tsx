@@ -20,6 +20,7 @@ interface CheckoutOptions {
   theme: { color: string };
   handler: (proof: PaymentProof) => void;
   modal: { ondismiss: () => void };
+  config?: any;
 }
 declare global {
   interface Window {

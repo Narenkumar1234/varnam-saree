@@ -61,7 +61,7 @@ function TrackContent() {
     <>
       <div className="page-title">
         <h1>Follow your saree’s journey</h1>
-        <p>Preview tracking for an order placed on Varnam.</p>
+        <p>Track an order placed on Varnam.</p>
       </div>
 
       <div className="auth">

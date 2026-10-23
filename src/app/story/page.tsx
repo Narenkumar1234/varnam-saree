@@ -1,5 +1,22 @@
+import type { Metadata } from 'next';
 import React from 'react';
 import Link from 'next/link';
+import { getSiteUrl } from '@/lib/site-url';
+
+export const metadata: Metadata = {
+  title: 'Our Story',
+  description: 'Colour is where our story begins. Learn about Varnam and our celebration of six yards.',
+  alternates: {
+    canonical: new URL('/story', getSiteUrl()).href,
+  },
+  openGraph: {
+    title: 'Our Story | Varnam',
+    description: 'Colour is where our story begins. Learn about Varnam and our celebration of six yards.',
+    url: new URL('/story', getSiteUrl()).href,
+    siteName: 'Varnam',
+    type: 'website',
+  },
+};
 
 export default function StoryPage() {
   return (
@@ -42,10 +59,6 @@ export default function StoryPage() {
           From the ease of cotton to the luminous richness of silk, our collection brings different
           moods together. Thoughtful details, a considered palette, and the enduring beauty of the
           saree guide the Varnam experience.
-        </p>
-        <p className="demo-note">
-          Brand concept and illustrative catalogue. Supplier, artisan and material claims should be
-          verified with the business before launch.
         </p>
       </article>
     </>

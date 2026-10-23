@@ -3,7 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { loadRazorpayCheckout } from '@/components/StudioPayment';
 import { money } from '@/data/products';
+import { CUSTOMER_RAZORPAY_CONFIG, buildCustomerRazorpayOptions } from '@/lib/customer-razorpay';
 import type { OrderPayment } from '@/types';
+
+export { CUSTOMER_RAZORPAY_CONFIG, buildCustomerRazorpayOptions };
 
 interface PaymentProof {
   razorpay_order_id: string;
@@ -121,7 +124,7 @@ export function CustomerPayment({ orderId, total, customerName, email, phone, pa
       if (!window.Razorpay) throw new Error('Razorpay is unavailable. Please complete your order on WhatsApp.');
       setMessage('');
       let submitted = false;
-      const checkout = new window.Razorpay({
+      const checkout = new window.Razorpay(buildCustomerRazorpayOptions({
         key: result.keyId,
         order_id: result.orderId,
         amount: result.amount,
@@ -136,7 +139,7 @@ export function CustomerPayment({ orderId, total, customerName, email, phone, pa
           setMessage('Payment window closed. You can retry or complete your order on WhatsApp.');
           finish();
         } },
-      });
+      }));
       checkout.on('payment.failed', () => {
         setIsError(true);
         setMessage('Payment failed. Retry in the payment window or close it.');

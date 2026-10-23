@@ -32,6 +32,18 @@ test('max product discount ignores coupons and unused catalogue items', () => {
   expect(getMaxProductDiscount([])).toBe(0);
 });
 
+test('max product discount excludes test products (id 9, 10 or names starting with QA/Test/Sample)', () => {
+  const withTestProducts = [
+    product(1, 8000, 10000), // 20%
+    { ...product(9, 3000, 10000), name: 'Regular Saree' }, // 70% but id 9
+    { ...product(10, 2000, 10000), name: 'Regular Saree' }, // 80% but id 10
+    { ...product(15, 1000, 10000), name: 'QA Test Offer' }, // 90% but QA
+    { ...product(16, 1000, 10000), name: 'Test 90% off' }, // 90% but Test
+    { ...product(17, 1000, 10000), name: 'Sample 90% off' }, // 90% but Sample
+  ];
+  expect(getMaxProductDiscount(withTestProducts)).toBe(20);
+});
+
 test('offers link uses only the max product discount so the shop filter is never empty', () => {
   const coupon = { code: 'OFFER50', percentage: 50 };
   const nav = getOffersNav(getMaxProductDiscount(catalogue), coupon);

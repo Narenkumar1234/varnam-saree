@@ -155,3 +155,5 @@ export async function receiveWebhook(rawBody: string, signature: string) {
     await notifyAdminsOfOrder({ ...outcome.order, paymentStatus: 'paid' });
   }
 }
+
+export { CUSTOMER_RAZORPAY_CONFIG, buildCustomerRazorpayOptions } from './customer-razorpay';

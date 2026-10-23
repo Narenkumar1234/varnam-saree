@@ -15,6 +15,7 @@ import { AddressFields } from '@/components/AddressFields';
 import { ADDRESS_FIELDS, customerAddressPayload, deliveryFromCustomerAddress, markAddressMigrated, readSavedAddress, shouldMigrateBrowserAddress } from '@/lib/address-storage';
 import type { CustomerAddress, DeliveryAddress } from '@/types';
 import { loadRazorpayCheckout } from '@/components/StudioPayment';
+import { buildCustomerRazorpayOptions } from '@/lib/customer-razorpay';
 import { money } from '@/data/products';
 import { createWhatsAppOrderUrl, openPendingWhatsAppWindow, checkoutWhatsAppMessage } from '@/lib/whatsapp';
 import { useCustomerAccount } from '@/hooks/use-customer-account';
@@ -147,7 +148,7 @@ function CheckoutContent() {
       if (!window.Razorpay) throw new Error('Razorpay is unavailable. Please complete your order on WhatsApp.');
       setPaymentMessage('');
       let submitted = false;
-      const checkout = new window.Razorpay({
+      const checkout = new window.Razorpay(buildCustomerRazorpayOptions({
         key: result.keyId, order_id: result.orderId, amount: result.amount, currency: result.currency,
         name: 'Varnam Saree', description: `Order ${orderId}`,
         prefill: { name: `${formData.first} ${formData.last}`.trim(), email: formData.email, contact: formData.phone },
@@ -179,7 +180,7 @@ function CheckoutContent() {
           setPaymentMessage('Payment window closed. Your order is saved.');
           setIsSubmitting(false);
         } },
-      });
+      }));
       checkout.on('payment.failed', () => {
         setPaymentMessage('Payment failed. You can retry in the payment window or close it.');
       });

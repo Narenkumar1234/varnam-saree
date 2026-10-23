@@ -3,8 +3,12 @@ import { DEFAULT_SETTINGS } from '../src/lib/commerce.ts';
 import { deliveryPolicyText } from '../src/lib/delivery-policy.ts';
 import { getSiteUrl } from '../src/lib/site-url.ts';
 import { loadTrackedOrder, toPublicTrackedOrder } from '../src/lib/order-lookup.ts';
+import { isTestProduct } from '../src/lib/test-product.ts';
+import { getArticle, withArticle } from '../src/lib/article.ts';
 
 const originalSiteUrl = process.env.SITE_URL;
+const originalNextPublic = process.env.NEXT_PUBLIC_SITE_URL;
+const originalVercelProd = process.env.VERCEL_PROJECT_PRODUCTION_URL;
 const originalFetch = globalThis.fetch;
 let rows, unavailable;
 mock.module('../src/db/index.ts', () => ({ db: {
@@ -13,7 +17,7 @@ mock.module('../src/db/index.ts', () => ({ db: {
     return structuredClone(rows);
   } }) }),
 } }));
-const { generateMetadata } = await import('../src/app/product/[id]/page.tsx');
+const { default: ProductPage, generateMetadata } = await import('../src/app/product/[id]/page.tsx');
 const { default: sitemap } = await import('../src/app/sitemap.ts');
 const { default: robots } = await import('../src/app/robots.ts');
 const metadata = (id) => generateMetadata({ params: Promise.resolve({ id: String(id) }) });
@@ -25,6 +29,8 @@ beforeEach(() => {
 });
 afterEach(() => {
   if (originalSiteUrl === undefined) delete process.env.SITE_URL; else process.env.SITE_URL = originalSiteUrl;
+  if (originalNextPublic === undefined) delete process.env.NEXT_PUBLIC_SITE_URL; else process.env.NEXT_PUBLIC_SITE_URL = originalNextPublic;
+  if (originalVercelProd === undefined) delete process.env.VERCEL_PROJECT_PRODUCTION_URL; else process.env.VERCEL_PROJECT_PRODUCTION_URL = originalVercelProd;
   globalThis.fetch = originalFetch;
 });
 afterAll(() => mock.restore());
@@ -56,6 +62,8 @@ test.each(['empty', 'unreachable'])('%s DB supplies fallback product metadata an
   expect((await metadata(1)).openGraph.images[0].url).toBe('/assets/saree-emerald.webp');
   const entries = await sitemap();
   expect(entries.some((entry) => entry.url === 'https://store.example.test/product/8')).toBe(true);
+  expect(entries.some((entry) => entry.url === 'https://store.example.test/product/9')).toBe(false);
+  expect(entries.some((entry) => entry.url === 'https://store.example.test/product/10')).toBe(false);
 });
 
 test('crawler routes use the configured origin and current DB catalogue, omitting private flows', async () => {
@@ -69,12 +77,33 @@ test('crawler routes use the configured origin and current DB catalogue, omittin
   expect(rules.rules.disallow).toContain('/studio-desk'); expect(rules.rules.disallow).toContain('/api/');
 });
 
-test('public origin handles blank/malformed/non-HTTP settings safely and removes credentials/paths', () => {
-  for (const value of ['', ' ', 'bad url', 'javascript:alert(1)', 'ftp://example.test']) {
-    process.env.SITE_URL = value; expect(getSiteUrl().href).toBe('http://localhost:3000/');
+test('public origin handles fallback sequence, bad settings safely and never returns localhost', () => {
+  delete process.env.SITE_URL;
+  delete process.env.NEXT_PUBLIC_SITE_URL;
+  delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
+
+  for (const value of ['', ' ', 'bad url', 'javascript:alert(1)', 'ftp://example.test', 'http://localhost:3000', 'http://127.0.0.1:3000']) {
+    process.env.SITE_URL = value;
+    expect(getSiteUrl().href).toBe('https://varnam-saree.vercel.app/');
   }
+
   process.env.SITE_URL = 'https://user:password@example.test/store?query=1';
   expect(getSiteUrl().href).toBe('https://example.test/');
+
+  // Falls back to NEXT_PUBLIC_SITE_URL when SITE_URL is localhost or missing
+  process.env.SITE_URL = 'http://localhost:3000';
+  process.env.NEXT_PUBLIC_SITE_URL = 'https://public.example.test';
+  expect(getSiteUrl().href).toBe('https://public.example.test/');
+
+  // Falls back to VERCEL_PROJECT_PRODUCTION_URL when preceding are unset or localhost
+  delete process.env.SITE_URL;
+  delete process.env.NEXT_PUBLIC_SITE_URL;
+  process.env.VERCEL_PROJECT_PRODUCTION_URL = 'varnam-preview.vercel.app';
+  expect(getSiteUrl().href).toBe('https://varnam-preview.vercel.app/');
+
+  // Final fallback is varnam-saree.vercel.app
+  delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  expect(getSiteUrl().href).toBe('https://varnam-saree.vercel.app/');
 });
 
 test('only a confirmed tracking 404 returns no order; connection/server/malformed responses reject', async () => {
@@ -130,3 +159,51 @@ test('delivery policy formats standalone and embedded text with exactly the call
   expect(deliveryPolicyText({ ...DEFAULT_SETTINGS, freeDeliveryThreshold: 4999, standardShippingFee: 225 }, { includeFee: true, embedded: true })).toContain('₹4,999; otherwise, a ₹225');
   expect(deliveryPolicyText({ ...DEFAULT_SETTINGS, standardShippingFee: 0 }, { includeFee: true, embedded: true })).toBe('free delivery on all orders');
 });
+
+test('isTestProduct correctly identifies test and QA products', () => {
+  expect(isTestProduct({ id: 9, name: 'Normal name' })).toBe(true);
+  expect(isTestProduct({ id: 10, name: 'Normal name' })).toBe(true);
+  expect(isTestProduct({ id: '9', name: 'Normal name' })).toBe(true);
+  expect(isTestProduct({ id: '10', name: 'Normal name' })).toBe(true);
+  expect(isTestProduct({ id: 1, name: 'QA emerald saree' })).toBe(true);
+  expect(isTestProduct({ id: 2, name: 'qa soft silk' })).toBe(true);
+  expect(isTestProduct({ id: 3, name: 'Test banarasi saree' })).toBe(true);
+  expect(isTestProduct({ id: 4, name: 'test festive saree' })).toBe(true);
+  expect(isTestProduct({ id: 5, name: 'Sample cotton saree' })).toBe(true);
+  expect(isTestProduct({ id: 6, name: 'sample silk' })).toBe(true);
+  expect(isTestProduct({ id: 1, name: 'Mayil emerald silk saree' })).toBe(false);
+  expect(isTestProduct(null)).toBe(false);
+  expect(isTestProduct(undefined)).toBe(false);
+});
+
+test('article helper chooses a or an before colour strings', () => {
+  expect(getArticle('emerald')).toBe('an');
+  expect(getArticle('Emerald')).toBe('an');
+  expect(getArticle('ivory')).toBe('an');
+  expect(getArticle('indigo')).toBe('an');
+  expect(getArticle('orange')).toBe('an');
+  expect(getArticle('rose')).toBe('a');
+  expect(getArticle('gold')).toBe('a');
+  expect(getArticle('maroon')).toBe('a');
+  expect(getArticle('')).toBe('a');
+  expect(getArticle(null)).toBe('a');
+
+  expect(withArticle('emerald')).toBe('an emerald');
+  expect(withArticle('ivory')).toBe('an ivory');
+  expect(withArticle('rose')).toBe('a rose');
+});
+
+test('product 404 calls notFound() for missing id and generateMetadata does not crash', async () => {
+  // generateMetadata should not crash for missing or invalid ids
+  const missingMeta = await generateMetadata({ params: Promise.resolve({ id: '999' }) });
+  expect(missingMeta.title).toBe('Saree not found | Varnam');
+  expect(missingMeta.robots).toEqual({ index: false, follow: false });
+
+  const invalidMeta = await generateMetadata({ params: Promise.resolve({ id: 'invalid-id' }) });
+  expect(invalidMeta.title).toBe('Saree not found | Varnam');
+
+  // ProductPage throws when id does not exist
+  await expect(ProductPage({ params: Promise.resolve({ id: '999' }) })).rejects.toThrow();
+  await expect(ProductPage({ params: Promise.resolve({ id: 'invalid-id' }) })).rejects.toThrow();
+});
+
