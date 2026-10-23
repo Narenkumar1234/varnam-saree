@@ -37,7 +37,7 @@ afterAll(() => mock.restore());
 
 test('product route metadata uses current DB name, description, image and canonical URL', async () => {
   const first = await metadata(101);
-  expect(first.title).toBe('Owner rose silk saree | Varnam');
+  expect(first.title).toEqual({ absolute: 'Owner rose silk saree | Varnam' });
   expect(first.description).toBe(rows[0].description);
   expect(first.openGraph.images).toEqual([{ url: '/uploads/rose.webp', alt: rows[0].name }]);
   expect(first.openGraph.url).toBe('https://store.example.test/product/101');
@@ -45,7 +45,7 @@ test('product route metadata uses current DB name, description, image and canoni
   expect(first.twitter.images).toEqual(['/uploads/rose.webp']);
   rows[0].name = 'Edited by Studio'; rows[0].description = 'Updated description'; rows[0].image = 'https://images.example.test/saree.webp';
   const changed = await metadata(101);
-  expect(changed.title).toBe('Edited by Studio | Varnam'); expect(changed.description).toBe('Updated description');
+  expect(changed.title).toEqual({ absolute: 'Edited by Studio | Varnam' }); expect(changed.description).toBe('Updated description');
   expect(changed.openGraph.images[0].url).toBe(rows[0].image);
 });
 
@@ -58,7 +58,7 @@ test('missing descriptions are generated from product details and missing produc
 
 test.each(['empty', 'unreachable'])('%s DB supplies fallback product metadata and product sitemap URLs', async (mode) => {
   if (mode === 'empty') rows = []; else unavailable = true;
-  expect((await metadata(1)).title).toBe('Mayil emerald silk saree | Varnam');
+  expect((await metadata(1)).title).toEqual({ absolute: 'Mayil emerald silk saree | Varnam' });
   expect((await metadata(1)).openGraph.images[0].url).toBe('/assets/saree-emerald.webp');
   const entries = await sitemap();
   expect(entries.some((entry) => entry.url === 'https://store.example.test/product/8')).toBe(true);
@@ -196,11 +196,11 @@ test('article helper chooses a or an before colour strings', () => {
 test('product 404 calls notFound() for missing id and generateMetadata does not crash', async () => {
   // generateMetadata should not crash for missing or invalid ids
   const missingMeta = await generateMetadata({ params: Promise.resolve({ id: '999' }) });
-  expect(missingMeta.title).toBe('Saree not found | Varnam');
+  expect(missingMeta.title).toEqual({ absolute: 'Saree not found | Varnam' });
   expect(missingMeta.robots).toEqual({ index: false, follow: false });
 
   const invalidMeta = await generateMetadata({ params: Promise.resolve({ id: 'invalid-id' }) });
-  expect(invalidMeta.title).toBe('Saree not found | Varnam');
+  expect(invalidMeta.title).toEqual({ absolute: 'Saree not found | Varnam' });
 
   // ProductPage throws when id does not exist
   await expect(ProductPage({ params: Promise.resolve({ id: '999' }) })).rejects.toThrow();
