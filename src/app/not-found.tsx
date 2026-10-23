@@ -1,4 +1,7 @@
 import React from 'react';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = { title: 'Page not found', robots: { index: false } };
 import Link from 'next/link';
 
 export default function NotFound() {

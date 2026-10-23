@@ -9,7 +9,7 @@ export function productMetadata(product: Product): Metadata {
   const description = product.description?.trim() || `Discover ${product.name}, ${withArticle(product.colour.toLowerCase())} ${product.type} saree from Varnam's ${product.collection} collection.`;
   const url = new URL(`/product/${product.id}`, getSiteUrl()).href;
   return {
-    title, description,
+    title: { absolute: title }, description,
     alternates: { canonical: url },
     openGraph: {
       title, description, url, siteName: 'Varnam', type: 'website',

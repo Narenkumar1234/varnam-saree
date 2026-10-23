@@ -15,7 +15,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const numId = Number(id);
   if (!id || Number.isNaN(numId)) {
     return {
-      title: 'Saree not found | Varnam',
+      title: { absolute: 'Saree not found | Varnam' },
       description: 'Explore the latest sarees in the Varnam collection.',
       robots: { index: false, follow: false },
     };
@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { products } = await getCatalogue();
   const product = products.find((entry) => entry.id === numId);
   return product ? productMetadata(product) : {
-    title: 'Saree not found | Varnam',
+    title: { absolute: 'Saree not found | Varnam' },
     description: 'Explore the latest sarees in the Varnam collection.',
     robots: { index: false, follow: false },
   };

@@ -239,7 +239,7 @@ export default function ProductDetail({ id }: { id: string }) {
               <summary>Shipping & returns</summary>
               <p>
                 <Link className="text-link" href="/shipping">
-                  Shipping & returns
+                  Read our full delivery and returns policy
                 </Link>
               </p>
             </details>
