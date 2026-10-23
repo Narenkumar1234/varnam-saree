@@ -1,5 +1,8 @@
 import type { PriceRange, Product, ShopFilterState } from '@/types';
 import { productMatchesQuery } from '@/lib/search-query';
+import { isTestProduct } from '@/lib/test-product';
+
+export { isTestProduct };
 
 /** Friendly title case for colour names: words capitalized, normalized spacing. */
 export function formatColourTitleCase(value: string): string {
@@ -71,7 +74,10 @@ export function getProductDiscountPercentage(product: Product): number {
 }
 
 export function getMaxProductDiscount(catalogue: Product[]): number {
-  const discounts = (catalogue || []).map(getProductDiscountPercentage).filter((pct) => pct > 0);
+  const discounts = (catalogue || [])
+    .filter((product) => !isTestProduct(product))
+    .map(getProductDiscountPercentage)
+    .filter((pct) => pct > 0);
   return discounts.length > 0 ? Math.max(...discounts) : 0;
 }
 

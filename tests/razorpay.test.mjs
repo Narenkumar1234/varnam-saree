@@ -344,3 +344,60 @@ test('CustomerPayment renders processing status for authorized payments awaiting
   const html = renderToStaticMarkup(createElement(CustomerPayment, props));
   expect(html).toContain('Check payment status');
 });
+
+test('Customer Razorpay options restrict checkout to UPI and debit cards and hide netbanking, wallet, emi, paylater', async () => {
+  const { CUSTOMER_RAZORPAY_CONFIG, buildCustomerRazorpayOptions } = await import('../src/lib/razorpay.ts');
+  const { CUSTOMER_RAZORPAY_CONFIG: fromComponent, buildCustomerRazorpayOptions: fromComponentBuilder } = await import('../src/components/CustomerPayment.tsx');
+
+  expect(CUSTOMER_RAZORPAY_CONFIG).toBeDefined();
+  expect(fromComponent).toBe(CUSTOMER_RAZORPAY_CONFIG);
+  expect(fromComponentBuilder).toBe(buildCustomerRazorpayOptions);
+
+  const display = CUSTOMER_RAZORPAY_CONFIG.display;
+  expect(display).toBeDefined();
+
+  // Assert block definition
+  expect(display.blocks.upi_debit).toBeDefined();
+  expect(display.blocks.upi_debit.name).toBe('Pay via UPI or Debit card');
+  expect(display.blocks.upi_debit.instruments).toEqual([
+    { method: 'upi' },
+    { method: 'card', types: ['debit'] },
+  ]);
+
+  // Assert sequence and preferences
+  expect(display.sequence).toEqual(['block.upi_debit']);
+  expect(display.preferences.show_default_blocks).toBe(false);
+
+  // Assert hidden methods
+  expect(display.hide).toEqual([
+    { method: 'netbanking' },
+    { method: 'wallet' },
+    { method: 'emi' },
+    { method: 'cardless_emi' },
+    { method: 'paylater' },
+  ]);
+
+  // Assert options builder attaches config.display to options
+  const built = buildCustomerRazorpayOptions({
+    key: 'rzp_test_123',
+    order_id: 'order_gw_456',
+    amount: 265000,
+    currency: 'INR',
+    name: 'Varnam Saree',
+    description: 'Order VRN-test',
+    prefill: { name: 'Ananya', email: 'ananya@example.test', contact: '9876543210' },
+  });
+
+  expect(built.key).toBe('rzp_test_123');
+  expect(built.order_id).toBe('order_gw_456');
+  expect(built.amount).toBe(265000);
+  expect(built.config).toEqual(CUSTOMER_RAZORPAY_CONFIG);
+  expect(built.config.display.blocks.upi_debit.instruments).toEqual([
+    { method: 'upi' },
+    { method: 'card', types: ['debit'] },
+  ]);
+  expect(built.config.display.hide.map((h) => h.method)).toEqual([
+    'netbanking', 'wallet', 'emi', 'cardless_emi', 'paylater'
+  ]);
+});
+

@@ -158,6 +158,7 @@ mock.module('next/navigation', () => ({
   useRouter: () => ({ push: () => {}, replace: () => {} }),
   usePathname: () => '/product/10',
   useSearchParams: () => new URLSearchParams(),
+  notFound: () => { const err = new Error('NEXT_HTTP_ERROR_FALLBACK;404'); err.digest = 'NEXT_HTTP_ERROR_FALLBACK;404'; throw err; },
 }));
 mock.module('next/image', () => ({
   default: ({ alt, src }) => createElement('img', { alt, src }),

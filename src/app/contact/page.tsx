@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { getWhatsAppNumber } from '@/lib/whatsapp';
 
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
@@ -14,6 +15,13 @@ export default function ContactPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const number = getWhatsAppNumber();
+    const formattedMessage = `Name: ${formData.name}\nEmail: ${formData.email}\nTopic: ${formData.topic}\n\nMessage:\n${formData.message}`;
+    if (number) {
+      window.open(`https://wa.me/${number}?text=${encodeURIComponent(formattedMessage)}`, '_blank', 'noopener,noreferrer');
+    } else {
+      window.location.href = `mailto:varnamsarees52@gmail.com?subject=${encodeURIComponent(`Contact from ${formData.name}: ${formData.topic}`)}&body=${encodeURIComponent(formattedMessage)}`;
+    }
     setSubmitted(true);
     setFormData({ name: '', email: '', topic: 'Choosing a saree', message: '' });
   };
@@ -34,10 +42,6 @@ export default function ContactPage() {
               your beautiful.
             </h2>
             <p className="muted">Tell us about the occasion or the weave you have in mind.</p>
-            <p className="demo-note">
-              Contact details will be added when the business launches. This form previews a message
-              confirmation; it does not send a message.
-            </p>
             <p>
               <Link className="text-link" href="/faq">
                 Browse common questions
@@ -92,11 +96,11 @@ export default function ContactPage() {
               </label>
             </div>
             <button className="btn" type="submit">
-              Preview message submission
+              Send message
             </button>
             {submitted && (
               <p id="contactMsg" role="status" style={{ marginTop: '14px', color: '#176047' }}>
-                Message preview complete. No message has been sent.
+                Thank you! Your message has been prepared.
               </p>
             )}
           </form>

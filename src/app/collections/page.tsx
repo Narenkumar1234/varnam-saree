@@ -1,8 +1,25 @@
+import type { Metadata } from 'next';
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { collectionsData } from '@/data/products';
 import { Icon } from '@/components/Icons';
+import { getSiteUrl } from '@/lib/site-url';
+
+export const metadata: Metadata = {
+  title: 'Collections',
+  description: 'Find the collection that speaks to you: Silk, Cotton, Festive, and everyday weaves.',
+  alternates: {
+    canonical: new URL('/collections', getSiteUrl()).href,
+  },
+  openGraph: {
+    title: 'Collections | Varnam',
+    description: 'Find the collection that speaks to you: Silk, Cotton, Festive, and everyday weaves.',
+    url: new URL('/collections', getSiteUrl()).href,
+    siteName: 'Varnam',
+    type: 'website',
+  },
+};
 
 export default function CollectionsPage() {
   return (

@@ -50,6 +50,12 @@ const nextConfig = {
       },
     ],
   },
+  async rewrites() {
+    return [
+      { source: '/icon.png', destination: '/icon' },
+      { source: '/apple-icon.png', destination: '/apple-icon' },
+    ];
+  },
 };
 
 export default nextConfig;

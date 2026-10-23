@@ -15,12 +15,27 @@ export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   metadataBase: getSiteUrl(),
-  title: 'Varnam | Sarees, woven with stories',
+  title: {
+    default: 'Varnam | Sarees, woven with stories',
+    template: '%s | Varnam',
+  },
   description: "Discover Varnam's collection of silk, cotton and occasion sarees. A thoughtfully designed saree shopping experience.",
+  alternates: {
+    canonical: getSiteUrl().href,
+  },
   openGraph: {
     title: 'Varnam | Sarees, woven with stories',
     description: "Discover Varnam's collection of silk, cotton and occasion sarees. A thoughtfully designed saree shopping experience.",
-    images: ['/assets/varnam-logo.png'],
+    url: getSiteUrl().href,
+    siteName: 'Varnam',
+    type: 'website',
+    images: [new URL('/assets/varnam-logo.png', getSiteUrl()).href],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Varnam | Sarees, woven with stories',
+    description: "Discover Varnam's collection of silk, cotton and occasion sarees. A thoughtfully designed saree shopping experience.",
+    images: [new URL('/assets/varnam-logo.png', getSiteUrl()).href],
   },
   icons: {
     icon: [

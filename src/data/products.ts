@@ -189,15 +189,15 @@ export const faqs = [
   ],
   [
     'Can I place a real order?',
-    'Save an order at checkout or send a request on WhatsApp. Online payment availability depends on the store configuration. Contact Varnam to confirm fulfilment and delivery.',
+    'Save an order at checkout or send a request on WhatsApp. Pay securely online with Razorpay (UPI, cards, net banking) or send a request on WhatsApp. Contact Varnam to confirm fulfilment and delivery.',
   ],
   [
     'Will the colour look exactly like the photo?',
-    'Screen settings and lighting can change how colours appear. These campaign and catalogue images are illustrative generated photography.',
+    'Screen settings and lighting can change how colours appear.',
   ],
   [
     'Where can I find delivery and return details?',
-    'Visit Shipping & returns for a proposed policy. The business must confirm and approve its final policy before accepting real orders.',
+    'See Shipping & returns for our delivery and return details.',
   ],
 ];
 

@@ -34,7 +34,7 @@ export function AccountView({ initialSignUp = false, ordersOnly = false }: Accou
     return (
       <>
         <div className="page-title">
-          <h1>{ordersOnly ? 'Your orders' : initialSignUp ? 'Make yourself at home' : 'Welcome back'}</h1>
+          <h1>{ordersOnly ? 'Your orders' : initialSignUp ? 'Make yourself at home' : 'Sign in to Varnam'}</h1>
           <p>Sign in with Google to securely access your account and order history.</p>
         </div>
         <div className="auth">

@@ -135,10 +135,6 @@ export default function ProductDetail({ id }: { id: string }) {
           <div>
             <div className="eyebrow">{product.type}</div>
             <h1>{product.name}</h1>
-            <div className="rating">
-              <Icon name="sparkle" />{' '}
-              <span className="muted">Thoughtfully selected for the Varnam collection</span>
-            </div>
             <ProductPrice price={product.price} oldPrice={product.oldPrice} />
             <small className="muted">Inclusive of all taxes</small>
 
@@ -242,11 +238,9 @@ export default function ProductDetail({ id }: { id: string }) {
             <details open>
               <summary>Shipping & returns</summary>
               <p>
-                View our sample{' '}
                 <Link className="text-link" href="/shipping">
-                  shipping & return policy
-                </Link>{' '}
-                for details.
+                  Shipping & returns
+                </Link>
               </p>
             </details>
           </div>
