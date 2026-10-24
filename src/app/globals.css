@@ -4469,3 +4469,53 @@ footer {
   .studio-review-actions { width: 100%; flex-wrap: wrap; justify-content: flex-start; }
   .studio-review-actions .studio-review-btn:not(.is-icon) { flex: 1 1 0; }
 }
+
+/* Footer bottom divider runs the full footer width, reaching into the right
+   gutter kept clear for the floating socials stack; its text stays out of it. */
+footer {
+  --footer-stack-extra: max(0px, calc(92px - 5vw));
+}
+@media (max-width: 700px) {
+  footer {
+    --footer-stack-extra: max(0px, calc(76px - 5vw));
+  }
+}
+.footer-bottom {
+  margin-right: calc(-1 * var(--footer-stack-extra));
+  padding-right: var(--footer-stack-extra);
+}
+
+/* Address and contact on the dark footer: readable size, AA contrast (#f1e8ed on --ink). */
+.footer-top .footer-address {
+  font-size: 13px;
+  line-height: 1.7;
+  color: #f1e8ed;
+}
+.footer-top .footer-address a {
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Footer link labels stay on one line. */
+.footer-top > div > a:not(.brand) {
+  white-space: nowrap;
+}
+
+/* Policy-page contact block: links match their labels' size, normal underline. */
+.business-contact p,
+.business-contact address {
+  font-size: inherit;
+}
+.business-contact .text-link {
+  font-size: inherit;
+  border-bottom: 0;
+  padding-bottom: 0;
+  display: inline;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.contact-layout .business-contact {
+  margin-top: 30px;
+}

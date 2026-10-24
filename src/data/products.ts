@@ -188,8 +188,8 @@ export const faqs = [
     'Dry clean silk sarees and store them in a breathable cotton cover. Refold occasionally and avoid prolonged direct sunlight.',
   ],
   [
-    'Can I place a real order?',
-    'Save an order at checkout or send a request on WhatsApp. Pay securely online with Razorpay (UPI, cards, net banking) or send a request on WhatsApp. Contact Varnam to confirm fulfilment and delivery.',
+    'How do I order?',
+    'Place your order at checkout and pay securely online with Razorpay using UPI or a debit card, or send a request on WhatsApp. Contact Varnam to confirm fulfilment and delivery.',
   ],
   [
     'Will the colour look exactly like the photo?',

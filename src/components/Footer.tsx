@@ -64,7 +64,7 @@ export function Footer() {
         <div>
           <h4>Here to help</h4>
           <Link href="/contact">Contact us</Link>
-          <Link href="/faq">Frequently asked questions</Link>
+          <Link href="/faq">FAQs</Link>
           <Link href="/track">Track your order</Link>
         </div>
 
