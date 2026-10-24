@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const { products } = await getCatalogue();
   const paths = [
-    '/', '/shop', '/collections', '/story', '/journal', '/contact', '/faq', '/shipping', '/privacy', '/terms',
+    '/', '/shop', '/collections', '/story', '/journal', '/contact', '/faq', '/shipping', '/refund', '/privacy', '/terms',
     ...articles.map((article) => `/journal/${article.id}`),
     ...products.filter((product) => !isTestProduct(product)).map((product) => `/product/${product.id}`),
   ];

@@ -1,52 +1,58 @@
-import type { Metadata } from 'next';
-import { DeliveryPolicy } from '@/components/DeliveryPolicy';
 import React from 'react';
 import Link from 'next/link';
-import { getSiteUrl } from '@/lib/site-url';
-
-export const metadata: Metadata = {
-  title: 'Shipping & Returns',
-  description: 'Details on delivery timelines, shipping charges, and returns for Varnam orders.',
-  alternates: {
-    canonical: new URL('/shipping', getSiteUrl()).href,
-  },
-  openGraph: {
-    title: 'Shipping & Returns | Varnam',
-    description: 'Details on delivery timelines, shipping charges, and returns for Varnam orders.',
-    url: new URL('/shipping', getSiteUrl()).href,
-    siteName: 'Varnam',
-    type: 'website',
-  },
-};
+import { DeliveryPolicy } from '@/components/DeliveryPolicy';
+import { BusinessContact } from '@/components/BusinessContact';
+import { BUSINESS } from '@/lib/business';
 
 export default function ShippingPage() {
   return (
     <>
       <div className="page-title">
-        <h1>Shipping & returns</h1>
+        <h1>Shipping &amp; delivery policy</h1>
+        <p>How and when your {BUSINESS.name} order reaches you.</p>
       </div>
 
       <article className="prose">
-        <h2>Delivery, with care</h2>
+        <h2>Where we ship</h2>
+        <p>We currently ship to addresses within India.</p>
+
+        <h2>Dispatch and delivery time</h2>
         <p>
-          Standard delivery within India is estimated at 5–7 business days. We offer{' '}
+          Orders are dispatched within {BUSINESS.dispatchDays} business days of payment
+          confirmation. Orders are usually delivered within {BUSINESS.deliveryWindow} business days,
+          depending on your location and the courier partner.
+        </p>
+
+        <h2>Shipping charges</h2>
+        {/* TODO(athai): confirm shipping charges; the line below follows the fee and free-delivery threshold set in Studio. */}
+        <p>
+          Shipping charges, if any, are shown at checkout before you pay. We offer{' '}
           <DeliveryPolicy includeFee embedded />.
         </p>
 
-        <h2>Returns & exchanges</h2>
+        <h2>Payment</h2>
         <p>
-          Please contact Varnam within 7 days of delivery to discuss a return or exchange. Sarees
-          must be unworn and unwashed, with tags and original packaging. Contact us to confirm
-          return shipping costs and refund timelines.
+          Orders are paid online through Razorpay using UPI or debit cards.
+          {/* TODO(athai): if cash on delivery is offered, describe it here. */}
         </p>
 
-        <h2>Need a hand?</h2>
+        <h2>Tracking your order</h2>
         <p>
-          <Link className="text-link" href="/contact">
-            Contact Varnam
-          </Link>{' '}
-          for questions about your order, delivery, returns, or exchanges.
+          You can check your order status on our{' '}
+          <Link className="text-link" href="/track">Track your order</Link> page, or message us on
+          WhatsApp with your order number.
         </p>
+
+        <h2>Delays and delivery issues</h2>
+        <p>
+          Occasionally, deliveries may be delayed by the courier, weather or other events beyond our
+          control. Please make sure your address and phone number are correct, as we cannot be
+          responsible for delays caused by incorrect details. If your parcel looks damaged or tampered
+          with, record an unboxing video and contact us; see our{' '}
+          <Link className="text-link" href="/refund">Refund &amp; replacement policy</Link>.
+        </p>
+
+        <BusinessContact />
       </article>
     </>
   );

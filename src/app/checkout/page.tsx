@@ -384,8 +384,8 @@ function CheckoutContent() {
 
             <h3>Delivery method</h3>
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <input type="radio" checked readOnly name="delivery" /> Standard delivery · 5–7 business
-              days
+              <input type="radio" checked readOnly name="delivery" /> Standard delivery · dispatched within 2
+              business days, delivered in 5–7 business days
             </label>
 
             <h3>Payment method</h3>

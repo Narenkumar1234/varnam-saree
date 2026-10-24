@@ -2325,7 +2325,7 @@ footer {
 
 .footer-top {
   display: grid;
-  grid-template-columns: 1.4fr 1fr 1fr;
+  grid-template-columns: 1.4fr 1fr 1fr 1fr;
   gap: 45px;
 }
 
@@ -2363,6 +2363,24 @@ footer {
 
 .footer-top small a {
   display: inline !important;
+}
+
+.footer-address {
+  font-style: normal;
+  color: #c7b9c1;
+  line-height: 1.7;
+  margin-top: 12px;
+}
+
+.footer-top .footer-address a {
+  display: inline;
+  margin: 0;
+}
+
+.business-contact address {
+  font-style: normal;
+  color: var(--muted);
+  line-height: 1.7;
 }
 
 .footer-socials {

@@ -1,20 +1,6 @@
-import type { Metadata } from 'next';
-import { getSiteUrl } from '@/lib/site-url';
+import { pageMetadata } from '@/lib/page-metadata';
 
-export const metadata: Metadata = {
-  title: 'Privacy Policy',
-  description: 'Understand how Varnam manages your saved information and protects your privacy.',
-  alternates: {
-    canonical: new URL('/privacy', getSiteUrl()).href,
-  },
-  openGraph: {
-    title: 'Privacy Policy | Varnam',
-    description: 'Understand how Varnam manages your saved information and protects your privacy.',
-    url: new URL('/privacy', getSiteUrl()).href,
-    siteName: 'Varnam',
-    type: 'website',
-  },
-};
+export const metadata = pageMetadata('/privacy', 'Privacy Policy', "How Varnam collects, uses and protects your personal information.");
 
 export default function PrivacyLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>;

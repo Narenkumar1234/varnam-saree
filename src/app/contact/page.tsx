@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { getWhatsAppNumber } from '@/lib/whatsapp';
+import { BusinessContact } from '@/components/BusinessContact';
 
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
@@ -47,6 +48,7 @@ export default function ContactPage() {
                 Browse common questions
               </Link>
             </p>
+            <BusinessContact heading="Visit or reach us" showOfficer />
           </div>
 
           <form id="contactForm" onSubmit={handleSubmit}>

@@ -236,10 +236,16 @@ export default function ProductDetail({ id }: { id: string }) {
             </form>
 
             <details open>
-              <summary>Shipping & returns</summary>
+              <summary>Shipping & replacement</summary>
               <p>
+                Dispatched within 2 business days; delivered in 5–7 business days. No returns —
+                damaged, defective or wrong items are replaced with an unboxing video.{' '}
                 <Link className="text-link" href="/shipping">
-                  Read our full delivery and returns policy
+                  Shipping policy
+                </Link>{' '}
+                ·{' '}
+                <Link className="text-link" href="/refund">
+                  Replacement policy
                 </Link>
               </p>
             </details>
