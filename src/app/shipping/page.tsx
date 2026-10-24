@@ -19,7 +19,7 @@ export default function ShippingPage() {
         <h2>Dispatch and delivery time</h2>
         <p>
           Orders are dispatched within {BUSINESS.dispatchDays} business days of payment
-          confirmation. Delivery usually takes {BUSINESS.deliveryWindow} business days after dispatch,
+          confirmation. Orders are usually delivered within {BUSINESS.deliveryWindow} business days,
           depending on your location and the courier partner.
         </p>
 

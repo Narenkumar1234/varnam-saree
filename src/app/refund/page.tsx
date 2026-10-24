@@ -20,7 +20,7 @@ export default function RefundPage() {
 
         <h2>Replacement for damaged, defective or wrong items</h2>
         <p>
-          If your saree arrives damaged, defective, or is not the item you ordered, we will replace it.
+          If your saree arrives damaged, defective, or is not the item you ordered, we will replace it.{' '}
           {/* TODO(athai): state the replacement request window in days once confirmed. */}
           Please contact us as soon as possible after delivery by WhatsApp on {BUSINESS.phoneDisplay} or
           by email at <a className="text-link" href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>,
