@@ -21,7 +21,7 @@ export const BUSINESS_ADDRESS_ONE_LINE = [BUSINESS.addressName, ...BUSINESS.addr
 export const POLICY_LINKS = [
   { href: '/terms', label: 'Terms & conditions' },
   { href: '/privacy', label: 'Privacy policy' },
-  { href: '/refund', label: 'Refund & replacement policy' },
-  { href: '/shipping', label: 'Shipping & delivery policy' },
+  { href: '/refund', label: 'Refunds & replacement' },
+  { href: '/shipping', label: 'Shipping & delivery' },
   { href: '/contact', label: 'Contact us' },
 ] as const;

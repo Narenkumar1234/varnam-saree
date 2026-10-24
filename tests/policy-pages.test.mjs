@@ -50,3 +50,20 @@ test('the legacy stored "2 to 5 days" banner is replaced by the confirmed timeli
   expect(settings.marqueeMessage1).toBe('Dispatch within 2 business days · Delivery in 5–7 business days');
   expect(settingsFromRows([{ key: 'marqueeMessage1', value: 'Owner update' }]).marqueeMessage1).toBe('Owner update');
 });
+
+test('FAQ ordering answer lists only UPI and debit cards, once', async () => {
+  const { faqs } = await import('../src/data/products.ts');
+  const entry = faqs.find(([q]) => q === 'How do I order?');
+  expect(entry).toBeTruthy();
+  expect(entry[1]).toContain('UPI or a debit card');
+  expect(entry[1]).not.toMatch(/net ?banking|credit|wallet|cards,/i);
+  expect(entry[1].match(/send a request on WhatsApp/g)).toHaveLength(1);
+  expect(faqs.some(([q]) => q === 'Can I place a real order?')).toBe(false);
+});
+
+test('studio desk metadata is noindex with its own title and no home canonical', async () => {
+  const { metadata } = await import('../src/app/studio-desk/layout.tsx');
+  expect(metadata.title).toEqual({ absolute: 'Studio | Varnam' });
+  expect(metadata.robots).toMatchObject({ index: false, follow: false });
+  expect(metadata.alternates.canonical).toBeNull();
+});

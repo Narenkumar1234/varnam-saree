@@ -6,7 +6,6 @@ export function BusinessContact({ heading = 'Contact us', showOfficer = false }:
   return (
     <section className="business-contact" aria-label={heading}>
       <h2>{heading}</h2>
-      {showOfficer && <p><strong>Grievance officer:</strong> {BUSINESS.grievanceOfficer}</p>}
       <address>
         <strong>{BUSINESS.addressName}</strong>
         {BUSINESS.addressLines.map((line) => (
@@ -26,6 +25,7 @@ export function BusinessContact({ heading = 'Contact us', showOfficer = false }:
         <br />
         Email: <a className="text-link" href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>
       </p>
+      {showOfficer && <p><strong>Grievance officer:</strong> {BUSINESS.grievanceOfficer}</p>}
       {/* TODO(athai): add shop timings here once confirmed. */}
     </section>
   );
