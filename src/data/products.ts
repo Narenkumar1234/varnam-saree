@@ -197,7 +197,7 @@ export const faqs = [
   ],
   [
     'Where can I find delivery and return details?',
-    'See Shipping & returns for our delivery and return details.',
+    'Orders are dispatched within 2 business days and delivered in 5–7 business days within India. We do not accept returns; damaged, defective or wrong items are replaced with an unboxing video. See our Shipping & delivery and Refund & replacement policies for details.',
   ],
 ];
 

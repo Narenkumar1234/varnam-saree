@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Icon } from './Icons';
+import { BUSINESS, POLICY_LINKS } from '@/lib/business';
 
 export function Footer() {
   return (
@@ -24,6 +25,12 @@ export function Footer() {
             <br />
             Find the colours that feel like you.
           </p>
+          <address className="footer-address">
+            {BUSINESS.addressName}, {BUSINESS.addressLines[0]}, {BUSINESS.addressLines[1]}
+            <br />
+            <a href={BUSINESS.phoneHref}>{BUSINESS.phoneDisplay}</a> ·{' '}
+            <a href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>
+          </address>
           <div className="footer-socials" aria-label="Social links">
             <a
               href="https://wa.me/919360451710?text=Hello%20Varnam%2C%20I%20would%20like%20to%20know%20more%20about%20your%20sarees."
@@ -58,16 +65,23 @@ export function Footer() {
           <h4>Here to help</h4>
           <Link href="/contact">Contact us</Link>
           <Link href="/faq">Frequently asked questions</Link>
-          <Link href="/shipping">Shipping & returns</Link>
           <Link href="/track">Track your order</Link>
+        </div>
+
+        <div>
+          <h4>Policies</h4>
+          {POLICY_LINKS.filter((link) => link.href !== '/contact').map((link) => (
+            <Link key={link.href} href={link.href}>{link.label}</Link>
+          ))}
         </div>
       </div>
 
       <div className="footer-bottom">
-        <span>© 2026 Varnam. Crafted with care.</span>
+        <span>© 2026 {BUSINESS.name}. Crafted with care in Madurai.</span>
         <span>India · INR ₹</span>
         <Link href="/privacy">Privacy</Link>
         <Link href="/terms">Terms</Link>
+        <Link href="/refund">Refunds</Link>
       </div>
     </footer>
   );

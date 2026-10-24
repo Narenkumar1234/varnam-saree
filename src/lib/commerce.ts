@@ -24,7 +24,7 @@ export const DEFAULT_COUPONS: CouponDefinition[] = [
   { code: 'WELCOME10', percentage: 10, enabled: true, minSubtotal: 0, expiresOn: null },
 ];
 export const DEFAULT_SETTINGS: SiteSettings = {
-  marqueeMessage1: 'Dispatch time 2 to 5 business days',
+  marqueeMessage1: 'Dispatch within 2 business days · Delivery in 5–7 business days',
   marqueeMessage2: 'Free delivery on orders above {freeDeliveryThreshold}',
   marqueeMessage3: '',
   freeDeliveryThreshold: 2999,
@@ -67,6 +67,9 @@ export function freeDeliveryCopy(settings: SiteSettings): string {
 export function deliveryCharge(subtotal: number, settings: SiteSettings): number {
   return subtotal === 0 || subtotal > settings.freeDeliveryThreshold ? 0 : settings.standardShippingFee;
 }
+/** Earlier default dispatch copy (wrong timeline) that may still be stored in site settings. */
+const LEGACY_MARQUEE_MESSAGE_1 = /^\s*dispatch time 2 (to|-|–) 5 business days\s*$/i;
+
 export function settingsFromRows(rows: { key: string; value: string }[]): SiteSettings {
   const settings = { ...DEFAULT_SETTINGS };
   for (const { key, value } of rows) {
@@ -74,7 +77,8 @@ export function settingsFromRows(rows: { key: string; value: string }[]): SiteSe
       const number = Number(value);
       if (value.trim() && Number.isSafeInteger(number) && number >= 0 && number <= 100_000_000) settings[key] = number;
     } else if ((key === 'marqueeMessage1' || key === 'marqueeMessage2') && value.trim() && value.length <= 240) {
-      if (key !== 'marqueeMessage2' || value.includes('{freeDeliveryThreshold}')) settings[key] = value;
+      if (key === 'marqueeMessage1' && LEGACY_MARQUEE_MESSAGE_1.test(value)) settings[key] = DEFAULT_SETTINGS.marqueeMessage1;
+      else if (key !== 'marqueeMessage2' || value.includes('{freeDeliveryThreshold}')) settings[key] = value;
     } else if (key === 'marqueeMessage3') {
       settings[key] = value ? (value.length <= 240 ? value : value.slice(0, 240)) : '';
     }
