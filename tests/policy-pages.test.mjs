@@ -67,3 +67,17 @@ test('studio desk metadata is noindex with its own title and no home canonical',
   expect(metadata.robots).toMatchObject({ index: false, follow: false });
   expect(metadata.alternates.canonical).toBeNull();
 });
+
+test('replacement window, shipping charges, no COD and shop timings are stated consistently', async () => {
+  const refund = text(pages.refund), terms = text(pages.terms), shipping = text(pages.shipping);
+  expect(refund).toContain('within 5 days of delivery');
+  expect(terms).toContain('within 5 days of delivery');
+  expect(shipping).toContain('Shipping charges vary by delivery location and order, and are shown at checkout before you pay.');
+  expect(shipping).toContain('free delivery on orders above ₹2,999; otherwise, a ₹150 delivery charge applies');
+  for (const copy of [shipping, terms]) expect(copy).toContain('Cash on delivery is not available; all orders are prepaid online via UPI or debit card');
+  for (const copy of Object.values(pages).map(text)) expect(copy).toContain('Shop timings: 10:00 AM to 8:30 PM');
+  const { faqs } = await import('../src/data/products.ts');
+  const all = faqs.map(([q, a]) => `${q} ${a}`).join(' ');
+  expect(all).toContain('Cash on delivery is not available');
+  expect(all).toContain('within 5 days of delivery');
+});

@@ -189,7 +189,7 @@ export const faqs = [
   ],
   [
     'How do I order?',
-    'Place your order at checkout and pay securely online with Razorpay using UPI or a debit card, or send a request on WhatsApp. Contact Varnam to confirm fulfilment and delivery.',
+    'Place your order at checkout and pay securely online with Razorpay using UPI or a debit card, or send a request on WhatsApp. Cash on delivery is not available; all orders are prepaid online via UPI or debit card. Contact Varnam to confirm fulfilment and delivery.',
   ],
   [
     'Will the colour look exactly like the photo?',
@@ -197,7 +197,7 @@ export const faqs = [
   ],
   [
     'Where can I find delivery and return details?',
-    'Orders are dispatched within 2 business days and delivered in 5–7 business days within India. We do not accept returns; damaged, defective or wrong items are replaced with an unboxing video. See our Shipping & delivery and Refund & replacement policies for details.',
+    'Orders are dispatched within 2 business days and delivered in 5–7 business days within India. We do not accept returns; damaged, defective or wrong items are replaced if you request it within 5 days of delivery with an unboxing video. See our Shipping & delivery and Refund & replacement policies for details.',
   ],
 ];
 

@@ -26,7 +26,7 @@ export function BusinessContact({ heading = 'Contact us', showOfficer = false }:
         Email: <a className="text-link" href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>
       </p>
       {showOfficer && <p><strong>Grievance officer:</strong> {BUSINESS.grievanceOfficer}</p>}
-      {/* TODO(athai): add shop timings here once confirmed. */}
+      <p><strong>Shop timings:</strong> {BUSINESS.shopHours}</p>
     </section>
   );
 }
