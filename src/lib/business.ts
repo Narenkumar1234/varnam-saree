@@ -14,6 +14,8 @@ export const BUSINESS = {
   email: 'varnamsarees52@gmail.com',
   dispatchDays: 2,
   deliveryWindow: '5–7',
+  replacementWindowDays: 5,
+  shopHours: '10:00 AM to 8:30 PM',
 } as const;
 
 export const BUSINESS_ADDRESS_ONE_LINE = [BUSINESS.addressName, ...BUSINESS.addressLines].join(', ');

@@ -24,16 +24,17 @@ export default function ShippingPage() {
         </p>
 
         <h2>Shipping charges</h2>
-        {/* TODO(athai): confirm shipping charges; the line below follows the fee and free-delivery threshold set in Studio. */}
+        {/* The free-delivery line follows the fee and threshold set in Studio, which checkout calculates. */}
         <p>
-          Shipping charges, if any, are shown at checkout before you pay. We offer{' '}
+          Shipping charges vary by delivery location and order, and are shown at checkout before you pay.
+          We offer{' '}
           <DeliveryPolicy includeFee embedded />.
         </p>
 
         <h2>Payment</h2>
         <p>
-          Orders are paid online through Razorpay using UPI or debit cards.
-          {/* TODO(athai): if cash on delivery is offered, describe it here. */}
+          Cash on delivery is not available; all orders are prepaid online via UPI or debit card through
+          Razorpay.
         </p>
 
         <h2>Tracking your order</h2>
@@ -48,7 +49,8 @@ export default function ShippingPage() {
           Occasionally, deliveries may be delayed by the courier, weather or other events beyond our
           control. Please make sure your address and phone number are correct, as we cannot be
           responsible for delays caused by incorrect details. If your parcel looks damaged or tampered
-          with, record an unboxing video and contact us; see our{' '}
+          with, record an unboxing video and contact us within{' '}
+          {BUSINESS.replacementWindowDays} days of delivery; see our{' '}
           <Link className="text-link" href="/refund">Refund &amp; replacement policy</Link>.
         </p>
 

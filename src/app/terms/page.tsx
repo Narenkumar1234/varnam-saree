@@ -46,15 +46,16 @@ export default function TermsPage() {
         <h2>Payments</h2>
         <p>
           Payments are processed securely online by our payment partner, Razorpay, using UPI or debit
-          cards. {BUSINESS.name} does not see or store your card details or UPI PIN.
-          {/* TODO(athai): if cash on delivery is offered, mention it here. */}
+          cards. Cash on delivery is not available; all orders are prepaid online via UPI or debit card.{' '}
+          {BUSINESS.name} does not see or store your card details or UPI PIN.
         </p>
 
         <h2>Shipping, replacements and cancellations</h2>
         <p>
           We ship within India. Orders are dispatched within {BUSINESS.dispatchDays} business days and
           usually delivered within {BUSINESS.deliveryWindow} business days. We do not accept returns;
-          eligible orders can be replaced as described in our{' '}
+          damaged, defective or wrong items can be replaced if you request it within{' '}
+          {BUSINESS.replacementWindowDays} days of delivery with an unboxing video, as described in our{' '}
           <Link className="text-link" href="/refund">Refund &amp; replacement policy</Link>. See our{' '}
           <Link className="text-link" href="/shipping">Shipping &amp; delivery policy</Link> for details.
         </p>

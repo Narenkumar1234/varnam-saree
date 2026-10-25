@@ -15,6 +15,7 @@ import { getProductQuantityLimit } from '@/lib/product-quantity';
 import { imageLoader, needsUnoptimized } from '@/lib/image-loader';
 import { QuantityStepper } from '@/components/QuantityStepper';
 import { buildProductGalleryImages, clampGalleryIndex } from '@/lib/product-gallery';
+import { BUSINESS } from '@/lib/business';
 
 export default function ProductDetail({ id }: { id: string }) {
   const router = useRouter();
@@ -239,7 +240,8 @@ export default function ProductDetail({ id }: { id: string }) {
               <summary>Shipping & replacement</summary>
               <p>
                 Dispatched within 2 business days; delivered in 5–7 business days. No returns —
-                damaged, defective or wrong items are replaced with an unboxing video.{' '}
+                damaged, defective or wrong items are replaced if requested within {BUSINESS.replacementWindowDays} days of delivery
+                with an unboxing video.{' '}
                 <Link className="text-link" href="/shipping">
                   Shipping policy
                 </Link>{' '}
